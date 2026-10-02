@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 图标前景：一盒 Galgame 实体盒 + 心形点缀 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 盒体（浅色） -->
+    <path
+        android:fillColor="#F7EFF9"
+        android:pathData="M40,36 H68 A4,4 0 0 1 72,40 V72 A4,4 0 0 1 68,76 H40 A4,4 0 0 1 36,72 V40 A4,4 0 0 1 40,36 Z" />
+    <!-- 书脊（深紫） -->
+    <path
+        android:fillColor="#7A4E8C"
+        android:pathData="M36,40 A4,4 0 0 1 40,36 H48 V76 H40 A4,4 0 0 1 36,72 Z" />
+    <!-- 心形 -->
+    <path
+        android:fillColor="#FF6B95"
+        android:pathData="M58,63.5 C53.5,58.8 51.8,55.6 54.6,53.2 C56.4,51.7 58.3,52.6 58.6,54.3 C59,52.4 61.2,51.7 62.9,53.2 C65.7,55.6 63.5,58.8 58,63.5 Z" />
+</vector>

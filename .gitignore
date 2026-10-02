@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+.kotlin/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+app/release/
+
+# 项目内本地工具链（SDK / Gradle / 依赖缓存，体积大，不进版本库）
+toolchain/
