@@ -14,3 +14,12 @@ app/release/
 
 # 项目内本地工具链（SDK / Gradle / 依赖缓存，体积大，不进版本库）
 toolchain/
+
+# 签名私钥和凭据（默认位于仓库外；防止误复制进项目后提交）
+.sign/
+*.jks
+*.keystore
+*.p12
+*.pfx
+*signing*.properties
+vnventory-release.properties

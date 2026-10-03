@@ -2,9 +2,11 @@ package com.vnventory.app.di
 
 import android.content.Context
 import com.vnventory.app.BuildConfig
+import com.vnventory.app.data.backup.BackupFileStore
 import com.vnventory.app.data.local.VNventoryDatabase
 import com.vnventory.app.data.remote.vndb.VndbApi
 import com.vnventory.app.data.remote.vndb.VndbClientFactory
+import com.vnventory.app.data.repository.BackupRepository
 import com.vnventory.app.data.repository.CollectionRepository
 import com.vnventory.app.data.repository.PurchaseRepository
 import com.vnventory.app.data.repository.SettingsRepository
@@ -47,5 +49,13 @@ class AppContainer(private val appContext: Context) {
 
     val settingsRepository: SettingsRepository by lazy {
         SettingsRepository(appContext.settingsDataStore)
+    }
+
+    val backupRepository: BackupRepository by lazy {
+        BackupRepository(database, settingsRepository)
+    }
+
+    val backupFileStore: BackupFileStore by lazy {
+        BackupFileStore(appContext.contentResolver, backupRepository)
     }
 }

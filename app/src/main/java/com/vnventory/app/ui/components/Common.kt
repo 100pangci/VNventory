@@ -1,6 +1,8 @@
 package com.vnventory.app.ui.components
 
+import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,12 +15,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DisplayMode
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,19 +35,29 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -51,6 +66,7 @@ import com.vnventory.app.domain.model.OrderSummary
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import com.vnventory.app.ui.theme.ShelfMotion
 
 // ---------------------------------------------------------------------------
 // 封面
@@ -63,29 +79,50 @@ fun VnCover(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     corner: Dp = 12.dp,
+    contentScale: ContentScale = ContentScale.Crop,
 ) {
     val shape = RoundedCornerShape(corner)
+    val context = LocalContext.current
+    val localDrawableId = remember(url, context.packageName) {
+        url?.let(Uri::parse)
+            ?.takeIf { it.scheme == "android.resource" && it.authority == context.packageName }
+            ?.lastPathSegment?.toIntOrNull()
+    }
+    val motionScale = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
+    var imageStatus by remember(url) { mutableStateOf(if (url.isNullOrBlank()) "暂无封面" else "封面加载中") }
+    val image = remember(context, url, motionScale) {
+        ImageRequest.Builder(context).data(url)
+            .crossfade((ShelfMotion.Standard * motionScale).toInt().coerceAtLeast(0))
+            .build()
+    }
     Box(
         modifier = modifier
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceContainerHigh)))
+            .semantics { stateDescription = if (localDrawableId != null) "封面已加载" else imageStatus },
         contentAlignment = Alignment.Center,
     ) {
-        if (url.isNullOrBlank()) {
-            Text(
-                text = "VN",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(url)
-                    .crossfade(true)
-                    .build(),
+        // 占位始终在图像后方；空 URL、加载中和网络失败均不会变成空白矩形。
+        Column(Modifier.clearAndSetSemantics {}, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            BrandMark(Modifier.size(38.dp), color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .6f))
+            Text("VN", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .6f))
+        }
+        if (localDrawableId != null) {
+            Image(
+                painter = painterResource(localDrawableId),
                 contentDescription = contentDescription,
-                contentScale = ContentScale.Crop,
+                contentScale = contentScale,
                 modifier = Modifier.fillMaxSize(),
+            )
+        } else if (!url.isNullOrBlank()) {
+            AsyncImage(
+                model = image,
+                contentDescription = contentDescription,
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize(),
+                onLoading = { imageStatus = "封面加载中" },
+                onSuccess = { imageStatus = "封面已加载" },
+                onError = { imageStatus = "封面暂不可用" },
             )
         }
     }
@@ -102,7 +139,10 @@ fun LoadingState(modifier: Modifier = Modifier, message: String? = null) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        CircularProgressIndicator()
+        Box(Modifier.size(80.dp), contentAlignment = Alignment.Center) {
+            BrandMark(Modifier.size(36.dp))
+            CircularProgressIndicator(Modifier.size(72.dp), strokeWidth = 2.dp)
+        }
         if (message != null) {
             Spacer(Modifier.height(12.dp))
             Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -121,6 +161,10 @@ fun ErrorState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.errorContainer) {
+            Text("!", modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onErrorContainer)
+        }
+        Spacer(Modifier.height(20.dp))
         Text(
             text = "出错了",
             style = MaterialTheme.typography.titleMedium,
@@ -145,12 +189,20 @@ fun EmptyState(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        Box(
+            Modifier.size(88.dp).clip(MaterialTheme.shapes.large)
+                .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.secondaryContainer))),
+            contentAlignment = Alignment.Center,
+        ) { BrandMark(Modifier.size(48.dp)) }
+        Spacer(Modifier.height(20.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
@@ -165,6 +217,10 @@ fun EmptyState(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
+        }
+        if (actionLabel != null && onAction != null) {
+            Spacer(Modifier.height(20.dp))
+            Button(onClick = onAction) { Text(actionLabel) }
         }
     }
 }
@@ -181,7 +237,7 @@ fun Tag(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(6.dp),
+        shape = RoundedCornerShape(50),
         color = if (emphasized) {
             MaterialTheme.colorScheme.primaryContainer
         } else {
@@ -196,7 +252,7 @@ fun Tag(
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
 }
@@ -213,7 +269,7 @@ fun MoneyAmountText(
     style: TextStyle = MaterialTheme.typography.titleMedium,
     color: Color = MaterialTheme.colorScheme.onSurface,
 ) {
-    Text(text = Money.format(minor, currency), style = style, color = color, modifier = modifier)
+    Text(text = Money.formatWithCode(minor, currency), style = style, color = color, modifier = modifier)
 }
 
 /** 多币种合计，如 “¥1,200 + $30”；无数据显示 [emptyText] */
@@ -229,7 +285,7 @@ fun MoneyTotalsInline(
         emptyText
     } else {
         totals.entries.sortedBy { it.key }.joinToString(" + ") { (currency, amount) ->
-            Money.format(amount, currency)
+            Money.formatWithCode(amount, currency)
         }
     }
     Text(text = text, style = style, color = color, modifier = modifier)
@@ -270,8 +326,10 @@ fun SectionCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .35f)),
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.animateContentSize(tween(ShelfMotion.Standard)).padding(20.dp)) {
             if (title != null) {
                 Text(
                     text = title,
@@ -365,6 +423,8 @@ fun DatePickerModal(
 ) {
     val state = rememberDatePickerState(
         initialSelectedDateMillis = initial?.toUtcMillis(),
+        initialDisplayedMonthMillis = initial?.toUtcMillis(),
+        initialDisplayMode = DisplayMode.Picker,
     )
     DatePickerDialog(
         onDismissRequest = onDismiss,
@@ -378,7 +438,11 @@ fun DatePickerModal(
             TextButton(onClick = onDismiss) { Text("取消") }
         },
     ) {
-        DatePicker(state = state)
+        // 与 DateNote-Weii 1a5d6f4 一致：只重建模式 UI，保留选择状态，
+        // 避免 Material 3 日历/输入切换时运行卡顿的 AnimatedContent 转场。
+        key(state.displayMode) {
+            DatePicker(state = state, showModeToggle = true)
+        }
     }
 }
 

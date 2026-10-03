@@ -19,10 +19,16 @@ class VndbApiException(message: String, cause: Throwable? = null) : Exception(me
  * 只负责“发查询、拿 DTO”，不含缓存与业务逻辑（见 VnRepository）。
  * 全部使用 POST（VNDB 数据库查询 API 的约定）。
  */
-class VndbApi(private val client: HttpClient) {
+interface VndbService {
+    suspend fun searchVn(query: String, page: Int = 1, results: Int = VndbApi.PAGE_SIZE): VndbVnResponse
+    suspend fun getVn(vnId: String): VndbVnDto?
+    suspend fun getReleases(vnId: String, page: Int = 1, results: Int = VndbApi.RELEASE_PAGE_SIZE): VndbReleaseResponse
+}
+
+class VndbApi(private val client: HttpClient) : VndbService {
 
     /** VN 搜索（默认按搜索相关度排序） */
-    suspend fun searchVn(query: String, page: Int = 1, results: Int = PAGE_SIZE): VndbVnResponse =
+    override suspend fun searchVn(query: String, page: Int, results: Int): VndbVnResponse =
         post(
             path = "vn",
             body = VndbQueryBody(
@@ -35,7 +41,7 @@ class VndbApi(private val client: HttpClient) {
         )
 
     /** 按 ID 取单个 VN；不存在返回 null */
-    suspend fun getVn(vnId: String): VndbVnDto? =
+    override suspend fun getVn(vnId: String): VndbVnDto? =
         post<VndbVnResponse>(
             path = "vn",
             body = VndbQueryBody(
@@ -49,10 +55,10 @@ class VndbApi(private val client: HttpClient) {
      * 某 VN 的全部 Release（新→旧）。
      * 注意 VNDB 的 `vn` 是 match 型过滤器，值为嵌套的 VN 过滤器。
      */
-    suspend fun getReleases(
+    override suspend fun getReleases(
         vnId: String,
-        page: Int = 1,
-        results: Int = RELEASE_PAGE_SIZE,
+        page: Int,
+        results: Int,
     ): VndbReleaseResponse =
         post(
             path = "release",

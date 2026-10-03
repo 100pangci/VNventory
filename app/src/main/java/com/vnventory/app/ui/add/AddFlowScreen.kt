@@ -1,7 +1,5 @@
 package com.vnventory.app.ui.add
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,18 +13,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,40 +31,36 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
-import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.ReleaseInfo
 import com.vnventory.app.domain.model.VnInfo
-import com.vnventory.app.ui.components.CurrencySelector
-import com.vnventory.app.ui.components.DateField
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.ErrorState
 import com.vnventory.app.ui.components.LoadingState
-import com.vnventory.app.ui.components.LabeledRow
-import com.vnventory.app.ui.components.OrderSelector
 import com.vnventory.app.ui.components.Tag
 import com.vnventory.app.ui.components.VnCover
+import com.vnventory.app.ui.components.AddStepIndicator
+import com.vnventory.app.ui.components.SaveButton
+import com.vnventory.app.ui.components.SectionHeading
+import com.vnventory.app.ui.components.PressableSurface
+import com.vnventory.app.ui.components.PredictiveStepContent
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddFlowScreen(
     onBack: () -> Unit,
-    onSaved: () -> Unit,
-    orderContextId: Long?,
+    onSaved: (Int) -> Unit,
     viewModel: AddFlowViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -79,7 +69,7 @@ fun AddFlowScreen(
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
-                is AddFlowEvent.Saved -> onSaved()
+                is AddFlowEvent.Saved -> onSaved(event.copyIds.size)
                 is AddFlowEvent.Failed -> snackbarHostState.showSnackbar(event.message)
             }
         }
@@ -90,6 +80,13 @@ fun AddFlowScreen(
         state.form.releaseId == null && !state.form.manualVersion -> 1
         else -> 2
     }
+    val focus = LocalFocusManager.current
+    LaunchedEffect(step) { focus.clearFocus() }
+
+    // 退出页一直使用最后的完整数据；返回清空 VN/Release 时不会提前变成空白。
+    val stepStates = remember { mutableMapOf<Int, AddFlowUiState>() }
+    for (previousStep in 0..step) stepStates[previousStep] = state
+    val savedState = rememberSaveableStateHolder()
 
     fun goBack() {
         when (step) {
@@ -99,55 +96,80 @@ fun AddFlowScreen(
         }
     }
 
-    BackHandler(enabled = step > 0) { goBack() }
+    PredictiveStepContent(step, onBack = { goBack() }, modifier = Modifier.fillMaxSize(), enabled = !state.saving) { displayedStep ->
+        val displayedState = if (displayedStep == step) state else stepStates[displayedStep] ?: state
+        savedState.SaveableStateProvider(displayedStep) {
+            AddStepScaffold(
+                step = displayedStep,
+                state = displayedState,
+                interactive = displayedStep == step && !state.saving,
+                onBack = { goBack() },
+                onSave = { focus.clearFocus(); viewModel.save() },
+                snackbarHostState = snackbarHostState,
+            ) {
+                when (displayedStep) {
+                    0 -> SearchStep(displayedState, viewModel)
+                    1 -> ReleasesStep(displayedState, viewModel)
+                    else -> PurchaseFormContent(displayedState, viewModel::onPurchaseFormChange)
+                }
+            }
+        }
+    }
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddStepScaffold(
+    step: Int,
+    state: AddFlowUiState,
+    interactive: Boolean,
+    onBack: () -> Unit,
+    onSave: () -> Unit,
+    snackbarHostState: SnackbarHostState,
+    content: @Composable () -> Unit,
+) {
     Scaffold(
+        modifier = Modifier.fillMaxSize().imePadding(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        when (step) {
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(when (step) {
                             0 -> "搜索 VN"
                             1 -> "选择版本"
                             else -> "购入信息"
+                        })
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack, enabled = interactive) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                         }
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { goBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-            )
+                    },
+                )
+                AddStepIndicator(step, Modifier.padding(horizontal = 24.dp))
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (step == 2) {
                 Surface(tonalElevation = 3.dp) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        if (orderContextId != null) {
+                    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+                        val order = state.orders.firstOrNull { it.order.id == state.form.orderId }?.order
+                        if (order != null) {
                             Text(
-                                text = "将加入所选订单（可修改）",
+                                text = "将加入「${order.title}」",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                             Spacer(Modifier.height(8.dp))
                         }
-                        Button(
-                            onClick = { viewModel.save() },
-                            enabled = state.form.canSave && !state.saving,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            if (state.saving) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.height(20.dp).width(20.dp),
-                                    strokeWidth = 2.dp,
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            Text(if (state.form.quantity > 1) "保存 ${state.form.quantity} 盒" else "保存收藏")
-                        }
+                        SaveButton(
+                            label = if (state.form.quantity > 1) "将 ${state.form.quantity} 盒放入书架" else "放入我的书架",
+                            saving = state.saving,
+                            enabled = state.form.canSave && interactive,
+                            onClick = onSave,
+                        )
                     }
                 }
             }
@@ -158,11 +180,7 @@ fun AddFlowScreen(
                 .padding(padding)
                 .fillMaxSize(),
         ) {
-            when (step) {
-                0 -> SearchStep(state, viewModel)
-                1 -> ReleasesStep(state, viewModel)
-                else -> FormStep(state, viewModel)
-            }
+            content()
         }
     }
 }
@@ -177,12 +195,13 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         OutlinedTextField(
             value = state.search.query,
             onValueChange = viewModel::onQueryChange,
-            placeholder = { Text("输入游戏名（罗马字 / 日文原名 / 中文译名）") },
+            placeholder = { Text("输入日文原名 / 中文译名 / 罗马字") },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             singleLine = true,
+            shape = MaterialTheme.shapes.medium,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
         )
 
         if (state.search.offline) {
@@ -197,14 +216,14 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         when {
             state.search.loading -> LoadingState(message = "搜索中…")
 
-            state.search.error != null -> ErrorState(
+            state.search.error != null && state.search.results.isEmpty() -> ErrorState(
                 message = state.search.error,
-                onRetry = { viewModel.onQueryChange(state.search.query + " ") },
+                onRetry = viewModel::retrySearch,
             )
 
             state.search.results.isEmpty() && state.search.hasSearched -> EmptyState(
                 title = "没有找到结果",
-                subtitle = "试试官方标题或日文原名；也可以先随便选一个 VN 再创建手动版本",
+                subtitle = "试试官方标题或日文原名；手动版本也应关联正确的作品",
             )
 
             state.search.results.isEmpty() -> EmptyState(
@@ -217,7 +236,16 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 items(state.search.results, key = { it.id }) { vn ->
-                    VnSearchRow(vn = vn, onClick = { viewModel.selectVn(vn) })
+                    VnSearchRow(vn = vn, modifier = Modifier.animateItem(), onClick = { viewModel.selectVn(vn) })
+                }
+                item {
+                    if (state.search.loadingMore) CircularProgressIndicator()
+                    else if (state.search.error != null) {
+                        Text(state.search.error, color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = viewModel::retrySearch) { Text("重试下一页") }
+                    } else if (state.search.hasMore) {
+                        TextButton(onClick = viewModel::loadMore, modifier = Modifier.fillMaxWidth()) { Text("加载更多作品") }
+                    }
                 }
             }
         }
@@ -225,16 +253,16 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
 }
 
 @Composable
-private fun VnSearchRow(vn: VnInfo, onClick: () -> Unit) {
+private fun VnSearchRow(vn: VnInfo, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    PressableSurface(onClick, modifier.fillMaxWidth()) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .padding(12.dp),
     ) {
         VnCover(
             url = vn.imageUrl,
-            contentDescription = vn.title,
+            contentDescription = vn.displayTitle,
             modifier = Modifier
                 .width(48.dp)
                 .height(68.dp),
@@ -243,12 +271,12 @@ private fun VnSearchRow(vn: VnInfo, onClick: () -> Unit) {
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = vn.title,
+                text = vn.displayTitle,
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            vn.altTitle?.let {
+            vn.secondaryTitle?.let {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
@@ -267,6 +295,7 @@ private fun VnSearchRow(vn: VnInfo, onClick: () -> Unit) {
             )
         }
     }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +308,7 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
     val releases = state.releases
 
     LazyColumn(
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
@@ -287,15 +316,15 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
                 Row {
                     VnCover(
                         url = vn.imageUrl,
-                        contentDescription = vn.title,
+                        contentDescription = vn.displayTitle,
                         modifier = Modifier
                             .width(72.dp)
                             .height(100.dp),
                     )
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(vn.title, style = MaterialTheme.typography.titleMedium)
-                        vn.altTitle?.let {
+                        Text(vn.displayTitle, style = MaterialTheme.typography.titleMedium)
+                        vn.secondaryTitle?.let {
                             Text(
                                 it,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -350,7 +379,7 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         }
 
         if (releases.loading && releases.releases.isEmpty()) {
-            item { LoadingState(modifier = Modifier.height(200.dp), message = "加载版本列表…") }
+            item { LoadingState(modifier = Modifier.height(200.dp), message = "正在加载可选版本…") }
         }
 
         releases.error?.let { error ->
@@ -366,15 +395,17 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         if (!releases.loading && releases.error == null && releases.releases.isEmpty()) {
             item {
                 Text(
-                    text = "VNDB 上没有该作品的版本记录，请使用手动版本。",
+                    text = "没有可选的官方版本记录，请使用手动版本。",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
+        item { SectionHeading("可选版本", "已隐藏标记为非官方的发行记录。") }
+
         items(releases.releases, key = { it.id }) { release ->
-            ReleaseRow(release = release, coverFallback = vn.imageUrl, onClick = {
+            ReleaseRow(release = release, coverFallback = vn.imageUrl, modifier = Modifier.animateItem(), onClick = {
                 viewModel.selectRelease(release)
             })
         }
@@ -382,12 +413,12 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
 }
 
 @Composable
-private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, onClick: () -> Unit) {
+private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    PressableSurface(onClick, modifier.fillMaxWidth()) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+            .padding(12.dp),
     ) {
         VnCover(
             url = release.displayImage() ?: coverFallback,
@@ -406,10 +437,7 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, onClick: ()
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = buildString {
-                    append(release.released ?: "发售日未知")
-                    if (release.official == false) append(" · 非官方")
-                },
+                text = release.released ?: "发售日未知",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -443,167 +471,5 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, onClick: ()
             }
         }
     }
-}
-
-// ---------------------------------------------------------------------------
-// 步骤 3：购入信息
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun FormStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
-    val vn = state.selectedVn ?: return
-    val form = state.form
-    val release = form.releaseId?.let { id -> state.releases.releases.firstOrNull { it.id == id } }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // 选中对象
-        Row {
-            VnCover(
-                url = release?.displayImage() ?: vn.imageUrl,
-                contentDescription = vn.title,
-                modifier = Modifier
-                    .width(64.dp)
-                    .height(88.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(vn.title, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    text = release?.title ?: "手动版本",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = release?.id ?: vn.id,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        if (form.manualVersion) {
-            OutlinedTextField(
-                value = form.releaseTitle,
-                onValueChange = viewModel::onManualTitleChange,
-                label = { Text("手动版本名称（如：初回限定版 / 某店特典）") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        // 价格 + 币种
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = form.priceText,
-                onValueChange = viewModel::onPriceChange,
-                label = { Text("购入价格") },
-                supportingText = {
-                    val parsed = form.parsedPrice
-                    Text(
-                        when {
-                            form.priceText.isBlank() -> "留空按 0 计算"
-                            parsed != null -> "= ${com.vnventory.app.domain.model.Money.format(parsed, form.currency)}"
-                            else -> "金额格式不正确"
-                        }
-                    )
-                },
-                isError = !form.priceValid,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            CurrencySelector(
-                selected = form.currency,
-                onSelect = viewModel::onCurrencyChange,
-            )
-        }
-
-        // 品相
-        Column {
-            Text("品相", style = MaterialTheme.typography.labelMedium)
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                CopyCondition.entries.forEach { condition ->
-                    FilterChip(
-                        selected = form.condition == condition,
-                        onClick = { viewModel.onConditionChange(condition) },
-                        label = { Text(condition.label) },
-                    )
-                }
-            }
-        }
-
-        if (form.condition == CopyCondition.CUSTOM) {
-            OutlinedTextField(
-                value = form.conditionNote,
-                onValueChange = viewModel::onConditionNoteChange,
-                label = { Text("自定义品相说明") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-
-        // 日期 / 店铺 / 数量 / 订单
-        LabeledRow("购买日期") {
-            DateField(date = form.purchaseDate, onDateChange = viewModel::onPurchaseDateChange)
-        }
-
-        OutlinedTextField(
-            value = form.shop,
-            onValueChange = viewModel::onShopChange,
-            label = { Text("店铺 / 渠道（可空）") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        LabeledRow("数量（盒）") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { viewModel.onQuantityChange(form.quantity - 1) }) {
-                    Text("−", style = MaterialTheme.typography.titleLarge)
-                }
-                Text(
-                    text = form.quantity.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                IconButton(onClick = { viewModel.onQuantityChange(form.quantity + 1) }) {
-                    Icon(Icons.Filled.Add, contentDescription = "增加")
-                }
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "同版本多盒会分别保存，价格可稍后单独修改",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        LabeledRow("所属订单") {
-            OrderSelector(
-                orders = state.orders,
-                selectedId = form.orderId,
-                onSelect = viewModel::onOrderChange,
-            )
-        }
-
-        OutlinedTextField(
-            value = form.notes,
-            onValueChange = viewModel::onNotesChange,
-            label = { Text("备注（可空）") },
-            minLines = 3,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(Modifier.height(8.dp))
     }
 }

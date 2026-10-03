@@ -2,6 +2,9 @@ package com.vnventory.app.domain.model
 
 import com.vnventory.app.domain.cost.CopyCost
 import com.vnventory.app.domain.cost.OrderCostBreakdown
+import com.vnventory.app.domain.cost.CostCopyInput
+import com.vnventory.app.domain.cost.CostExpenseInput
+import com.vnventory.app.domain.cost.CostEngine
 
 /** 订单列表项（含统计 = 本体价 + 费用，均按币种分组） */
 data class OrderSummary(
@@ -25,7 +28,14 @@ data class OrderDetail(
 }
 
 internal fun mergeTotals(a: Map<String, Long>, b: Map<String, Long>): Map<String, Long> {
-    val out = a.toMutableMap()
-    b.forEach { (currency, amount) -> out[currency] = (out[currency] ?: 0L) + amount }
-    return out
+    return Money.totals(a.toList() + b.toList())
 }
+
+fun OwnedCopy.costInput() = CostCopyInput(id, priceMinor, currency)
+fun Expense.costInput() = CostExpenseInput(id, name, category, amountMinor, currency, mode, allocations)
+
+/** 保存前预览和保存后展示使用完全相同的订单计算。 */
+fun OrderDetail.previewExpense(candidate: Expense): OrderCostBreakdown = CostEngine.computeOrderCosts(
+    copies.map { it.costInput() },
+    (expenses.filterNot { candidate.id != 0L && it.id == candidate.id } + candidate).map { it.costInput() },
+)

@@ -13,7 +13,11 @@ data class VnInfo(
     val imageUrl: String?,
     val description: String?,
     val fromCache: Boolean = false,
-)
+) {
+    /** 原文（优先日语）作为主标题；保留 VNDB 拉丁字标题供搜索和辅助显示。 */
+    val displayTitle: String get() = altTitle?.takeIf { it.isNotBlank() } ?: title
+    val secondaryTitle: String? get() = title.takeIf { it.isNotBlank() && it != displayTitle }
+}
 
 /**
  * VNDB Release 信息（领域模型）。

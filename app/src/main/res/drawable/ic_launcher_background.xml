@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应启动图标由系统裁切轮廓，背景满铺，避免外圈透明或双重圆角。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.10546875" android:scaleY="0.10546875">
+        <path android:pathData="M0,0H1024V1024H0Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="160" android:startY="64" android:endX="832" android:endY="960">
+                    <item android:offset="0" android:color="#302B53" />
+                    <item android:offset="0.55" android:color="#201F3E" />
+                    <item android:offset="1" android:color="#13192F" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
+</vector>

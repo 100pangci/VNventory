@@ -1,6 +1,7 @@
 package com.vnventory.app.ui.orders
 
-import androidx.lifecycle.ViewModel
+import com.vnventory.app.ui.ActionViewModel
+import kotlinx.coroutines.flow.catch
 import androidx.lifecycle.viewModelScope
 import com.vnventory.app.di.AppContainer
 import com.vnventory.app.domain.model.Money
@@ -34,7 +35,7 @@ data class OrdersUiState(
     val form: OrderFormState = OrderFormState(),
 )
 
-class OrdersViewModel(container: AppContainer) : ViewModel() {
+class OrdersViewModel(container: AppContainer) : ActionViewModel() {
 
     private val purchaseRepository = container.purchaseRepository
     private val settingsRepository = container.settingsRepository
@@ -56,16 +57,18 @@ class OrdersViewModel(container: AppContainer) : ViewModel() {
             creating = isCreating,
             form = form,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OrdersUiState())
+    }.catch { reportError(it); emit(OrdersUiState(loading = false)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OrdersUiState())
 
     init {
-        viewModelScope.launch {
+        launchAction {
             val currency = settingsRepository.defaultCurrency.first()
             formState.update { it.copy(currency = currency) }
         }
     }
 
     fun openCreate() {
+        clearError()
         createOpen.value = true
     }
 
@@ -82,7 +85,7 @@ class OrdersViewModel(container: AppContainer) : ViewModel() {
     fun createOrder(onCreated: (Long) -> Unit) {
         val form = formState.value
         if (!form.canSave || creating.value) return
-        viewModelScope.launch {
+        launchAction {
             creating.value = true
             try {
                 val now = System.currentTimeMillis()
@@ -108,6 +111,6 @@ class OrdersViewModel(container: AppContainer) : ViewModel() {
     }
 
     fun deleteOrder(orderId: Long) {
-        viewModelScope.launch { purchaseRepository.deleteOrder(orderId) }
+        launchAction { purchaseRepository.deleteOrder(orderId) }
     }
 }

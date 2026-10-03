@@ -4,6 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vnventory.app.core.AppResult
 import com.vnventory.app.di.AppContainer
+import com.vnventory.app.data.repository.CollectionRepository
+import com.vnventory.app.data.repository.PurchaseRepository
+import com.vnventory.app.data.repository.SettingsRepository
+import com.vnventory.app.data.repository.VnRepository
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OrderSummary
@@ -11,15 +15,15 @@ import com.vnventory.app.domain.model.OwnedCopy
 import com.vnventory.app.domain.model.ReleaseInfo
 import com.vnventory.app.domain.model.VnInfo
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -37,6 +41,9 @@ data class VnSearchUiState(
     val error: String? = null,
     val offline: Boolean = false,
     val hasSearched: Boolean = false,
+    val page: Int = 0,
+    val hasMore: Boolean = false,
+    val loadingMore: Boolean = false,
 )
 
 data class ReleasesUiState(
@@ -69,7 +76,14 @@ data class PurchaseFormState(
 
     val manualVersionValid: Boolean get() = !manualVersion || releaseTitle.isNotBlank()
 
-    val canSave: Boolean get() = priceValid && quantityValid && manualVersionValid
+    /** 商品本体小计，不含购买批次费用，仍采用检查加法。 */
+    val subtotalMinor: Long?
+        get() = if (priceValid && quantityValid) {
+            runCatching { Money.sum(List(quantity) { parsedPrice ?: 0L }) }.getOrNull()
+        } else null
+
+    val canSave: Boolean get() = priceValid && quantityValid && manualVersionValid &&
+        subtotalMinor != null && (condition != CopyCondition.CUSTOM || conditionNote.isNotBlank())
 }
 
 data class AddFlowUiState(
@@ -93,19 +107,25 @@ sealed interface AddFlowEvent {
 // ---------------------------------------------------------------------------
 
 class AddFlowViewModel(
-    container: AppContainer,
+    private val vnRepository: VnRepository,
+    private val collectionRepository: CollectionRepository,
+    private val purchaseRepository: PurchaseRepository,
+    private val settingsRepository: SettingsRepository,
     private val orderIdArg: Long?,
 ) : ViewModel() {
-
-    private val vnRepository = container.vnRepository
-    private val collectionRepository = container.collectionRepository
-    private val purchaseRepository = container.purchaseRepository
-    private val settingsRepository = container.settingsRepository
+    constructor(container: AppContainer, orderIdArg: Long?) : this(
+        container.vnRepository, container.collectionRepository, container.purchaseRepository, container.settingsRepository, orderIdArg,
+    )
+    private var searchJob: Job? = null
+    private var releaseJob: Job? = null
+    private var searchGeneration = 0
+    private var releaseGeneration = 0
+    private var formTouched = false
 
     private val searchState = MutableStateFlow(VnSearchUiState())
     private val selectedVn = MutableStateFlow<VnInfo?>(null)
     private val releasesState = MutableStateFlow(ReleasesUiState())
-    private val formState = MutableStateFlow(PurchaseFormState())
+    private val formState = MutableStateFlow(PurchaseFormState(orderId = orderIdArg))
     private val savingState = MutableStateFlow(false)
 
     private val eventsChannel = Channel<AddFlowEvent>(Channel.BUFFERED)
@@ -127,52 +147,67 @@ class AddFlowViewModel(
             form = form,
             saving = saving,
         )
+    }.catch {
+        if (it is CancellationException) throw it
+        eventsChannel.send(AddFlowEvent.Failed(it.message ?: "读取本地订单失败"))
+        emit(AddFlowUiState())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AddFlowUiState())
 
     init {
         // 默认货币：订单上下文优先，否则用设置里的默认货币
         viewModelScope.launch {
-            val defaultCurrency = settingsRepository.defaultCurrency.first()
-            val orderCurrency = orderIdArg?.let { purchaseRepository.getOrder(it)?.currency }
-            formState.update {
-                it.copy(currency = orderCurrency ?: defaultCurrency, orderId = orderIdArg)
+            try {
+                val defaultCurrency = settingsRepository.defaultCurrency.first()
+                val orderCurrency = orderIdArg?.let { purchaseRepository.getOrder(it)?.currency }
+                if (!formTouched) formState.update { it.copy(currency = orderCurrency ?: defaultCurrency, orderId = orderIdArg) }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                eventsChannel.send(AddFlowEvent.Failed(e.message ?: "加载默认购买信息失败"))
             }
-        }
-        // 搜索防抖
-        viewModelScope.launch {
-            searchState
-                .map { it.query }
-                .debounce(350)
-                .distinctUntilChanged()
-                .collect { query ->
-                    if (query.isBlank()) {
-                        searchState.update { VnSearchUiState() }
-                    } else {
-                        performSearch(query)
-                    }
-                }
         }
     }
 
     // ---- 搜索 ----
 
     fun onQueryChange(text: String) {
-        searchState.update { it.copy(query = text) }
+        searchGeneration++
+        searchJob?.cancel()
+        searchState.value = VnSearchUiState(query = text, loading = text.isNotBlank())
+        if (text.isNotBlank()) requestSearch(page = 1, debounce = true)
     }
 
-    private suspend fun performSearch(query: String) {
-        searchState.update { it.copy(loading = true, error = null, hasSearched = true) }
-        when (val result = vnRepository.searchVn(query)) {
-            is AppResult.Success -> searchState.update {
-                it.copy(
-                    results = result.data.items,
-                    offline = result.data.offline,
-                    loading = false,
-                )
-            }
+    fun retrySearch() = requestSearch(page = if (searchState.value.results.isEmpty()) 1 else searchState.value.page + 1)
 
-            is AppResult.Failure -> searchState.update {
-                it.copy(loading = false, error = result.error.message)
+    fun loadMore() {
+        val state = searchState.value
+        if (state.hasMore && !state.loading && !state.loadingMore) requestSearch(state.page + 1)
+    }
+
+    private fun requestSearch(page: Int, debounce: Boolean = false) {
+        searchJob?.cancel()
+        val generation = ++searchGeneration
+        val query = searchState.value.query
+        if (query.isBlank()) return
+        searchState.update { it.copy(loading = page == 1, loadingMore = page > 1, error = null) }
+        searchJob = viewModelScope.launch {
+            if (debounce) delay(350)
+            val result = vnRepository.searchVn(query, page)
+            if (generation != searchGeneration) return@launch
+            when (result) {
+                is AppResult.Success -> searchState.update {
+                    it.copy(
+                        results = ((if (page > 1) it.results else emptyList()) + result.data.items).distinctBy { vn -> vn.id },
+                        offline = result.data.offline,
+                        loading = false,
+                        loadingMore = false,
+                        hasSearched = true,
+                        page = page,
+                        hasMore = result.data.hasMore,
+                    )
+                }
+
+                is AppResult.Failure -> searchState.update {
+                    it.copy(loading = false, loadingMore = false, hasSearched = true, error = result.error.message)
+                }
             }
         }
     }
@@ -180,28 +215,41 @@ class AddFlowViewModel(
     // ---- 选 VN / Release ----
 
     fun selectVn(vn: VnInfo) {
+        releaseJob?.cancel()
+        val generation = ++releaseGeneration
         selectedVn.value = vn
         formState.update { it.copy(releaseId = null, releaseTitle = "", manualVersion = false) }
-        viewModelScope.launch {
-            releasesState.value = ReleasesUiState(loading = true)
-            // 先展示本地缓存
-            val cached = vnRepository.observeCachedReleases(vn.id).first()
-            if (cached.isNotEmpty()) {
-                releasesState.update { it.copy(releases = cached) }
-            }
-            when (val result = vnRepository.fetchReleases(vn.id)) {
-                is AppResult.Success -> releasesState.update {
-                    it.copy(releases = result.data, loading = false, error = null)
+        releasesState.value = ReleasesUiState(loading = true)
+        releaseJob = viewModelScope.launch {
+            try {
+                // 先展示本地缓存，但所有异步结果都必须属于当前选择。
+                val cached = vnRepository.observeCachedReleases(vn.id).first()
+                if (generation != releaseGeneration) return@launch
+                if (cached.isNotEmpty()) {
+                    releasesState.update { it.copy(releases = cached) }
                 }
+                val result = vnRepository.fetchReleases(vn.id)
+                if (generation != releaseGeneration || selectedVn.value?.id != vn.id) return@launch
+                when (result) {
+                    is AppResult.Success -> releasesState.update {
+                        it.copy(releases = result.data, loading = false, error = null)
+                    }
 
-                is AppResult.Failure -> releasesState.update {
-                    it.copy(loading = false, error = result.error.message)
+                    is AppResult.Failure -> releasesState.update {
+                        it.copy(loading = false, error = result.error.message)
+                    }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (generation == releaseGeneration) releasesState.update { it.copy(loading = false, error = e.message ?: "加载版本失败") }
             }
         }
     }
 
     fun backToSearch() {
+        releaseGeneration++
+        releaseJob?.cancel()
         selectedVn.value = null
         releasesState.value = ReleasesUiState()
     }
@@ -212,6 +260,8 @@ class AddFlowViewModel(
     }
 
     fun selectRelease(release: ReleaseInfo) {
+        if (release.official == false || release.vnId != selectedVn.value?.id ||
+            releasesState.value.releases.none { it.id == release.id && it.vnId == release.vnId && it.official != false }) return
         formState.update {
             it.copy(releaseId = release.id, releaseTitle = release.title, manualVersion = false)
         }
@@ -223,15 +273,30 @@ class AddFlowViewModel(
 
     // ---- 表单 ----
 
+    fun onPurchaseFormChange(value: PurchaseFormState) {
+        formTouched = true
+        formState.update { current ->
+            value.copy(
+                releaseId = current.releaseId,
+                manualVersion = current.manualVersion,
+                releaseTitle = if (current.manualVersion) value.releaseTitle else current.releaseTitle,
+                currency = Money.normalize(value.currency),
+                quantity = value.quantity.coerceIn(1, 99),
+            )
+        }
+    }
+
     fun onManualTitleChange(value: String) {
         formState.update { it.copy(releaseTitle = value) }
     }
 
     fun onPriceChange(value: String) {
+        formTouched = true
         formState.update { it.copy(priceText = value) }
     }
 
     fun onCurrencyChange(code: String) {
+        formTouched = true
         formState.update { it.copy(currency = Money.normalize(code)) }
     }
 
@@ -260,6 +325,7 @@ class AddFlowViewModel(
     }
 
     fun onOrderChange(orderId: Long?) {
+        formTouched = true
         formState.update { it.copy(orderId = orderId) }
     }
 
@@ -269,6 +335,10 @@ class AddFlowViewModel(
         val vn = selectedVn.value ?: return
         val form = formState.value
         if (!form.canSave || savingState.value) return
+        if (!form.manualVersion && (form.releaseId == null || releasesState.value.releases.none { it.id == form.releaseId && it.vnId == vn.id })) {
+            eventsChannel.trySend(AddFlowEvent.Failed("所选版本与当前作品不匹配，请重新选择"))
+            return
+        }
 
         viewModelScope.launch {
             savingState.value = true
@@ -282,7 +352,7 @@ class AddFlowViewModel(
                         id = 0,
                         vnId = vn.id,
                         releaseId = form.releaseId,
-                        vnTitle = vn.title,
+                        vnTitle = vn.displayTitle,
                         releaseTitle = form.releaseTitle.takeIf { it.isNotBlank() },
                         coverUrl = coverUrl,
                         priceMinor = form.parsedPrice ?: 0L,
@@ -301,7 +371,7 @@ class AddFlowViewModel(
                 eventsChannel.send(AddFlowEvent.Saved(ids))
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Throwable) {
+            } catch (e: Exception) {
                 eventsChannel.send(AddFlowEvent.Failed(e.message ?: "保存失败"))
             } finally {
                 savingState.value = false

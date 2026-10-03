@@ -89,13 +89,17 @@ APP_BASE_NAME=${0##*/}
 APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
 
 # --- VNventory: 依赖缓存保持在项目内 toolchain/（可用环境变量覆盖） ---
-if [ -z "${GRADLE_USER_HOME:-}" ] && [ -d "$APP_HOME/toolchain" ]; then
+if [ -z "${GRADLE_USER_HOME:-}" ]; then
     GRADLE_USER_HOME="$APP_HOME/toolchain/gradle-home"
     export GRADLE_USER_HOME
 fi
-if [ -z "${ANDROID_USER_HOME:-}" ] && [ -d "$APP_HOME/toolchain" ]; then
+if [ -z "${ANDROID_USER_HOME:-}" ]; then
     ANDROID_USER_HOME="$APP_HOME/toolchain/android-user-home"
     export ANDROID_USER_HOME
+fi
+if [ -z "${ANDROID_HOME:-}" ] && [ -d "$APP_HOME/toolchain/android-sdk" ]; then
+    ANDROID_HOME="$APP_HOME/toolchain/android-sdk"
+    export ANDROID_HOME
 fi
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.

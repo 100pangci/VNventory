@@ -1,6 +1,6 @@
 package com.vnventory.app.ui.home
 
-import androidx.lifecycle.ViewModel
+import com.vnventory.app.ui.ActionViewModel
 import androidx.lifecycle.viewModelScope
 import com.vnventory.app.di.AppContainer
 import com.vnventory.app.domain.model.ExpenseCategory
@@ -9,6 +9,7 @@ import com.vnventory.app.domain.model.mergeTotals
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.stateIn
 
 /** 首页统计（金额按币种分组，不做隐式换算） */
@@ -22,14 +23,13 @@ data class HomeStats(
     val otherTotals: Map<String, Long> = emptyMap(),
 ) {
     /** 全部支出 = 购入成本 + 运费 + 手续费 + 税费 + 其他 */
-    val grandTotals: Map<String, Long>
-        get() = mergeTotals(
+    val grandTotals: Map<String, Long> = mergeTotals(
             mergeTotals(mergeTotals(mergeTotals(priceTotals, shippingTotals), feeTotals), taxTotals),
             otherTotals,
         )
 }
 
-class HomeViewModel(container: AppContainer) : ViewModel() {
+class HomeViewModel(container: AppContainer) : ActionViewModel() {
 
     private val collectionRepository = container.collectionRepository
     private val purchaseRepository = container.purchaseRepository
@@ -49,9 +49,11 @@ class HomeViewModel(container: AppContainer) : ViewModel() {
             taxTotals = categoryTotals.totalsFor(ExpenseCategory.TAX),
             otherTotals = categoryTotals.totalsFor(ExpenseCategory.OTHER),
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeStats())
+    }.catch { reportError(it); emit(HomeStats()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeStats())
 
     val recentCopies: StateFlow<List<OwnedCopy>> = collectionRepository.observeRecent(limit = 8)
+        .catch { reportError(it); emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }
 

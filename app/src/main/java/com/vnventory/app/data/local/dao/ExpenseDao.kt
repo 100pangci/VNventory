@@ -16,6 +16,12 @@ interface ExpenseDao {
     @Query("SELECT * FROM expense WHERE orderId = :orderId ORDER BY createdAt ASC, id ASC")
     fun observeByOrder(orderId: Long): Flow<List<ExpenseEntity>>
 
+    @Query("SELECT * FROM expense WHERE orderId = :orderId ORDER BY createdAt ASC, id ASC")
+    suspend fun getByOrder(orderId: Long): List<ExpenseEntity>
+
+    @Query("SELECT * FROM expense")
+    suspend fun getAll(): List<ExpenseEntity>
+
     @Query("SELECT * FROM expense WHERE id = :id")
     suspend fun getById(id: Long): ExpenseEntity?
 
@@ -38,6 +44,9 @@ interface ExpenseDao {
 
     @Query("SELECT * FROM expense_allocation WHERE expenseId = :expenseId")
     fun observeAllocations(expenseId: Long): Flow<List<ExpenseAllocationEntity>>
+
+    @Query("SELECT * FROM expense_allocation WHERE expenseId = :expenseId")
+    suspend fun getAllocations(expenseId: Long): List<ExpenseAllocationEntity>
 
     /** 整个订单的手动分摊（前端一次取回后在内存中按 expenseId 分组） */
     @Query(

@@ -36,9 +36,9 @@ fun VnInfo.toEntity(fetchedAt: Long): VnCacheEntity = VnCacheEntity(
     fetchedAt = fetchedAt,
 )
 
-fun ReleaseCacheEntity.toDomain(): ReleaseInfo = ReleaseInfo(
+fun ReleaseCacheEntity.toDomain(vnId: String): ReleaseInfo = ReleaseInfo(
     id = vndbId,
-    vnId = vnId.orEmpty(),
+    vnId = vnId,
     title = title,
     released = released,
     platforms = splitCompact(platforms, ReleaseCacheEntity.SEP_LIST),
@@ -53,7 +53,6 @@ fun ReleaseCacheEntity.toDomain(): ReleaseInfo = ReleaseInfo(
 
 fun ReleaseInfo.toEntity(fetchedAt: Long): ReleaseCacheEntity = ReleaseCacheEntity(
     vndbId = id,
-    vnId = vnId.ifBlank { null },
     title = title,
     released = released,
     platforms = platforms.joinToString(ReleaseCacheEntity.SEP_LIST),

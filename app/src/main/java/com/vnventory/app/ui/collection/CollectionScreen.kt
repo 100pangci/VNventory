@@ -1,41 +1,50 @@
 package com.vnventory.app.ui.collection
 
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,281 +52,148 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.domain.model.CollectionSort
-import com.vnventory.app.domain.model.Money
-import com.vnventory.app.domain.model.OwnedCopy
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.LoadingState
-import com.vnventory.app.ui.components.MoneyAmountText
-import com.vnventory.app.ui.components.Tag
-import com.vnventory.app.ui.components.VnCover
+import com.vnventory.app.ui.components.OperationError
+import com.vnventory.app.ui.components.OwnedCoverCard
+import com.vnventory.app.ui.components.OwnedListCard
+import com.vnventory.app.ui.components.PageHeader
+import com.vnventory.app.ui.components.ShelfFab
+import com.vnventory.app.ui.theme.ShelfMotion
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun CollectionScreen(
     onAddClick: () -> Unit,
     onCopyClick: (Long) -> Unit,
     viewModel: CollectionViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    CollectionContent(state, viewModel::onSearchChange, viewModel::onSortChange, onAddClick, onCopyClick, error = { OperationError(viewModel) })
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun CollectionContent(
+    state: CollectionUiState,
+    onSearchChange: (String) -> Unit,
+    onSortChange: (CollectionSort) -> Unit,
+    onAddClick: () -> Unit,
+    onCopyClick: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    error: @Composable () -> Unit = {},
+) {
     var isGrid by rememberSaveable { mutableStateOf(true) }
-
-    // 同 Release 多盒角标
-    val copiesPerRelease: Map<String, Int> = remember(state.copies) {
-        state.copies
-            .mapNotNull { it.releaseId }
-            .groupingBy { it }
-            .eachCount()
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
+    val focus = LocalFocusManager.current
+    val expandedFab by remember {
+        derivedStateOf {
+            if (isGrid) gridState.firstVisibleItemIndex == 0 && gridState.firstVisibleItemScrollOffset < 24
+            else listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24
+        }
     }
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                OutlinedTextField(
-                    value = state.query.search,
-                    onValueChange = viewModel::onSearchChange,
-                    placeholder = { Text("搜索标题 / 版本 / 店铺") },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (state.query.search.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.onSearchChange("") }) {
-                                Icon(Icons.Filled.Clear, contentDescription = "清除")
+    val counts = remember(state.copies) { state.copies.mapNotNull { it.releaseId }.groupingBy { it }.eachCount() }
+    Box(modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp)) {
+                PageHeader("我的书架", if (state.isSearching) "找到 ${state.copies.size} 盒匹配的收藏" else "${state.copies.size} 盒实体 · 按版本与每盒独立记录", eyebrow = "COLLECTION")
+                Spacer(Modifier.height(16.dp))
+                androidx.compose.material3.SearchBar(
+                    inputField = {
+                        androidx.compose.material3.SearchBarDefaults.InputField(
+                            query = state.query.search,
+                            onQueryChange = onSearchChange,
+                            onSearch = { focus.clearFocus() },
+                            expanded = false,
+                            onExpandedChange = {},
+                            placeholder = { Text("搜作品、版本或店铺") },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon = if (state.query.search.isNotEmpty()) ({
+                                IconButton(onClick = { onSearchChange(""); focus.clearFocus() }) { Icon(Icons.Default.Clear, "清除搜索") }
+                            }) else null,
+                        )
+                    },
+                    expanded = false,
+                    onExpandedChange = {},
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = 1.dp,
+                    shadowElevation = 0.dp,
+                ) {}
+                Spacer(Modifier.height(8.dp))
+                // 排序和视图切换分两行，避免窄屏/大字体互相挤压。
+                SortMenu(state.query.sort, onSortChange)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    SegmentedButton(isGrid, { focus.clearFocus(); isGrid = true }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("封面书架") }
+                    SegmentedButton(!isGrid, { focus.clearFocus(); isGrid = false }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("详细列表") }
+                }
+                error()
+            }
+            Box(Modifier.weight(1f)) {
+                when {
+                    state.loading -> LoadingState(message = "整理书架…")
+                    state.isEmpty && state.isSearching -> EmptyState("没有匹配的收藏", subtitle = "试试作品原名、版本名称或购买店铺。", actionLabel = "清除搜索", onAction = { onSearchChange("") })
+                    state.isEmpty -> EmptyState("给喜欢的作品留一个位置", subtitle = "选择具体发行版本，把第一盒收藏放上书架。", actionLabel = "添加第一盒", onAction = onAddClick)
+                    else -> AnimatedContent(
+                        targetState = isGrid,
+                        modifier = Modifier.fillMaxSize(),
+                        transitionSpec = { fadeIn(tween(ShelfMotion.Standard, delayMillis = 70)) togetherWith fadeOut(tween(ShelfMotion.Quick)) },
+                        label = "collectionView",
+                    ) { grid ->
+                        if (grid) LazyVerticalGrid(
+                            columns = GridCells.Adaptive(148.dp),
+                            state = gridState,
+                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 104.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                        ) {
+                            items(state.copies, key = { it.id }, contentType = { "ownedCover" }) { copy ->
+                                OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), counts[copy.releaseId] ?: 1)
+                            }
+                            if (state.isSearching) item(key = "searchSummary") {
+                                Text("已显示 ${state.copies.size} 盒匹配的收藏", Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        } else LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 104.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(state.copies, key = { it.id }, contentType = { "ownedRow" }) { copy ->
+                                OwnedListCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem())
+                            }
+                            if (state.isSearching) item(key = "searchSummary") {
+                                Text("已显示 ${state.copies.size} 盒匹配的收藏", Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
-                    },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SortMenu(
-                        current = state.query.sort,
-                        onSelect = viewModel::onSortChange,
-                        modifier = Modifier.weight(1f),
-                    )
-                    SingleChoiceSegmentedButtonRow {
-                        SegmentedButton(
-                            selected = isGrid,
-                            onClick = { isGrid = true },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        ) { Text("网格") }
-                        SegmentedButton(
-                            selected = !isGrid,
-                            onClick = { isGrid = false },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        ) { Text("列表") }
-                    }
-                }
-
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "${state.copies.size} 盒",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            when {
-                state.loading -> LoadingState()
-
-                state.isEmpty && state.isSearching -> EmptyState(
-                    title = "没有找到匹配的收藏",
-                    subtitle = "换个关键词，或检查是否还没有添加",
-                )
-
-                state.isEmpty -> EmptyState(
-                    title = "还没有收藏",
-                    subtitle = "点右下角按钮，从 VNDB 搜索并添加",
-                )
-
-                isGrid -> LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 150.dp),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    items(state.copies, key = { it.id }) { copy ->
-                        CopyGridCard(
-                            copy = copy,
-                            sameReleaseCount = copiesPerRelease[copy.releaseId] ?: 1,
-                            onClick = { onCopyClick(copy.id) },
-                        )
-                    }
-                }
-
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-                ) {
-                    items(state.copies, key = { it.id }) { copy ->
-                        CopyListRow(
-                            copy = copy,
-                            sameReleaseCount = copiesPerRelease[copy.releaseId] ?: 1,
-                            onClick = { onCopyClick(copy.id) },
-                        )
                     }
                 }
             }
         }
-
-        FloatingActionButton(
-            onClick = onAddClick,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = "添加收藏")
-        }
+        if (!state.isEmpty) ShelfFab(onAddClick, Modifier.align(Alignment.BottomEnd).padding(20.dp), expanded = expandedFab)
     }
 }
 
 @Composable
-private fun SortMenu(
-    current: CollectionSort,
-    onSelect: (CollectionSort) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun SortMenu(current: CollectionSort, onSelect: (CollectionSort) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    Box(modifier = modifier) {
-        OutlinedButton(onClick = { expanded = true }) {
-            Text("排序：${current.label}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text("排序 · ${current.label}", maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded, { expanded = false }) {
             CollectionSort.entries.forEach { sort ->
                 DropdownMenuItem(
                     text = { Text(sort.label) },
-                    onClick = {
-                        expanded = false
-                        onSelect(sort)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CopyGridCard(
-    copy: OwnedCopy,
-    sameReleaseCount: Int,
-    onClick: () -> Unit,
-) {
-    Column(modifier = Modifier.clickable(onClick = onClick)) {
-        Box {
-            VnCover(
-                url = copy.coverUrl,
-                contentDescription = copy.vnTitle,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.7f),
-            )
-            if (sameReleaseCount > 1) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(6.dp),
-                ) {
-                    Tag(text = "×$sameReleaseCount", emphasized = true)
-                }
-            }
-            if (copy.isManualRelease) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp),
-                ) {
-                    Tag(text = "手动")
-                }
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = copy.vnTitle,
-            style = MaterialTheme.typography.titleSmall,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = copy.displayReleaseName,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            MoneyAmountText(
-                minor = copy.priceMinor,
-                currency = copy.currency,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.weight(1f),
-            )
-            Tag(text = copy.condition.label)
-        }
-    }
-}
-
-@Composable
-private fun CopyListRow(
-    copy: OwnedCopy,
-    sameReleaseCount: Int,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-    ) {
-        VnCover(
-            url = copy.coverUrl,
-            contentDescription = copy.vnTitle,
-            modifier = Modifier
-                .width(56.dp)
-                .height(80.dp),
-            corner = 8.dp,
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = copy.vnTitle,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = copy.displayReleaseName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Tag(text = copy.condition.label)
-                if (copy.isManualRelease) Tag(text = "手动")
-                if (sameReleaseCount > 1) Tag(text = "×$sameReleaseCount", emphasized = true)
-            }
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            MoneyAmountText(
-                minor = copy.priceMinor,
-                currency = copy.currency,
-                style = MaterialTheme.typography.titleSmall,
-            )
-            copy.shop?.let { shop ->
-                Text(
-                    text = shop,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    leadingIcon = { if (sort == current) Icon(Icons.Default.Check, contentDescription = "当前排序") },
+                    onClick = { expanded = false; onSelect(sort) },
                 )
             }
         }

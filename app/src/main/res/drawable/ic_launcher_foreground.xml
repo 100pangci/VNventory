@@ -1,21 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 图标前景：一盒 Galgame 实体盒 + 心形点缀 -->
+<!-- 用户提供的 SVG 前景，保留路径、渐变、旋转及线帽。原稿见 assets/branding/vnventory.svg。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-
-    <!-- 盒体（浅色） -->
-    <path
-        android:fillColor="#F7EFF9"
-        android:pathData="M40,36 H68 A4,4 0 0 1 72,40 V72 A4,4 0 0 1 68,76 H40 A4,4 0 0 1 36,72 V40 A4,4 0 0 1 40,36 Z" />
-    <!-- 书脊（深紫） -->
-    <path
-        android:fillColor="#7A4E8C"
-        android:pathData="M36,40 A4,4 0 0 1 40,36 H48 V76 H40 A4,4 0 0 1 36,72 Z" />
-    <!-- 心形 -->
-    <path
-        android:fillColor="#FF6B95"
-        android:pathData="M58,63.5 C53.5,58.8 51.8,55.6 54.6,53.2 C56.4,51.7 58.3,52.6 58.6,54.3 C59,52.4 61.2,51.7 62.9,53.2 C65.7,55.6 63.5,58.8 58,63.5 Z" />
+    <group android:scaleX="0.10546875" android:scaleY="0.10546875">
+        <group android:rotation="-11" android:pivotX="322" android:pivotY="528">
+            <path android:fillColor="#494064"
+                android:pathData="M298,354H346A18,18 0,0 1,364,372V684A18,18 0,0 1,346,702H298A18,18 0,0 1,280,684V372A18,18 0,0 1,298,354Z" />
+            <path android:fillColor="#00000000" android:strokeColor="#796996"
+                android:strokeWidth="5" android:strokeLineCap="round" android:pathData="M296,374V682" />
+            <path android:fillColor="#9C8BB7"
+                android:pathData="M313.5,390H340.5A3.5,3.5 0,0 1,344,393.5A3.5,3.5 0,0 1,340.5,397H313.5A3.5,3.5 0,0 1,310,393.5A3.5,3.5 0,0 1,313.5,390Z" />
+            <path android:fillColor="#756486"
+                android:pathData="M312.5,658H341.5A2.5,2.5 0,0 1,344,660.5A2.5,2.5 0,0 1,341.5,663H312.5A2.5,2.5 0,0 1,310,660.5A2.5,2.5 0,0 1,312.5,658Z" />
+        </group>
+        <group android:rotation="-5" android:pivotX="364" android:pivotY="510">
+            <path android:fillColor="#68558D"
+                android:pathData="M336,306H392A20,20 0,0 1,412,326V696A20,20 0,0 1,392,716H336A20,20 0,0 1,316,696V326A20,20 0,0 1,336,306Z" />
+            <path android:fillColor="#00000000" android:strokeColor="#A38AC2"
+                android:strokeWidth="6" android:strokeLineCap="round" android:pathData="M331,329V691" />
+            <path android:fillColor="#C3ACDF"
+                android:pathData="M350,349H385A4,4 0,0 1,389,353A4,4 0,0 1,385,357H350A4,4 0,0 1,346,353A4,4 0,0 1,350,349Z" />
+            <path android:fillColor="#9379AF"
+                android:pathData="M349,672H386A3,3 0,0 1,389,675A3,3 0,0 1,386,678H349A3,3 0,0 1,346,675A3,3 0,0 1,349,672Z" />
+        </group>
+        <path android:fillColor="#3E345F"
+            android:pathData="M372,258H655Q678,258 689,279L704,307V706Q704,731 679,736L378,759Q344,762 344,728V296Q344,270 372,258Z" />
+        <path android:fillColor="#AD96D1"
+            android:pathData="M372,258H655Q678,258 689,279L700,299H379L349,287Q355,267 372,258Z" />
+        <path android:fillColor="#00000000" android:strokeColor="#DDD0EE" android:strokeWidth="4"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M376,270H654Q666,270 674,280H378L362,285" />
+        <path android:pathData="M344,300Q344,283 361,286L387,294V738L376,746Q344,755 344,725Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="342" android:startY="310" android:endX="384" android:endY="710">
+                    <item android:offset="0" android:color="#7965AB" />
+                    <item android:offset="1" android:color="#463965" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:fillColor="#00000000" android:strokeColor="#AE96D0" android:strokeAlpha="0.5"
+            android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M359,310V719" />
+        <path android:pathData="M402,286H676A28,28 0,0 1,704,314V710A28,28 0,0 1,676,738H402A28,28 0,0 1,374,710V314A28,28 0,0 1,402,286Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="390" android:startY="280" android:endX="690" android:endY="738">
+                    <item android:offset="0" android:color="#A391DF" />
+                    <item android:offset="0.48" android:color="#8470C7" />
+                    <item android:offset="1" android:color="#6552A5" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:fillColor="#00000000" android:strokeColor="#E1D4F8" android:strokeAlpha="0.62"
+            android:strokeWidth="3" android:strokeLineCap="round" android:pathData="M397,299H675Q691,299 691,315" />
+        <path android:fillColor="#00000000" android:strokeColor="#4B3B7D" android:strokeAlpha="0.38"
+            android:strokeWidth="3" android:strokeLineCap="round" android:pathData="M390,710Q390,724 404,724H668" />
+        <path android:pathData="M407,380H459Q467,380 470,388L539,551L609,372Q613,362 624,362H676L573,612Q567,628 550,628H529Q515,628 509,613Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="472" android:startY="360" android:endX="587" android:endY="626">
+                    <item android:offset="0" android:color="#FFFFFF" />
+                    <item android:offset="1" android:color="#EAE1FF" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:pathData="M638,632H674Q682,632 688,638L733,683Q741,691 733,699L709,723Q701,731 693,723L638,668Q632,662 632,654V638Q632,632 638,632Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="638" android:startY="634" android:endX="729" android:endY="720">
+                    <item android:offset="0" android:color="#F2D59D" />
+                    <item android:offset="1" android:color="#CEA05D" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <!-- 渐变填充与描边分开，兼容系统 VectorDrawable 和 Compose 两种渲染路径。 -->
+        <path android:fillColor="#00000000" android:strokeColor="#594578" android:strokeWidth="8" android:strokeLineJoin="round"
+            android:pathData="M638,632H674Q682,632 688,638L733,683Q741,691 733,699L709,723Q701,731 693,723L638,668Q632,662 632,654V638Q632,632 638,632Z" />
+        <path android:fillColor="#00000000" android:strokeColor="#FFF0CB" android:strokeAlpha="0.7"
+            android:strokeWidth="3" android:strokeLineCap="round" android:pathData="M643,638H674Q679,638 683,642L728,687" />
+        <path android:fillColor="#635080" android:pathData="M659,651A7,7 0,1 0,645,651A7,7 0,1 0,659,651Z" />
+        <path android:fillColor="#00000000" android:strokeColor="#946F3F" android:strokeWidth="6"
+            android:strokeLineCap="round" android:pathData="M684,683L700,699" />
+    </group>
 </vector>

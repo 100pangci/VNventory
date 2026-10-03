@@ -62,6 +62,11 @@ set APP_HOME=%DIRNAME%
 @rem Resolve any "." and ".." in APP_HOME to make it shorter.
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
+@rem Keep dependency caches and the default SDK local to this project.
+if not defined GRADLE_USER_HOME set "GRADLE_USER_HOME=%APP_HOME%\toolchain\gradle-home"
+if not defined ANDROID_USER_HOME set "ANDROID_USER_HOME=%APP_HOME%\toolchain\android-user-home"
+if not defined ANDROID_HOME if exist "%APP_HOME%\toolchain\android-sdk" set "ANDROID_HOME=%APP_HOME%\toolchain\android-sdk"
+
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
 

@@ -14,6 +14,7 @@ Android 原生应用：Galgame/VN 实体收藏管理（Kotlin + Compose + Materi
 - **AGP 9.4.1 采用内置 Kotlin**：不要再应用 `org.jetbrains.kotlin.android` 插件；
   KGP(2.3.21) / KSP(2.3.12) 版本在根 `build.gradle.kts` 的 `buildscript` classpath 提升。
 - compileSdk = 37 **带小版本**：SDK 包名是 `platforms;android-37.2`（不是 `android-37`）。
+- 引导脚本会生成 SDK 路径配置；wrapper 会自动发现项目内 SDK，且 Linux/Windows 均将缓存默认放在项目内。
 - 内存紧张：`org.gradle.daemon.idletimeout=60000` + `kotlin.compiler.execution.strategy=in-process` 已配置；
   **构建完执行 `./gradlew --stop`**，并确认没有残留 Java daemon。
 
@@ -32,7 +33,10 @@ Android 原生应用：Galgame/VN 实体收藏管理（Kotlin + Compose + Materi
   不要引入浮点金额。
 - **自动分摊结果不落库**：EQUAL / BY_PRICE 由 `domain/cost/CostEngine.kt` 实时计算（池化分摊）；
   只有 MANUAL 的分摊写入 `expense_allocation`。
+- 禁止混币种商品 BY_PRICE（无汇率）；MANUAL 不能非法、负数或超额，部分分摊须显示未分摊金额。
+  仓库在事务内二次校验，预览必须使用完整订单引擎；金额相加使用 `Money.add/sum/totals`，不得静默溢出。
 - **VNDB 是缓存、本地是事实来源**：`owned_copy` 保存标题/封面快照，VNDB 缓存被清理不影响收藏。
+- Room 当前 v2，VN/Release 通过 `release_vn` 多对多；v1→v2 非破坏性迁移已有回归测试。
 - 改 Room schema：升 `version` + 写 `Migration`（schema 导出目录 `app/schemas/`，勿手改）。
 - UI 文案直接写在 Compose 代码里（中文）；没有 XML 布局。
 - 网络层只用 `api.vndb.org/kana`（字段以 schema 为准）；不要引入批量抓取或未授权的 API 用法。

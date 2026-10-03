@@ -69,6 +69,10 @@ import com.vnventory.app.ui.components.LoadingState
 import com.vnventory.app.ui.components.SectionCard
 import com.vnventory.app.ui.components.Tag
 import com.vnventory.app.ui.components.VnCover
+import com.vnventory.app.ui.components.OperationError
+import com.vnventory.app.domain.cost.OrderCostBreakdown
+import com.vnventory.app.ui.components.SectionHeading
+import com.vnventory.app.ui.components.SaveButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +89,7 @@ fun OrderDetailScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        bottomBar = { if (!state.editor.open) OperationError(viewModel) },
         topBar = {
             TopAppBar(
                 title = {
@@ -122,26 +127,19 @@ fun OrderDetailScreen(
                 modifier = Modifier
                     .padding(padding)
                     .fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 item { OrderHeaderCard(detail) }
 
                 item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "包含的游戏（${detail.copies.size} 盒）",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = { onAddCopies(detail.order.id) }) { Text("添加游戏") }
-                    }
+                    SectionHeading("本批收藏", "${detail.copies.size} 盒 · 各自独立计算成本", "添加游戏") { onAddCopies(detail.order.id) }
                 }
 
                 if (detail.copies.isEmpty()) {
                     item {
                         Text(
-                            text = "还没有加入游戏。点“添加游戏”从 VNDB 搜索，或把已有收藏加入本订单。",
+                            text = "批次还没有游戏。添加新收藏，或把已有的单盒收藏加入进来。",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -154,28 +152,18 @@ fun OrderDetailScreen(
                         cost = detail.costFor(copy.id),
                         onClick = { onCopyClick(copy.id) },
                         onRemove = { copyToRemove = copy },
+                        modifier = Modifier.animateItem(),
                     )
                 }
 
                 item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "费用（${detail.expenses.size}）",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = viewModel::openNewExpense) {
-                            Icon(Icons.Filled.Add, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
-                            Text("添加费用")
-                        }
-                    }
+                    SectionHeading("批次费用", "${detail.expenses.size} 笔 · 均摊 / 按价格 / 手动", "添加费用", viewModel::openNewExpense)
                 }
 
                 if (detail.expenses.isEmpty()) {
                     item {
                         Text(
-                            text = "举例：日本国内运费、国际运费、支付手续费、税费。加好后会自动分摊到每一盒。",
+                            text = "添加日本国内运费、国际运费、支付手续费或税费；分摊方式可逐笔选择。",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -187,6 +175,7 @@ fun OrderDetailScreen(
                         expense = expense,
                         onClick = { viewModel.openEditExpense(expense) },
                         onDelete = { expenseToDelete = expense },
+                        modifier = Modifier.animateItem(),
                     )
                 }
             }
@@ -272,9 +261,7 @@ private fun OrderHeaderCard(detail: OrderDetail) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
-            val goods = detail.copies
-                .groupBy { it.currency }
-                .mapValues { entry -> entry.value.sumOf { it.priceMinor } }
+            val goods = detail.breakdown.goodsTotals
             com.vnventory.app.ui.components.MoneyTotalsInline(goods)
         }
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
@@ -284,14 +271,12 @@ private fun OrderHeaderCard(detail: OrderDetail) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
-            val fees = detail.expenses
-                .groupBy { it.currency }
-                .mapValues { entry -> entry.value.sumOf { it.amountMinor } }
+            val fees = detail.breakdown.feeTotals
             com.vnventory.app.ui.components.MoneyTotalsInline(fees)
         }
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
             Text(
-                "合计",
+                "订单实际支出",
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
@@ -301,6 +286,13 @@ private fun OrderHeaderCard(detail: OrderDetail) {
                 color = MaterialTheme.colorScheme.primary,
             )
         }
+        LabeledRow("已分摊成本") {
+            com.vnventory.app.ui.components.MoneyTotalsInline(detail.breakdown.allocatedTotals)
+        }
+        LabeledRow("未分摊费用") {
+            com.vnventory.app.ui.components.MoneyTotalsInline(detail.breakdown.unallocatedTotals, emptyText = "无")
+        }
+        detail.breakdown.issues.forEach { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     }
 }
 
@@ -310,9 +302,10 @@ private fun OrderCopyRow(
     cost: CopyCost?,
     onClick: () -> Unit,
     onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
@@ -350,7 +343,7 @@ private fun OrderCopyRow(
             val totals = cost?.totalsByCurrency ?: mapOf(copy.currency to copy.priceMinor)
             totals.entries.sortedBy { it.key }.forEach { (currency, amount) ->
                 Text(
-                    text = Money.format(amount, currency),
+                    text = Money.formatWithCode(amount, currency),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -367,9 +360,10 @@ private fun ExpenseRow(
     expense: Expense,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
@@ -477,6 +471,7 @@ private fun ExpenseEditorSheet(
                     AllocationMode.entries.forEach { mode ->
                         FilterChip(
                             selected = editor.mode == mode,
+                            enabled = mode != AllocationMode.BY_PRICE || detail.copies.map { it.currency }.distinct().size <= 1,
                             onClick = { viewModel.onExpenseModeChange(mode) },
                             label = { Text(mode.label) },
                         )
@@ -486,7 +481,9 @@ private fun ExpenseEditorSheet(
 
             when (editor.mode) {
                 AllocationMode.EQUAL, AllocationMode.BY_PRICE -> {
-                    AllocationPreview(detail = detail, editor = editor)
+                    if (detail.copies.map { it.currency }.distinct().size > 1) {
+                        Text("混币种商品请使用平均分摊或手动指定", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
 
                 AllocationMode.MANUAL -> {
@@ -498,42 +495,25 @@ private fun ExpenseEditorSheet(
                 }
             }
 
-            Button(
+            state.editorError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.preview?.let { AllocationPreview(detail = detail, preview = it) }
+            OperationError(viewModel)
+
+            SaveButton(
+                label = "保存费用并更新成本",
+                saving = state.savingExpense,
                 onClick = viewModel::saveExpense,
-                enabled = editor.canSave && !state.savingExpense,
+                enabled = state.preview != null && state.editorError == null && !state.savingExpense,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (state.savingExpense) "保存中…" else "保存费用")
-            }
+            )
         }
     }
 }
 
 @Composable
-private fun AllocationPreview(detail: OrderDetail, editor: ExpenseEditorState) {
-    val amount = editor.parsedAmount ?: return
-    if (detail.copies.isEmpty()) {
-        Text(
-            text = "订单里还没有游戏，无法预览分摊",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        return
-    }
-    val preview = CostEngine.allocateExpense(
-        expense = CostExpenseInput(
-            expenseId = 0,
-            name = editor.name,
-            category = editor.category,
-            amountMinor = amount,
-            currency = editor.currency,
-            mode = editor.mode,
-        ),
-        copies = detail.copies.map { CostCopyInput(it.id, it.priceMinor, it.currency) },
-    )
-
+private fun AllocationPreview(detail: OrderDetail, preview: OrderCostBreakdown) {
     Column {
-        Text("预览（每盒分摊）", style = MaterialTheme.typography.labelMedium)
+        Text("保存后每盒最终成本（包含订单全部费用）", style = MaterialTheme.typography.labelMedium)
         detail.copies.forEach { copy ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 Text(
@@ -543,12 +523,13 @@ private fun AllocationPreview(detail: OrderDetail, editor: ExpenseEditorState) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = Money.formatWithCode(preview[copy.id] ?: 0L, editor.currency),
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                com.vnventory.app.ui.components.MoneyTotalsInline(
+                    preview.copyCosts.first { it.copyId == copy.id }.totalsByCurrency,
+                    style = MaterialTheme.typography.bodySmall)
             }
         }
+        LabeledRow("订单支出") { com.vnventory.app.ui.components.MoneyTotalsInline(preview.totalsByCurrency) }
+        LabeledRow("未分摊费用") { com.vnventory.app.ui.components.MoneyTotalsInline(preview.unallocatedTotals, emptyText = "无") }
     }
 }
 
@@ -589,6 +570,7 @@ private fun ManualAllocationEditor(
                 OutlinedTextField(
                     value = editor.manualInputs[copy.id].orEmpty(),
                     onValueChange = { onAmountChange(copy.id, it) },
+                    isError = !editor.manualInputs[copy.id].isNullOrBlank() && Money.parse(editor.manualInputs[copy.id]!!, editor.currency) == null,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.width(120.dp),
@@ -596,9 +578,11 @@ private fun ManualAllocationEditor(
             }
         }
 
-        val allocated = editor.manualInputs.values
-            .mapNotNull { Money.parse(it, editor.currency) }
-            .sum()
+        val allocated = editor.parsedManual?.values?.let { runCatching { Money.sum(it) }.getOrNull() }
+        if (allocated == null) {
+            Text("请修正无效或超出范围的分摊金额", color = MaterialTheme.colorScheme.error)
+            return@Column
+        }
         val total = editor.parsedAmount ?: 0L
         val diff = total - allocated
         Text(
@@ -612,7 +596,7 @@ private fun ManualAllocationEditor(
             },
         )
         Text(
-            text = "提示：允许差额（例如一部分费用不进成本），但通常应分完。",
+            text = "留空为 0；未分完的金额会明确显示为未分摊费用，不能超额分配。",
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

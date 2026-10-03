@@ -1,6 +1,6 @@
 package com.vnventory.app.ui.collection
 
-import androidx.lifecycle.ViewModel
+import com.vnventory.app.ui.ActionViewModel
 import androidx.lifecycle.viewModelScope
 import com.vnventory.app.di.AppContainer
 import com.vnventory.app.domain.model.CollectionQuery
@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -25,13 +26,15 @@ data class CollectionUiState(
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class CollectionViewModel(container: AppContainer) : ViewModel() {
+class CollectionViewModel(container: AppContainer) : ActionViewModel() {
 
     private val collectionRepository = container.collectionRepository
 
     private val query = MutableStateFlow(CollectionQuery())
 
-    private val copiesFlow = query.flatMapLatest { q -> collectionRepository.observeCollection(q) }
+    private val copiesFlow = query.flatMapLatest { q ->
+        collectionRepository.observeCollection(q).catch { reportError(it); emit(emptyList()) }
+    }
 
     val uiState: StateFlow<CollectionUiState> =
         combine(query, copiesFlow) { q, copies ->

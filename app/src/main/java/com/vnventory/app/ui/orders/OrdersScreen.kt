@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
@@ -29,6 +30,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -41,6 +44,11 @@ import com.vnventory.app.ui.components.DateField
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.LoadingState
 import com.vnventory.app.ui.components.MoneyTotalsInline
+import com.vnventory.app.ui.components.OperationError
+import com.vnventory.app.ui.components.PageHeader
+import com.vnventory.app.ui.components.ShelfFab
+import com.vnventory.app.ui.components.BrandMark
+import com.vnventory.app.ui.components.PressableSurface
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,33 +58,38 @@ fun OrdersScreen(
     viewModel: OrdersViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    val expandedFab by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24 } }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize()) {
+        PageHeader("购买批次", "把一次购买的多盒游戏，与运费、手续费放在一起。", Modifier.padding(24.dp), eyebrow = "PURCHASE BATCHES")
+        if (!state.createOpen) OperationError(viewModel)
+        Box(Modifier.weight(1f)) {
         when {
             state.loading -> LoadingState()
 
             state.orders.isEmpty() -> EmptyState(
                 title = "还没有购买批次",
                 subtitle = "把一次购买或一个转运批次建为订单，国际运费 / 手续费就能整批分摊到每盒",
+                actionLabel = "建立第一个批次",
+                onAction = viewModel::openCreate,
             )
 
             else -> LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 96.dp),
+                state = listState,
+                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 104.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(state.orders, key = { it.order.id }) { summary ->
-                    OrderCard(summary = summary, onClick = { onOrderClick(summary.order.id) })
+                    OrderCard(summary = summary, modifier = Modifier.animateItem(), onClick = { onOrderClick(summary.order.id) })
                 }
             }
         }
-
-        FloatingActionButton(
-            onClick = viewModel::openCreate,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = "新建订单")
+        }
+        }
+        if (state.orders.isNotEmpty() || state.loading) {
+            ShelfFab(viewModel::openCreate, Modifier.align(Alignment.BottomEnd).padding(20.dp), label = "新建批次", expanded = expandedFab)
         }
     }
 
@@ -86,6 +99,7 @@ fun OrdersScreen(
             title = { Text("新建购买批次") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OperationError(viewModel)
                     OutlinedTextField(
                         value = state.form.title,
                         onValueChange = viewModel::onTitleChange,
@@ -135,18 +149,16 @@ fun OrdersScreen(
 }
 
 @Composable
-private fun OrderCard(summary: OrderSummary, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+private fun OrderCard(summary: OrderSummary, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    PressableSurface(onClick, modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            BrandMark()
             Text(
                 text = summary.order.title,
                 style = MaterialTheme.typography.titleMedium,
             )
+            }
             val subtitle = buildString {
                 summary.order.merchant?.let { append(it) }
                 summary.order.orderDate?.let {
@@ -162,6 +174,7 @@ private fun OrderCard(summary: OrderSummary, onClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
+            Text("本批实际支出", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             MoneyTotalsInline(
                 totals = summary.grandTotals,
                 style = MaterialTheme.typography.titleMedium,

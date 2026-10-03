@@ -100,6 +100,7 @@ fun VNventoryTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = VNventoryTypography,
+        shapes = ShelfShapes,
         content = content,
     )
 }

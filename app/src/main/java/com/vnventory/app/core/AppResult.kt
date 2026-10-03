@@ -42,7 +42,7 @@ suspend fun <T> appResultOf(block: suspend () -> T): AppResult<T> = try {
     AppResult.Success(block())
 } catch (e: CancellationException) {
     throw e
-} catch (e: Throwable) {
+} catch (e: Exception) {
     AppResult.Failure(e.toAppError())
 }
 

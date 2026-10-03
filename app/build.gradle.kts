@@ -1,9 +1,20 @@
+import java.io.File
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
+}
+
+// 私钥及密码只从仓库外的私有配置加载；其他机器可用环境变量指定配置文件。
+val releaseSigningFile = providers.environmentVariable("VNVENTORY_SIGNING_PROPERTIES").orNull
+    ?.let { rootProject.file(it) }
+    ?: File(System.getProperty("user.home"), ".sign/vnventory-release.properties")
+val releaseSigningProperties = Properties().apply {
+    if (releaseSigningFile.isFile) releaseSigningFile.inputStream().use { load(it) }
 }
 
 android {
@@ -20,9 +31,37 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            // minSdk 26 已支持 APK v2；同时提供 v3，旧版 JAR 签名和增量安装 v4 不需要。
+            enableV1Signing = false
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = false
+            if (releaseSigningFile.isFile) {
+                val required = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+                require(required.all { !releaseSigningProperties.getProperty(it).isNullOrBlank() }) {
+                    "Release 签名配置缺少必要字段，请检查 VNVENTORY_SIGNING_PROPERTIES 指向的私有配置"
+                }
+                val configuredStore = File(releaseSigningProperties.getProperty("storeFile"))
+                storeFile = if (configuredStore.isAbsolute) configuredStore
+                    else File(releaseSigningFile.parentFile, configuredStore.path)
+                storeType = releaseSigningProperties.getProperty("storeType", "PKCS12")
+                storePassword = releaseSigningProperties.getProperty("storePassword")
+                keyAlias = releaseSigningProperties.getProperty("keyAlias")
+                keyPassword = releaseSigningProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
+        getByName("debug") {
+            applicationIdSuffix = ".debug"
+        }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -52,10 +91,13 @@ android {
             all { test ->
                 // Robolectric 依赖（android-all jar）缓存到项目内，保持"依赖都在项目里"
                 test.systemProperty("maven.repo.local", "$rootDir/toolchain/maven-local")
+                test.systemProperty("vnventory.screenshot.dir", "$rootDir/toolchain/review/ui/screenshots")
                 test.maxHeapSize = "2g"
             }
         }
     }
+
+    sourceSets.getByName("test").resources.srcDir("$projectDir/schemas")
 }
 
 room {
@@ -77,6 +119,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.core)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -101,4 +144,6 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
 }

@@ -154,12 +154,9 @@ class CostEngineTest {
     @Test
     fun `手动指定只认属于该订单的盒子`() {
         val copies = listOf(copy(1, 50), copy(2, 60))
-        val allocations = CostEngine.allocateExpense(
-            expense(1, 30, AllocationMode.MANUAL, manual = mapOf(1L to 10L, 99L to 20L)),
-            copies,
-        )
-        // 只保留显式指定的、且属于订单的盒子；未指定的盒子视为 0（不产生分摊行）
-        assertEquals(mapOf(1L to 10L), allocations)
+        assertThrows(IllegalArgumentException::class.java) {
+            CostEngine.allocateExpense(expense(1, 30, AllocationMode.MANUAL, manual = mapOf(1L to 10L, 99L to 20L)), copies)
+        }
     }
 
     // ---- 多币种 ----
@@ -200,7 +197,8 @@ class CostEngineTest {
     fun `空订单不崩溃`() {
         val breakdown = CostEngine.computeOrderCosts(emptyList(), listOf(expense(1, 100, AllocationMode.EQUAL)))
         assertEquals(emptyList<Long>(), breakdown.copyCosts.map { it.copyId })
-        assertEquals(emptyMap<String, Long>(), breakdown.totalsByCurrency)
+        assertEquals(mapOf("JPY" to 100L), breakdown.totalsByCurrency)
+        assertEquals(mapOf("JPY" to 100L), breakdown.unallocatedTotals)
     }
 
     @Test
@@ -224,5 +222,43 @@ class CostEngineTest {
         val copies = listOf(copy(1, big), copy(2, big), copy(3, big))
         val allocations = CostEngine.allocateExpense(expense(1, big, AllocationMode.BY_PRICE), copies)
         assertEquals(big, allocations.values.sum())
+    }
+
+    @Test fun `混币种商品拒绝比例分摊且历史数据不伪造汇率`() {
+        val copies = listOf(copy(1, 10000, "JPY"), copy(2, 10000, "CNY"))
+        val fee = expense(1, 100, AllocationMode.BY_PRICE)
+        assertThrows(IllegalArgumentException::class.java) { CostEngine.allocateExpense(fee, copies) }
+        val result = CostEngine.computeOrderCosts(copies, listOf(fee))
+        assertEquals(mapOf("JPY" to 100L), result.unallocatedTotals)
+        assertEquals(1, result.issues.size)
+    }
+
+    @Test fun `费用币种与商品不同仍可用同币种商品价格比例`() {
+        val result = CostEngine.allocateExpense(expense(1, 90, AllocationMode.BY_PRICE, "CNY"), listOf(copy(1, 100), copy(2, 200)))
+        assertEquals(mapOf(1L to 30L, 2L to 60L), result)
+    }
+
+    @Test fun `手动分摊不可负数超额或溢出`() {
+        for (manual in listOf(mapOf(1L to -1L), mapOf(1L to 101L), mapOf(1L to Long.MAX_VALUE, 2L to Long.MAX_VALUE))) {
+            assertThrows(IllegalArgumentException::class.java) {
+                CostEngine.allocateExpense(expense(1, 100, AllocationMode.MANUAL, manual = manual), listOf(copy(1, 50), copy(2, 60)))
+            }
+        }
+    }
+
+    @Test fun `部分分摊保证支出等于收藏成本加未分摊`() {
+        val result = CostEngine.computeOrderCosts(listOf(copy(1, 100)), listOf(expense(1, 100, AllocationMode.MANUAL, manual = mapOf(1L to 40L))))
+        assertEquals(mapOf("JPY" to 200L), result.totalsByCurrency)
+        assertEquals(mapOf("JPY" to 140L), result.allocatedTotals)
+        assertEquals(mapOf("JPY" to 60L), result.unallocatedTotals)
+    }
+
+    @Test fun `费用池与最终成本都检测溢出`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            CostEngine.computeOrderCosts(listOf(copy(1, 0)), listOf(expense(1, Long.MAX_VALUE, AllocationMode.EQUAL), expense(2, 1, AllocationMode.EQUAL)))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CostEngine.computeOrderCosts(listOf(copy(1, Long.MAX_VALUE)), listOf(expense(1, 1, AllocationMode.EQUAL)))
+        }
     }
 }

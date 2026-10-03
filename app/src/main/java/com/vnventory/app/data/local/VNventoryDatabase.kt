@@ -5,6 +5,9 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.vnventory.app.data.local.dao.BackupDao
 import com.vnventory.app.data.local.dao.ExpenseDao
 import com.vnventory.app.data.local.dao.OwnedCopyDao
 import com.vnventory.app.data.local.dao.PurchaseOrderDao
@@ -14,6 +17,7 @@ import com.vnventory.app.data.local.entity.ExpenseEntity
 import com.vnventory.app.data.local.entity.OwnedCopyEntity
 import com.vnventory.app.data.local.entity.PurchaseOrderEntity
 import com.vnventory.app.data.local.entity.ReleaseCacheEntity
+import com.vnventory.app.data.local.entity.ReleaseVnEntity
 import com.vnventory.app.data.local.entity.VnCacheEntity
 
 /**
@@ -25,19 +29,20 @@ import com.vnventory.app.data.local.entity.VnCacheEntity
  * purchase_order 1 ── n expense           （删订单：expense 级联删除）
  * expense        1 ── n expense_allocation（仅 MANUAL 模式有行）
  * owned_copy     1 ── n expense_allocation（删盒：分摊行级联删除）
- * vn_cache       1 ── n release_cache     （纯缓存，可整体清空）
+ * vn_cache       n ── n release_cache     （通过 release_vn；纯缓存）
  * ```
  */
 @Database(
     entities = [
         VnCacheEntity::class,
         ReleaseCacheEntity::class,
+        ReleaseVnEntity::class,
         OwnedCopyEntity::class,
         PurchaseOrderEntity::class,
         ExpenseEntity::class,
         ExpenseAllocationEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -47,12 +52,39 @@ abstract class VNventoryDatabase : RoomDatabase() {
     abstract fun ownedCopyDao(): OwnedCopyDao
     abstract fun purchaseOrderDao(): PurchaseOrderDao
     abstract fun expenseDao(): ExpenseDao
+    abstract fun backupDao(): BackupDao
 
     companion object {
         private const val DB_NAME = "vnventory.db"
 
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 保留元数据和已知关联；用户购买事实表不做删改。
+                db.execSQL("CREATE TABLE release_links_temp (vnId TEXT NOT NULL, releaseId TEXT NOT NULL)")
+                db.execSQL("INSERT INTO release_links_temp SELECT vnId, vndbId FROM release_cache WHERE vnId IS NOT NULL")
+                db.execSQL("""CREATE TABLE release_cache_new (
+                    vndbId TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, released TEXT,
+                    platforms TEXT NOT NULL, languages TEXT NOT NULL, publishers TEXT NOT NULL,
+                    jan TEXT, minAge INTEGER, official INTEGER, packagingImageUrl TEXT, fetchedAt INTEGER NOT NULL
+                )""")
+                db.execSQL("""INSERT INTO release_cache_new SELECT vndbId,title,released,platforms,languages,
+                    publishers,jan,minAge,official,packagingImageUrl,fetchedAt FROM release_cache""")
+                db.execSQL("DROP TABLE release_cache")
+                db.execSQL("ALTER TABLE release_cache_new RENAME TO release_cache")
+                db.execSQL("""CREATE TABLE release_vn (
+                    vnId TEXT NOT NULL, releaseId TEXT NOT NULL, PRIMARY KEY(vnId,releaseId),
+                    FOREIGN KEY(vnId) REFERENCES vn_cache(vndbId) ON UPDATE NO ACTION ON DELETE CASCADE,
+                    FOREIGN KEY(releaseId) REFERENCES release_cache(vndbId) ON UPDATE NO ACTION ON DELETE CASCADE
+                )""")
+                db.execSQL("CREATE INDEX index_release_vn_releaseId ON release_vn(releaseId)")
+                db.execSQL("INSERT INTO release_vn SELECT vnId,releaseId FROM release_links_temp")
+                db.execSQL("DROP TABLE release_links_temp")
+            }
+        }
+
         fun build(context: Context): VNventoryDatabase =
             Room.databaseBuilder(context, VNventoryDatabase::class.java, DB_NAME)
+                .addMigrations(MIGRATION_1_2)
                 .build()
     }
 }

@@ -8,25 +8,14 @@ import androidx.room.PrimaryKey
 /**
  * VNDB Release 元数据缓存。
  *
- * 注意：VNDB 中一个 Release 可能属于多个 VN；本表按「用户在哪个 VN 下看到的」
- * 记录所属 VN（缓存用途，非严格关系建模）。
+ * 一个 Release 可以对应多个 VN，关联由 ReleaseVnEntity 保存。
  */
 @Entity(
     tableName = "release_cache",
-    foreignKeys = [
-        ForeignKey(
-            entity = VnCacheEntity::class,
-            parentColumns = ["vndbId"],
-            childColumns = ["vnId"],
-            onDelete = ForeignKey.SET_NULL,
-        ),
-    ],
-    indices = [Index("vnId")],
 )
 data class ReleaseCacheEntity(
     /** VNDB 内部 ID，形如 `r12345` */
     @PrimaryKey val vndbId: String,
-    val vnId: String?,
     val title: String,
     val released: String?,
     /** 逗号分隔：`win,psv,swi` */
@@ -47,3 +36,14 @@ data class ReleaseCacheEntity(
         const val SEP_PUBLISHERS = ";"
     }
 }
+
+@Entity(
+    tableName = "release_vn",
+    primaryKeys = ["vnId", "releaseId"],
+    foreignKeys = [
+        ForeignKey(entity = VnCacheEntity::class, parentColumns = ["vndbId"], childColumns = ["vnId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(entity = ReleaseCacheEntity::class, parentColumns = ["vndbId"], childColumns = ["releaseId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("releaseId")],
+)
+data class ReleaseVnEntity(val vnId: String, val releaseId: String)

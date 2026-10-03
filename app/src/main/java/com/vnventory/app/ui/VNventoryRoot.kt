@@ -1,6 +1,14 @@
 package com.vnventory.app.ui
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -11,10 +19,19 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.dp
+import com.vnventory.app.ui.theme.ShelfMotion
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -46,6 +63,8 @@ private val topLevelItems = listOf(
 @Composable
 fun VNventoryRoot() {
     val navController = rememberNavController()
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
 
@@ -54,15 +73,21 @@ fun VNventoryRoot() {
     } ?: true
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
+            AnimatedVisibility(
+                showBottomBar,
+                enter = expandVertically(tween(ShelfMotion.Chrome, easing = ShelfMotion.BackEasing)) + fadeIn(tween(ShelfMotion.Chrome)),
+                exit = shrinkVertically(tween(ShelfMotion.Chrome, easing = ShelfMotion.BackEasing)) + fadeOut(tween(ShelfMotion.Chrome)),
+            ) {
+                NavigationBar(tonalElevation = 0.dp, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                     topLevelItems.forEach { item ->
                         val selected = currentDestination?.hierarchy?.any { item.isSelected(it) } == true
+                        val scale = animateFloatAsState(if (selected) 1.08f else 1f, tween(ShelfMotion.Quick), label = "navIcon")
                         NavigationBarItem(
                             selected = selected,
-                            onClick = { navController.navigateToTopLevel(item.route) },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
+                            onClick = { if (!selected) navController.navigateToTopLevel(item.route) },
+                            icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value }) },
                             label = { Text(item.label) },
                         )
                     }
@@ -72,7 +97,8 @@ fun VNventoryRoot() {
     ) { innerPadding ->
         VNventoryNavHost(
             navController = navController,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
+            onNotice = { message -> scope.launch { snackbar.showSnackbar(message, withDismissAction = true) } },
         )
     }
 }

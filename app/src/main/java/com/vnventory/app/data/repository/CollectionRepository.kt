@@ -61,12 +61,26 @@ class CollectionRepository(
 
     /** 新增（可一次多盒），返回新 ID 列表 */
     suspend fun addCopies(copies: List<OwnedCopy>): List<Long> = withContext(io) {
-        ownedCopyDao.insertAll(copies.map { it.copy(id = 0).toEntity() })
+        database.withTransaction {
+            copies.forEach { copy ->
+                LocalRules.copy(copy)
+                copy.releaseId?.let { require(vnCacheDao.isLinked(copy.vnId, it)) { "所选版本不属于当前 VN，请重新选择版本" } }
+            }
+            val ids = ownedCopyDao.insertAll(copies.map { it.copy(id = 0).toEntity() })
+            copies.map { it.orderId }.distinct().forEach { LocalRules.order(database, it) }
+            LocalRules.totals(database)
+            ids
+        }
     }
 
     suspend fun update(copy: OwnedCopy) = withContext(io) {
         database.withTransaction {
+            LocalRules.copy(copy)
+            val old = requireNotNull(ownedCopyDao.getById(copy.id)) { "收藏已不存在" }
+            require(copy.vnId == old.vnId && copy.releaseId == old.releaseId) { "修改版本请使用绑定功能" }
             ownedCopyDao.update(copy.toEntity())
+            LocalRules.order(database, copy.orderId)
+            LocalRules.totals(database)
             // 订单归属可能变化：清理不再对应的手动分摊行
             expenseDao.pruneAllocationsForCopy(copy.id)
         }
@@ -78,22 +92,27 @@ class CollectionRepository(
 
     /** 将“手动版本”重新绑定到某个 VNDB Release（数据结构预留能力的落地） */
     suspend fun bindRelease(copyId: Long, release: ReleaseInfo, coverUrl: String?) = withContext(io) {
-        val existing = ownedCopyDao.getById(copyId) ?: return@withContext
-        ownedCopyDao.update(
-            existing.copy(
-                releaseId = release.id,
-                releaseTitle = release.title,
-                coverUrl = coverUrl ?: existing.coverUrl,
-                updatedAt = System.currentTimeMillis(),
+        database.withTransaction {
+            val existing = requireNotNull(ownedCopyDao.getById(copyId)) { "收藏已不存在" }
+            require(release.vnId == existing.vnId && vnCacheDao.isLinked(existing.vnId, release.id)) {
+                "该 Release 不属于这盒收藏的 VN"
+            }
+            ownedCopyDao.update(
+                existing.copy(
+                    releaseId = release.id,
+                    releaseTitle = release.title,
+                    coverUrl = coverUrl ?: existing.coverUrl,
+                    updatedAt = System.currentTimeMillis(),
+                )
             )
-        )
+        }
     }
 
     suspend fun cachedVn(vnId: String): VnInfo? =
         withContext(io) { vnCacheDao.getVn(vnId)?.toDomain() }
 
-    suspend fun cachedRelease(releaseId: String): ReleaseInfo? =
-        withContext(io) { vnCacheDao.getRelease(releaseId)?.toDomain() }
+    suspend fun cachedRelease(releaseId: String, vnId: String): ReleaseInfo? =
+        withContext(io) { if (vnCacheDao.isLinked(vnId, releaseId)) vnCacheDao.getRelease(releaseId)?.toDomain(vnId) else null }
 
     // ------------------------------------------------------------------
     // 收藏列表查询：排序 + 搜索（参数绑定，SQL 白名单拼接）

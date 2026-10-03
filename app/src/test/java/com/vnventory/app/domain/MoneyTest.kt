@@ -78,6 +78,9 @@ class MoneyTest {
         assertNull(Money.parse("abc", "JPY"))
         assertNull(Money.parse("-5", "JPY"))
         assertNull(Money.parse("1.2.3", "CNY"))
+        assertNull(Money.parse("1E+2147483647", "CNY"))
+        assertNull(Money.parse("1E-2147483647", "JPY"))
+        assertNull(Money.parse("9".repeat(1000), "CNY"))
     }
 
     // ---- toEditableString ----

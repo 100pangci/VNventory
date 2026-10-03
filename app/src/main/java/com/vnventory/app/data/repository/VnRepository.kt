@@ -6,6 +6,8 @@ import com.vnventory.app.data.local.dao.VnCacheDao
 import com.vnventory.app.data.mapper.toDomain
 import com.vnventory.app.data.mapper.toEntity
 import com.vnventory.app.data.remote.vndb.VndbApi
+import com.vnventory.app.data.remote.vndb.VndbService
+import kotlinx.coroutines.delay
 import com.vnventory.app.data.remote.vndb.VndbApiException
 import com.vnventory.app.domain.model.ReleaseInfo
 import com.vnventory.app.domain.model.VnInfo
@@ -23,7 +25,7 @@ import kotlinx.coroutines.withContext
  * VNDB 数据只是「元数据缓存」；用户收藏永远以 owned_copy 为准。
  */
 class VnRepository(
-    private val api: VndbApi,
+    private val api: VndbService,
     private val vnCacheDao: VnCacheDao,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
@@ -32,13 +34,15 @@ class VnRepository(
         vnCacheDao.observeVn(vnId).map { it?.toDomain() }.flowOn(io)
 
     fun observeCachedReleases(vnId: String): Flow<List<ReleaseInfo>> =
-        vnCacheDao.observeReleases(vnId).map { list -> list.map { it.toDomain() } }.flowOn(io)
+        vnCacheDao.observeReleases(vnId)
+            .map { list -> list.filter { it.official != false }.map { it.toDomain(vnId) } }
+            .flowOn(io)
 
     suspend fun getCachedVn(vnId: String): VnInfo? =
         withContext(io) { vnCacheDao.getVn(vnId)?.toDomain() }
 
-    suspend fun getCachedRelease(releaseId: String): ReleaseInfo? =
-        withContext(io) { vnCacheDao.getRelease(releaseId)?.toDomain() }
+    suspend fun getCachedRelease(releaseId: String, vnId: String): ReleaseInfo? =
+        withContext(io) { if (vnCacheDao.isLinked(vnId, releaseId)) vnCacheDao.getRelease(releaseId)?.toDomain(vnId) else null }
 
     /**
      * 搜索 VN。网络失败且本地缓存有结果时，返回离线结果（[VnSearchResult.offline] = true）。
@@ -52,7 +56,7 @@ class VnRepository(
                 val response = api.searchVn(keyword, page)
                 val now = System.currentTimeMillis()
                 response.results.forEach { dto ->
-                    runCatching { vnCacheDao.upsertVn(dto.toDomain().toEntity(now)) }
+                    vnCacheDao.upsertVn(dto.toDomain().toEntity(now))
                 }
                 VnSearchResult(
                     items = response.results.map { it.toDomain(fromCache = false) },
@@ -64,7 +68,8 @@ class VnRepository(
 
         if (result is AppResult.Success || page > 1) return result
         // 离线回退（仅第一页）
-        val cached = withContext(io) { vnCacheDao.searchCached(keyword, limit = 30) }
+        val cachedResult = appResultOf { withContext(io) { vnCacheDao.searchCached(keyword, limit = 30) } }
+        val cached = (cachedResult as? AppResult.Success)?.data.orEmpty()
         return if (cached.isNotEmpty()) {
             AppResult.Success(
                 VnSearchResult(items = cached.map { it.toDomain() }, page = 1, hasMore = false, offline = true)
@@ -84,17 +89,25 @@ class VnRepository(
         }
     }
 
-    /** 拉取某 VN 的全部 Release 并写入缓存（新→旧） */
+    /** 缓存全部元数据，但选择列表隐藏非官方版本；不删除旧收藏或其版本资料。 */
     suspend fun fetchReleases(vnId: String): AppResult<List<ReleaseInfo>> = appResultOf {
         withContext(io) {
-            val coverFallback = vnCacheDao.getVn(vnId)?.imageUrl
-            val response = api.getReleases(vnId)
+            val vn = vnCacheDao.getVn(vnId) ?: api.getVn(vnId)?.toDomain()?.toEntity(System.currentTimeMillis())
+                ?: throw VndbApiException("VNDB 未找到 VN：$vnId")
+            val found = linkedMapOf<String, ReleaseInfo>()
+            var page = 1
+            do {
+                val response = api.getReleases(vnId, page = page)
+                val previousSize = found.size
+                response.results.forEach { found[it.id] = it.toDomain(vnId, vn.imageUrl) }
+                if (response.more && found.size == previousSize) throw VndbApiException("VNDB 分页未前进，请重试")
+                page++
+                if (response.more) delay(400) // 仅加载当前选择 VN，避免连续密集请求。
+            } while (response.more)
             val now = System.currentTimeMillis()
-            val infos = response.results.map { it.toDomain(vnId, coverFallback) }
-            if (infos.isNotEmpty()) {
-                vnCacheDao.upsertReleases(infos.map { it.toEntity(now) })
-            }
-            infos
+            val infos = found.values.toList()
+            vnCacheDao.replaceReleases(vn, infos.map { it.toEntity(now) })
+            infos.filter { it.official != false }
         }
     }
 }

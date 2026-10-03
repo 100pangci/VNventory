@@ -5,11 +5,16 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
+import androidx.room.Transaction
 import com.vnventory.app.data.local.entity.PurchaseOrderEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PurchaseOrderDao {
+
+    @Transaction
+    @Query("SELECT * FROM purchase_order WHERE id = :id")
+    fun observeGraph(id: Long): Flow<OrderGraph?>
 
     @Query(
         """

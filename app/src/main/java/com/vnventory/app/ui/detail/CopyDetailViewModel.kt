@@ -1,6 +1,7 @@
 package com.vnventory.app.ui.detail
 
-import androidx.lifecycle.ViewModel
+import com.vnventory.app.ui.ActionViewModel
+import kotlinx.coroutines.flow.catch
 import androidx.lifecycle.viewModelScope
 import com.vnventory.app.di.AppContainer
 import com.vnventory.app.domain.cost.CopyCost
@@ -15,7 +16,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 data class CopyDetailUiState(
     val loading: Boolean = true,
@@ -39,7 +39,7 @@ data class CopyDetailUiState(
 class CopyDetailViewModel(
     container: AppContainer,
     private val copyId: Long,
-) : ViewModel() {
+) : ActionViewModel() {
 
     private val collectionRepository = container.collectionRepository
     private val vnRepository = container.vnRepository
@@ -65,10 +65,11 @@ class CopyDetailViewModel(
                 }
             }
         }
+        .catch { reportError(it); emit(CopyDetailUiState(loading = false)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CopyDetailUiState())
 
     fun delete(onDeleted: () -> Unit) {
-        viewModelScope.launch {
+        launchAction {
             collectionRepository.delete(copyId)
             onDeleted()
         }

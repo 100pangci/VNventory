@@ -16,6 +16,15 @@ object OrdersRoute
 @Serializable
 object SettingsRoute
 
+@Serializable
+object SettingsPreferencesRoute
+
+@Serializable
+object SettingsDataRoute
+
+@Serializable
+object SettingsAboutRoute
+
 /** 添加收藏流程；orderId 非空表示“加入该订单”上下文 */
 @Serializable
 data class AddRoute(val orderId: Long? = null)

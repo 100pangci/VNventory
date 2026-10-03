@@ -32,6 +32,12 @@ interface OwnedCopyDao {
     @Query("SELECT * FROM owned_copy WHERE orderId = :orderId ORDER BY createdAt ASC, id ASC")
     fun observeByOrder(orderId: Long): Flow<List<OwnedCopyEntity>>
 
+    @Query("SELECT * FROM owned_copy WHERE orderId = :orderId ORDER BY createdAt ASC, id ASC")
+    suspend fun getByOrder(orderId: Long): List<OwnedCopyEntity>
+
+    @Query("SELECT * FROM owned_copy")
+    suspend fun getAll(): List<OwnedCopyEntity>
+
     @Query("SELECT * FROM owned_copy WHERE vnId = :vnId ORDER BY createdAt DESC")
     fun observeByVn(vnId: String): Flow<List<OwnedCopyEntity>>
 

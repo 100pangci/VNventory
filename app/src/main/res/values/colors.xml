@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 应用图标底色（深浅模式一致） -->
-    <color name="ic_launcher_background">#2B2038</color>
     <!-- 窗口底色：防止启动瞬间白闪/黑闪，与 Compose 主题背景一致 -->
     <color name="window_background">#FFF8FB</color>
 </resources>

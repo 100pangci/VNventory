@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 应用内完整图标的底层，保留 SVG 的圆角及细描边，与启动图标共用前景。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.10546875" android:scaleY="0.10546875">
+        <path android:pathData="M224,0H800A224,224 0,0 1,1024,224V800A224,224 0,0 1,800,1024H224A224,224 0,0 1,0,800V224A224,224 0,0 1,224,0Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="160" android:startY="64" android:endX="832" android:endY="960">
+                    <item android:offset="0" android:color="#302B53" />
+                    <item android:offset="0.55" android:color="#201F3E" />
+                    <item android:offset="1" android:color="#13192F" />
+                </gradient>
+            </aapt:attr>
+        </path>
+        <path android:fillColor="#00000000" android:strokeColor="#B8A6E6" android:strokeAlpha="0.08" android:strokeWidth="2"
+            android:pathData="M227,20H797A207,207 0,0 1,1004,227V797A207,207 0,0 1,797,1004H227A207,207 0,0 1,20,797V227A207,207 0,0 1,227,20Z" />
+    </group>
+</vector>

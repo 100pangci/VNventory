@@ -1,9 +1,14 @@
 package com.vnventory.app.ui.edit
 
-import androidx.lifecycle.ViewModel
+import com.vnventory.app.ui.ActionViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.catch
 import androidx.lifecycle.viewModelScope
 import com.vnventory.app.core.AppResult
 import com.vnventory.app.di.AppContainer
+import com.vnventory.app.data.repository.CollectionRepository
+import com.vnventory.app.data.repository.PurchaseRepository
+import com.vnventory.app.data.repository.VnRepository
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OrderSummary
@@ -34,7 +39,7 @@ data class EditFormState(
     val parsedPrice: Long? get() = Money.parse(priceText, currency)
     val priceValid: Boolean get() = priceText.isBlank() || parsedPrice != null
     val conditionValid: Boolean get() = condition != CopyCondition.CUSTOM || conditionNote.isNotBlank()
-    val canSave: Boolean get() = priceValid && conditionValid
+    val canSave: Boolean get() = priceValid && conditionValid && releaseTitle.isNotBlank()
 }
 
 data class BindSheetState(
@@ -55,13 +60,16 @@ data class CopyEditUiState(
 )
 
 class CopyEditViewModel(
-    container: AppContainer,
+    private val collectionRepository: CollectionRepository,
+    private val vnRepository: VnRepository,
+    private val purchaseRepository: PurchaseRepository,
     private val copyId: Long,
-) : ViewModel() {
-
-    private val collectionRepository = container.collectionRepository
-    private val vnRepository = container.vnRepository
-    private val purchaseRepository = container.purchaseRepository
+) : ActionViewModel() {
+    constructor(container: AppContainer, copyId: Long) : this(
+        container.collectionRepository, container.vnRepository, container.purchaseRepository, copyId,
+    )
+    private var bindJob: Job? = null
+    private var bindGeneration = 0
 
     private val copyState = MutableStateFlow<OwnedCopy?>(null)
     private val loadedState = MutableStateFlow(false)
@@ -85,10 +93,12 @@ class CopyEditViewModel(
             saving = saving,
             bindSheet = bind,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CopyEditUiState())
+    }.catch { reportError(it); emit(CopyEditUiState(loading = false)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CopyEditUiState())
 
     init {
-        viewModelScope.launch {
+        launchAction {
+            try {
             val copy = collectionRepository.getById(copyId)
             copyState.value = copy
             if (copy != null) {
@@ -104,7 +114,7 @@ class CopyEditViewModel(
                     orderId = copy.orderId,
                 )
             }
-            loadedState.value = true
+            } finally { loadedState.value = true }
         }
     }
 
@@ -127,7 +137,7 @@ class CopyEditViewModel(
         val form = formState.value
         if (!form.canSave || savingState.value) return
 
-        viewModelScope.launch {
+        launchAction {
             savingState.value = true
             try {
                 collectionRepository.update(
@@ -158,7 +168,7 @@ class CopyEditViewModel(
     }
 
     fun delete(onDeleted: () -> Unit) {
-        viewModelScope.launch {
+        launchAction {
             collectionRepository.delete(copyId)
             onDeleted()
         }
@@ -168,13 +178,19 @@ class CopyEditViewModel(
 
     fun openBindSheet() {
         val copy = copyState.value ?: return
+        bindJob?.cancel()
+        val generation = ++bindGeneration
         bindSheetState.value = BindSheetState(open = true, loading = true)
-        viewModelScope.launch {
+        bindJob = launchAction {
+            try {
             val cached = vnRepository.observeCachedReleases(copy.vnId).first()
+            if (generation != bindGeneration) return@launchAction
             if (cached.isNotEmpty()) {
                 bindSheetState.update { it.copy(releases = cached) }
             }
-            when (val result = vnRepository.fetchReleases(copy.vnId)) {
+            val result = vnRepository.fetchReleases(copy.vnId)
+            if (generation != bindGeneration) return@launchAction
+            when (result) {
                 is AppResult.Success -> bindSheetState.update {
                     it.copy(releases = result.data, loading = false, error = null)
                 }
@@ -186,14 +202,20 @@ class CopyEditViewModel(
                     )
                 }
             }
+            } finally { if (generation == bindGeneration) bindSheetState.update { it.copy(loading = false) } }
         }
     }
 
-    fun closeBindSheet() = bindSheetState.update { it.copy(open = false) }
+    fun closeBindSheet() {
+        bindGeneration++
+        bindJob?.cancel()
+        bindSheetState.update { it.copy(open = false) }
+    }
 
     fun bindTo(release: ReleaseInfo) {
         val copy = copyState.value ?: return
-        viewModelScope.launch {
+        launchAction {
+            require(release.vnId == copy.vnId) { "所选版本不属于当前作品" }
             collectionRepository.bindRelease(copy.id, release, coverUrl = release.displayImage())
             copyState.value = collectionRepository.getById(copy.id)
             formState.update { it.copy(releaseTitle = release.title) }

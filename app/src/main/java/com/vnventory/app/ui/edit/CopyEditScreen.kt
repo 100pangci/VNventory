@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -56,6 +57,8 @@ import com.vnventory.app.ui.components.LabeledRow
 import com.vnventory.app.ui.components.LoadingState
 import com.vnventory.app.ui.components.OrderSelector
 import com.vnventory.app.ui.components.VnCover
+import com.vnventory.app.ui.components.OperationError
+import com.vnventory.app.ui.components.SaveButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +70,7 @@ fun CopyEditScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
+        modifier = Modifier.imePadding(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
@@ -79,18 +83,21 @@ fun CopyEditScreen(
             )
         },
         bottomBar = {
+            Column {
+            OperationError(viewModel)
             if (state.copy != null) {
                 Surface(tonalElevation = 3.dp) {
-                    Button(
+                    SaveButton(
+                        label = "保存这盒的修改",
+                        saving = state.saving,
                         onClick = { viewModel.save(onSaved) },
-                        enabled = state.form.canSave && !state.saving,
+                        enabled = state.form.canSave,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                    ) {
-                        Text(if (state.saving) "保存中…" else "保存修改")
-                    }
+                    )
                 }
+            }
             }
         },
     ) { padding ->
@@ -111,7 +118,7 @@ fun CopyEditScreen(
                         .padding(padding)
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
+                        .padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Row {
@@ -247,6 +254,7 @@ fun CopyEditScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
+                OperationError(viewModel)
                 Text(
                     text = "选择要绑定的 VNDB 版本",
                     style = MaterialTheme.typography.titleMedium,

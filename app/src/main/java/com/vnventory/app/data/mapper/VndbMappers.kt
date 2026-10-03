@@ -21,19 +21,22 @@ fun VndbVnDto.toDomain(fromCache: Boolean = false): VnInfo = VnInfo(
 
 /**
  * 原题（通常是日文标题）：
- * 优先取 languages 中标记 main 的日文标题；没有则取任一 main 标题；
- * 与展示标题相同则回退 alttitle；全都没有则为 null。
+ * 优先日语主标题，其次官方日语标题，再回退原语言主标题 / alttitle。
+ * 不改变缓存字段含义，旧缓存也可通过 VnInfo.displayTitle 优先展示原文。
  */
 internal fun VndbVnDto.originalTitle(): String? {
-    val mainJa = titles.firstOrNull { it.main && it.lang == "ja" }?.title
-    val mainAny = titles.firstOrNull { it.main }?.title
-    return (mainJa ?: mainAny)?.takeIf { it.isNotBlank() && it != title } ?: alttitle
+    val candidates = titles.filter { it.title.isNotBlank() }
+    val original = candidates.firstOrNull { it.main && it.lang == "ja" }?.title
+        ?: candidates.firstOrNull { it.official && it.lang == "ja" }?.title
+        ?: candidates.firstOrNull { it.main }?.title
+        ?: alttitle
+    return original?.trim()?.takeIf { it.isNotEmpty() && it != title }
 }
 
 fun VndbReleaseDto.toDomain(vnId: String, fallbackCoverUrl: String? = null): ReleaseInfo = ReleaseInfo(
     id = id,
     vnId = vnId,
-    title = title,
+    title = alttitle?.takeIf { it.isNotBlank() } ?: title,
     released = released,
     platforms = platforms,
     languages = languages.mapNotNull { it.lang?.takeIf(String::isNotBlank) },

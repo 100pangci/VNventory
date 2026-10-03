@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 原创程序化海报，仅供 Compose Preview / 界面测试；不导入用户数据库。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="200dp" android:height="280dp" android:viewportWidth="200" android:viewportHeight="280">
+    <path android:fillColor="#202D55" android:pathData="M0,0h200v280h-200z" />
+    <path android:fillColor="#354675" android:pathData="M0,180L72,94L200,204V280H0z" />
+    <path android:fillColor="#7B8CAE" android:pathData="M0,234L98,140L200,236V280H0z" />
+    <path android:fillColor="#F4E4CF" android:pathData="M112,55a24,24 0,1 0,48 0a24,24 0,1 0,-48 0" />
+    <path android:strokeColor="#F4E4CF" android:strokeWidth="2" android:pathData="M30,38h3M55,72h3M84,29h3M158,108h3" />
+    <path android:fillColor="#F4E4CF" android:pathData="M20,234h70v3h-70zM20,245h46v2h-46z" />
+</vector>

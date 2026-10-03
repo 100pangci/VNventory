@@ -14,14 +14,32 @@ import java.util.Currency as JavaCurrency
  */
 object Money {
 
+    private val decimalInput = Regex("\\+?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)")
+
     /** 明确按 0 位小数处理的货币（避免依赖平台 ICU 数据差异） */
-    private val zeroDecimalCurrencies = setOf("JPY", "KRW", "VND", "IDR", "CLP", "ISK")
+    private val zeroDecimalCurrencies = setOf("JPY", "KRW", "VND", "CLP", "ISK")
 
     /** 常见货币（设置页默认货币候选、金额输入货币候选） */
     val commonCurrencies: List<String> =
         listOf("CNY", "JPY", "USD", "EUR", "GBP", "HKD", "TWD", "KRW", "SGD", "AUD", "CAD")
 
     fun normalize(code: String): String = code.trim().uppercase(Locale.ROOT)
+
+    /** 汇总同样禁止 Long 静默溢出；写入前和展示时使用相同的检查。 */
+    fun add(a: Long, b: Long): Long = try {
+        Math.addExact(a, b)
+    } catch (_: ArithmeticException) {
+        throw IllegalArgumentException("金额合计超出可支持的范围")
+    }
+
+    fun sum(values: Iterable<Long>): Long = values.fold(0L, ::add)
+
+    fun totals(values: Iterable<Pair<String, Long>>): Map<String, Long> = buildMap {
+        values.forEach { (currency, amount) ->
+            val code = normalize(currency)
+            put(code, add(get(code) ?: 0L, amount))
+        }
+    }
 
     /** 货币小数位数：JPY=0，CNY=2 …未知货币走平台数据，最终回退 2 */
     fun decimals(code: String): Int {
@@ -81,6 +99,7 @@ object Money {
             .replace(",", "")
             .replace("，", "")
             .replace("。", ".")
+            .replace("．", ".")
             .removePrefix(symbol(code))
             .replace("￥", "")
             .replace("¥", "")
@@ -91,6 +110,8 @@ object Money {
             .replace(" ", "")
             .trim()
         if (cleaned.isEmpty()) return null
+        // 金额输入不用科学计数法，避免粘贴极大指数导致超大 BigDecimal 分配。
+        if (cleaned.length > 64 || !decimalInput.matches(cleaned)) return null
         val bd = runCatching { BigDecimal(cleaned) }.getOrNull() ?: return null
         if (bd.signum() < 0) return null
         if (bd.stripTrailingZeros().scale() > d) return null

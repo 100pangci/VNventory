@@ -2,17 +2,10 @@ package com.vnventory.app.domain.cost
 
 import com.vnventory.app.domain.model.AllocationMode
 import com.vnventory.app.domain.model.ExpenseCategory
+import com.vnventory.app.domain.model.Money
 import java.math.BigInteger
 
-// ---------------------------------------------------------------------------
-// 输入（由仓库层从实体投影而来，尽量最小化，便于单测）
-// ---------------------------------------------------------------------------
-
-data class CostCopyInput(
-    val copyId: Long,
-    val priceMinor: Long,
-    val currency: String,
-)
+data class CostCopyInput(val copyId: Long, val priceMinor: Long, val currency: String)
 
 data class CostExpenseInput(
     val expenseId: Long,
@@ -21,23 +14,11 @@ data class CostExpenseInput(
     val amountMinor: Long,
     val currency: String,
     val mode: AllocationMode,
-    /** 仅 MANUAL 模式使用：copyId -> 金额（最小单位） */
     val manualAllocations: Map<Long, Long> = emptyMap(),
 )
 
-// ---------------------------------------------------------------------------
-// 输出
-// ---------------------------------------------------------------------------
-
 enum class FeeKind { EQUAL_POOL, BY_PRICE_POOL, MANUAL }
 
-/**
- * 一盒分摊到的一笔费用。
- *
- * EQUAL / BY_PRICE 采用「同模式 + 同币种先汇总成池再分摊」的策略
- * （见 [CostEngine.computeOrderCosts]），此时 [expenseId] 为 null、
- * [label] 为池标签；MANUAL 保持逐笔归属，[label] 为费用名。
- */
 data class FeeShare(
     val expenseId: Long?,
     val label: String,
@@ -46,185 +27,119 @@ data class FeeShare(
     val currency: String,
 )
 
-/** 一盒的最终成本：本体价 + 各费用分摊，按币种分列 */
 data class CopyCost(
     val copyId: Long,
     val basePriceMinor: Long,
     val baseCurrency: String,
     val feeShares: List<FeeShare>,
 ) {
-    /** 该盒最终成本（按币种） */
-    val totalsByCurrency: Map<String, Long> = buildMap {
-        put(baseCurrency, (get(baseCurrency) ?: 0L) + basePriceMinor)
-        feeShares.forEach { share ->
-            put(share.currency, (get(share.currency) ?: 0L) + share.amountMinor)
-        }
-    }
+    val totalsByCurrency: Map<String, Long> = Money.totals(
+        listOf(baseCurrency to basePriceMinor) + feeShares.map { it.currency to it.amountMinor }
+    )
 }
 
-/** 整个订单的成本汇总（按币种） */
 data class OrderCostBreakdown(
     val copyCosts: List<CopyCost>,
+    /** 订单实际支出：商品 + 全部费用，与订单列表/首页保持同口径。 */
     val totalsByCurrency: Map<String, Long>,
+    val goodsTotals: Map<String, Long> = emptyMap(),
+    val feeTotals: Map<String, Long> = emptyMap(),
+    val allocatedTotals: Map<String, Long> = emptyMap(),
+    val unallocatedTotals: Map<String, Long> = emptyMap(),
+    /** 旧数据中的无效分摊不静默猜测：暂不分摊并提示修正。 */
+    val issues: List<String> = emptyList(),
 )
 
-// ---------------------------------------------------------------------------
-// 引擎
-// ---------------------------------------------------------------------------
-
-/**
- * 成本分摊引擎（纯函数，无副作用）。
- *
- * 设计要点：
- * - **池化分摊**：EQUAL（平均）与 BY_PRICE（按价格比例）的费用按「模式 + 币种」
- *   先汇总成池、再整体分摊到各盒。这样舍入误差最小（每个池最多 1 个单位），
- *   也与直觉一致：例如 2 + 100 平均分摊到 3 盒，每盒附加费 = 102/3 = 34。
- * - **结果不写回数据库**，只用于展示；MANUAL 由用户指定并落库。
- * - **多币种隔离**：不做隐式汇率换算，按币种分行展示。
- * - 所有除法使用「最大余数法」，保证各盒分摊之和 == 该池金额（分毫不差）。
- */
+/** 纯函数成本引擎。自动费用按方式+币种池化，最大余数法确保每池总额守恒。 */
 object CostEngine {
+    fun expenseProblem(expense: CostExpenseInput, copies: List<CostCopyInput>): String? {
+        if (expense.amountMinor < 0) return "费用不能为负数"
+        if (expense.mode == AllocationMode.BY_PRICE && copies.map { Money.normalize(it.currency) }.distinct().size > 1) {
+            return "混币种商品不能按价格比例分摊，请选择平均分摊或手动指定"
+        }
+        if (expense.mode == AllocationMode.MANUAL) {
+            val ids = copies.map { it.copyId }.toSet()
+            if (expense.manualAllocations.keys.any { it !in ids }) return "手动分摊包含不属于本订单的收藏"
+            if (expense.manualAllocations.values.any { it < 0 }) return "分摊金额不能为负数"
+            val total = try { Money.sum(expense.manualAllocations.values) } catch (_: IllegalArgumentException) {
+                return "分摊金额合计超出可支持的范围"
+            }
+            if (total > expense.amountMinor) return "手动分摊合计不能超过费用总额"
+        }
+        return null
+    }
 
-    fun computeOrderCosts(
-        copies: List<CostCopyInput>,
-        expenses: List<CostExpenseInput>,
-    ): OrderCostBreakdown {
-        val sharesByCopy = copies.associate { it.copyId to mutableListOf<FeeShare>() }
-
-        // 1) 自动模式：按（模式, 币种）池化后分摊
-        listOf(AllocationMode.EQUAL, AllocationMode.BY_PRICE).forEach { mode ->
-            expenses.filter { it.mode == mode && it.amountMinor > 0 }.groupBy { it.currency }.forEach { (currency, group) ->
-                if (copies.isEmpty()) return@forEach
-                val total = group.sumOf { it.amountMinor }
-                val weights = if (mode == AllocationMode.EQUAL) {
-                    List(copies.size) { 1L }
-                } else {
-                    copies.map { it.priceMinor.coerceAtLeast(0L) }
-                }
-                val splits = allocateProportionally(total, weights)
-                val label = poolLabel(mode, group)
-                val kind = if (mode == AllocationMode.EQUAL) FeeKind.EQUAL_POOL else FeeKind.BY_PRICE_POOL
+    fun computeOrderCosts(copies: List<CostCopyInput>, expenses: List<CostExpenseInput>): OrderCostBreakdown {
+        require(copies.map { it.copyId }.distinct().size == copies.size) { "收藏 ID 不能重复" }
+        require(copies.all { it.priceMinor >= 0 }) { "购入价格不能为负数" }
+        require(expenses.all { it.amountMinor >= 0 }) { "费用不能为负数" }
+        val shares = copies.associate { it.copyId to mutableListOf<FeeShare>() }
+        val issues = mutableListOf<String>()
+        val valid = expenses.filter { expense ->
+            val problem = expenseProblem(expense, copies)
+            if (problem != null) issues.add("${expense.name}：$problem（暂未分摊）")
+            problem == null
+        }
+        valid.filter { it.mode != AllocationMode.MANUAL }
+            .groupBy { it.mode to Money.normalize(it.currency) }
+            .forEach { (key, group) ->
+                val (mode, currency) = key
+                val amount = Money.sum(group.map { it.amountMinor })
+                val weights = if (mode == AllocationMode.EQUAL) copies.map { 1L } else copies.map { it.priceMinor }
+                val split = allocateProportionally(amount, weights)
                 copies.forEachIndexed { index, copy ->
-                    val amount = splits[index]
-                    if (amount != 0L) {
-                        sharesByCopy[copy.copyId]?.add(FeeShare(null, label, kind, amount, currency))
-                    }
+                    shares.getValue(copy.copyId).add(FeeShare(
+                        null, if (group.size == 1) group.single().name else "${mode.label}（${group.size} 笔）",
+                        if (mode == AllocationMode.EQUAL) FeeKind.EQUAL_POOL else FeeKind.BY_PRICE_POOL,
+                        split[index], currency,
+                    ))
                 }
             }
-        }
-
-        // 2) MANUAL：逐笔归到用户指定的盒
-        expenses.filter { it.mode == AllocationMode.MANUAL }.forEach { expense ->
-            expense.manualAllocations.forEach { (copyId, amount) ->
-                if (amount != 0L && sharesByCopy.containsKey(copyId)) {
-                    sharesByCopy[copyId]?.add(
-                        FeeShare(
-                            expenseId = expense.expenseId,
-                            label = expense.name.ifBlank { "手动分摊" },
-                            kind = FeeKind.MANUAL,
-                            amountMinor = amount,
-                            currency = expense.currency,
-                        )
-                    )
-                }
+        valid.filter { it.mode == AllocationMode.MANUAL }.forEach { expense ->
+            expense.manualAllocations.forEach { (id, amount) ->
+                shares.getValue(id).add(FeeShare(expense.expenseId, expense.name, FeeKind.MANUAL, amount, expense.currency))
             }
         }
-
-        val copyCosts = copies.map { copy ->
-            CopyCost(
-                copyId = copy.copyId,
-                basePriceMinor = copy.priceMinor,
-                baseCurrency = copy.currency,
-                feeShares = sharesByCopy[copy.copyId].orEmpty(),
-            )
-        }
-
-        val totals = mutableMapOf<String, Long>()
-        copyCosts.forEach { cost ->
-            cost.totalsByCurrency.forEach { (currency, amount) ->
-                totals[currency] = (totals[currency] ?: 0L) + amount
-            }
-        }
-        return OrderCostBreakdown(copyCosts = copyCosts, totalsByCurrency = totals)
+        val costs = copies.map { CopyCost(it.copyId, it.priceMinor, it.currency, shares.getValue(it.copyId)) }
+        val goods = Money.totals(copies.map { it.currency to it.priceMinor })
+        val fees = Money.totals(expenses.map { it.currency to it.amountMinor })
+        val assignedFees = Money.totals(shares.values.flatten().map { it.currency to it.amountMinor })
+        val unallocated = fees.mapValues { (currency, amount) -> amount - (assignedFees[currency] ?: 0L) }
+            .filterValues { it != 0L }
+        return OrderCostBreakdown(
+            copyCosts = costs,
+            totalsByCurrency = Money.totals(goods.toList() + fees.toList()),
+            goodsTotals = goods,
+            feeTotals = fees,
+            allocatedTotals = Money.totals(costs.flatMap { it.totalsByCurrency.toList() }),
+            unallocatedTotals = unallocated,
+            issues = issues,
+        )
     }
 
-    /**
-     * 单笔费用到各盒的分摊（费用编辑器“预览”用；不影响池化后的正式结果）。
-     * 返回：copyId -> 金额（费用币种，最小单位）。
-     */
-    fun allocateExpense(
-        expense: CostExpenseInput,
-        copies: List<CostCopyInput>,
-    ): Map<Long, Long> {
-        if (copies.isEmpty()) return emptyMap()
-        return when (expense.mode) {
-            AllocationMode.EQUAL ->
-                allocateProportionally(expense.amountMinor, List(copies.size) { 1L })
-                    .zipCopyWithIds(copies)
-
-            AllocationMode.BY_PRICE -> {
-                val weights = copies.map { it.priceMinor.coerceAtLeast(0L) }
-                val effective = if (weights.all { it == 0L }) List(copies.size) { 1L } else weights
-                allocateProportionally(expense.amountMinor, effective)
-                    .zipCopyWithIds(copies)
-            }
-
-            AllocationMode.MANUAL ->
-                expense.manualAllocations.filterKeys { id -> copies.any { it.copyId == id } }
-        }
+    /** 单笔分配仅用于预填手动输入。编辑预览必须使用完整订单的 computeOrderCosts。 */
+    fun allocateExpense(expense: CostExpenseInput, copies: List<CostCopyInput>): Map<Long, Long> {
+        val problem = expenseProblem(expense, copies)
+        require(problem == null) { problem!! }
+        if (expense.mode == AllocationMode.MANUAL) return expense.manualAllocations
+        val weights = if (expense.mode == AllocationMode.EQUAL) copies.map { 1L } else copies.map { it.priceMinor }
+        return copies.map { it.copyId }.zip(allocateProportionally(expense.amountMinor, weights)).toMap()
     }
 
-    /** 均摊预览（费用编辑器切到 MANUAL 时预填用） */
     fun equalSplitPreview(totalMinor: Long, copyCount: Int): List<Long> =
         allocateProportionally(totalMinor, List(copyCount.coerceAtLeast(0)) { 1L })
 
-    private fun poolLabel(mode: AllocationMode, group: List<CostExpenseInput>): String =
-        if (group.size == 1) {
-            group.first().name.ifBlank { mode.label }
-        } else {
-            "${mode.label}（${group.size} 笔）"
-        }
-
-    private fun List<Long>.zipCopyWithIds(copies: List<CostCopyInput>): Map<Long, Long> =
-        copies.mapIndexed { index, copy -> copy.copyId to this[index] }.toMap()
-
-    /**
-     * 最大余数法把 [totalMinor] 按 [weights] 比例分给 n 份，保证：
-     * - 每份 >= 0；- 各份之和 == totalMinor；- 结果确定（余数相同取索引小者）。
-     */
     internal fun allocateProportionally(totalMinor: Long, weights: List<Long>): List<Long> {
         require(totalMinor >= 0) { "金额不能为负数" }
         require(weights.all { it >= 0 }) { "权重不能为负数" }
-        val n = weights.size
-        if (n == 0) return emptyList()
-
-        val effective = if (weights.all { it == 0L }) List(n) { 1L } else weights
-        val weightSum = effective.fold(BigInteger.ZERO) { acc, w -> acc + BigInteger.valueOf(w) }
-        val total = BigInteger.valueOf(totalMinor)
-
-        val floors = LongArray(n)
-        val remainders = arrayOfNulls<BigInteger>(n)
-        var sumFloors = 0L
-        for (i in 0 until n) {
-            val numerator = total.multiply(BigInteger.valueOf(effective[i]))
-            val (q, r) = numerator.divideAndRemainder(weightSum)
-            floors[i] = q.toLong()
-            remainders[i] = r
-            sumFloors += floors[i]
-        }
-
-        var remaining = totalMinor - sumFloors
-        if (remaining > 0) {
-            val order = (0 until n).sortedWith(
-                compareByDescending<Int> { remainders[it] }.thenBy { it }
-            )
-            var pointer = 0
-            while (remaining > 0) {
-                floors[order[pointer % n]] += 1L
-                remaining -= 1L
-                pointer += 1
-            }
-        }
-        return floors.toList()
+        if (weights.isEmpty()) return emptyList()
+        val effective = if (weights.all { it == 0L }) weights.map { 1L } else weights
+        val sum = effective.fold(BigInteger.ZERO) { acc, w -> acc + BigInteger.valueOf(w) }
+        val quotients = effective.map { BigInteger.valueOf(totalMinor).multiply(BigInteger.valueOf(it)).divideAndRemainder(sum) }
+        val floors = quotients.map { it[0].longValueExact() }.toMutableList()
+        val remainder = totalMinor - Money.sum(floors)
+        val order = weights.indices.sortedWith(compareByDescending<Int> { quotients[it][1] }.thenBy { it })
+        repeat(remainder.toInt()) { floors[order[it]] += 1L }
+        return floors
     }
 }

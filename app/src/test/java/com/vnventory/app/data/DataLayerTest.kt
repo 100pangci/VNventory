@@ -14,6 +14,8 @@ import com.vnventory.app.domain.model.Expense
 import com.vnventory.app.domain.model.ExpenseCategory
 import com.vnventory.app.domain.model.OwnedCopy
 import com.vnventory.app.domain.model.PurchaseOrder
+import com.vnventory.app.domain.model.previewExpense
+import com.vnventory.app.ui.orders.ExpenseEditorState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -211,10 +213,87 @@ class DataLayerTest {
 
     // ---- helpers ----
 
+    @Test fun `完整订单预览与新增编辑保存后的池化结果一致`() = runTest {
+        val orderId = purchases.createOrder(order("Pool"))
+        collection.addCopies(listOf(copy(price = 100, orderId = orderId), copy(price = 100, orderId = orderId)))
+        purchases.addExpense(expense(orderId, "Fee1", 1))
+        val before = purchases.observeOrderDetail(orderId).first()!!
+        val editor = ExpenseEditorState(name = "Fee2", amountText = "1", currency = "JPY")
+        val candidate = editor.candidate(before)
+        val preview = before.previewExpense(candidate)
+        val feeId = purchases.addExpense(candidate)
+        val saved = purchases.observeOrderDetail(orderId).first()!!
+        assertEquals(preview, saved.breakdown)
+        assertEquals(listOf(101L,101L), preview.copyCosts.map { it.totalsByCurrency["JPY"] })
+        val edit = editor.copy(editingId = feeId, amountText = "5")
+        val replacement = edit.candidate(saved)
+        val editPreview = saved.previewExpense(replacement)
+        purchases.updateExpense(replacement)
+        assertEquals(editPreview, purchases.observeOrderDetail(orderId).first()!!.breakdown)
+    }
+
+    @Test fun `VN和Release不能错绑且清空缓存不妨碍编辑旧记录`() = runTest {
+        val catalog = com.vnventory.app.data.repository.VnRepository(FakeVndb(), db.vnCacheDao(), Dispatchers.Unconfined)
+        catalog.fetchReleases("v1")
+        try { collection.addCopies(listOf(copy(vnId = "v2", releaseId = "r1"))); org.junit.Assert.fail() } catch (_: IllegalArgumentException) { }
+        val id = collection.addCopies(listOf(copy(vnId = "v1", releaseId = "r1"))).single()
+        val release = catalog.getCachedRelease("r1", "v1")!!
+        try { collection.bindRelease(id, release.copy(vnId = "v2"), null); org.junit.Assert.fail() } catch (_: IllegalArgumentException) { }
+        db.vnCacheDao().clearVnCache()
+        db.vnCacheDao().clearReleaseCache()
+        collection.update(collection.getById(id)!!.copy(notes = "Still editable"))
+        assertEquals("Still editable", collection.getById(id)!!.notes)
+    }
+
+    @Test fun `仓库拒绝非法分摊并原子回滚`() = runTest {
+        val orderId = purchases.createOrder(order("A"))
+        val id = collection.addCopies(listOf(copy(orderId = orderId))).single()
+        val other = collection.addCopies(listOf(copy())).single()
+        for (manual in listOf(mapOf(id to -1L), mapOf(id to 101L), mapOf(other to 100L))) {
+            try {
+                purchases.addExpense(expense(orderId, "运费", 100, mode = AllocationMode.MANUAL, manual = manual))
+                org.junit.Assert.fail("非法分摊不应写入")
+            } catch (_: IllegalArgumentException) { }
+        }
+        assertTrue(purchases.observeOrderDetail(orderId).first()!!.expenses.isEmpty())
+        val fee = purchases.addExpense(expense(orderId, "运费", 100, mode = AllocationMode.MANUAL, manual = mapOf(id to 40L)))
+        try { purchases.setManualAllocations(fee, mapOf(id to 200L)); org.junit.Assert.fail() } catch (_: IllegalArgumentException) { }
+        assertEquals(mapOf(id to 40L), purchases.getExpense(fee)!!.allocations)
+        val detail = purchases.observeOrderDetail(orderId).first()!!
+        assertEquals(purchases.observeOrders().first().single().grandTotals, detail.breakdown.totalsByCurrency)
+        assertEquals(mapOf("JPY" to 60L), detail.breakdown.unallocatedTotals)
+    }
+
+    @Test fun `混币种写入或修改均不能绕过比例限制`() = runTest {
+        val orderId = purchases.createOrder(order("A"))
+        val id = collection.addCopies(listOf(copy(orderId = orderId))).single()
+        purchases.addExpense(expense(orderId, "运费", 100, mode = AllocationMode.BY_PRICE))
+        val other = collection.addCopies(listOf(copy(currency = "CNY"))).single()
+        try { purchases.assignCopiesToOrder(listOf(other), orderId); org.junit.Assert.fail() } catch (_: IllegalArgumentException) { }
+        assertNull(collection.getById(other)!!.orderId)
+        try { collection.addCopies(listOf(copy(orderId = orderId, currency = "CNY"))); org.junit.Assert.fail() } catch (_: IllegalArgumentException) { }
+        assertEquals(2, collection.observeCopyCount().first())
+        collection.addCopies(listOf(copy(orderId = orderId)))
+        try { collection.update(collection.getById(id)!!.copy(currency = "CNY")); org.junit.Assert.fail() } catch (_: IllegalArgumentException) { }
+        assertEquals("JPY", collection.getById(id)!!.currency)
+    }
+
+    @Test fun `空订单支出与列表保持一致`() = runTest {
+        val id = purchases.createOrder(order("A"))
+        purchases.addExpense(expense(id, "先付运费", 100))
+        assertEquals(mapOf("JPY" to 100L), purchases.observeOrderDetail(id).first()!!.breakdown.totalsByCurrency)
+        assertEquals(purchases.observeOrders().first().single().grandTotals, purchases.observeOrderDetail(id).first()!!.breakdown.totalsByCurrency)
+    }
+
+    @Test fun `超出Long的整批添加回滚`() = runTest {
+        try { collection.addCopies(listOf(copy(price = Long.MAX_VALUE), copy(price = 1))); org.junit.Assert.fail() } catch (_: IllegalArgumentException) { }
+        assertEquals(0, collection.observeCopyCount().first())
+    }
+
     private fun copy(
         vnId: String = "v17",
         vnTitle: String = "Ever17",
-        releaseId: String? = "r17",
+        releaseId: String? = null,
         releaseTitle: String? = "初回版",
         price: Long = 5000,
         currency: String = "JPY",

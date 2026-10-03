@@ -61,6 +61,8 @@ class VndbDtoParseTest {
         val vn = json.decodeFromString<VndbVnResponse>(vnJson).results[0].toDomain()
         assertEquals("うたわれるもの", vn.altTitle)
         assertEquals("Utawarerumono", vn.title)
+        assertEquals("うたわれるもの", vn.displayTitle)
+        assertEquals("Utawarerumono", vn.secondaryTitle)
     }
 
     @Test
@@ -73,6 +75,27 @@ class VndbDtoParseTest {
                 VndbTitleDto(title = "Ever17 -the out of infinity-", lang = "ja", main = true),
             ),
         )
+        assertNull(dto.toDomain().altTitle)
+        assertNull(dto.toDomain().secondaryTitle)
+    }
+
+    @Test fun `日语标题优先于其他语言的主标题`() {
+        val dto = VndbVnDto("v1", title = "Romanized", titles = listOf(
+            VndbTitleDto("Main English", "en", main = true, official = true),
+            VndbTitleDto("日本語の題名", "ja", official = true),
+        ))
+        assertEquals("日本語の題名", dto.toDomain().displayTitle)
+    }
+
+    @Test fun `缺少原文或原文为空时仍有可显示标题`() {
+        val dto = VndbVnDto("v1", title = "Kanon", alttitle = "  ", titles = listOf(VndbTitleDto("", "ja", main = true)))
+        assertEquals("Kanon", dto.toDomain().displayTitle)
+        assertNull(dto.toDomain().secondaryTitle)
+    }
+
+    @Test fun `日语主标题即使是ASCII也不退回其他语言标题`() {
+        val dto = VndbVnDto("v1", title = "AIR", alttitle = "Other", titles = listOf(VndbTitleDto("AIR", "ja", main = true)))
+        assertEquals("AIR", dto.toDomain().displayTitle)
         assertNull(dto.toDomain().altTitle)
     }
 
@@ -175,6 +198,12 @@ class VndbDtoParseTest {
     }
 
     // ---- 查询请求体序列化 ----
+
+    @Test fun `版本使用原文标题空原文回退拉丁字标题`() {
+        val dto = VndbReleaseDto("r1", title = "Utawarerumono - Limited Edition", alttitle = "うたわれるもの 初回限定版")
+        assertEquals("うたわれるもの 初回限定版", dto.toDomain("v3").title)
+        assertEquals(dto.title, dto.copy(alttitle = " ").toDomain("v3").title)
+    }
 
     @Test
     fun `查询请求体序列化包含 filters 与 fields`() {
