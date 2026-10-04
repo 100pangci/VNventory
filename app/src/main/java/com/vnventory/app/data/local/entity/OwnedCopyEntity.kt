@@ -46,7 +46,7 @@ data class OwnedCopyEntity(
     /** 快照：封面图 URL */
     val coverUrl: String?,
     /** 购入价格（最小货币单位，例：日元=円，人民币=分） */
-    val priceMinor: Long,
+    val priceMinor: Long?,
     /** ISO 4217 货币代码，如 `JPY` / `CNY` */
     val currency: String,
     /** 品相 */

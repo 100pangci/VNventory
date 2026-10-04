@@ -23,12 +23,21 @@ enum class AllocationMode(private val labelKey: MessageKey) {
     val label get() = message(labelKey)
 }
 
-/** 费用分类（名称仍自由填写，分类仅用于汇总展示） */
+/** 新建只用固定分类；旧分类保留以读取历史记录和备份。 */
 enum class ExpenseCategory(private val labelKey: MessageKey) {
+    INTERNATIONAL_SHIPPING(MessageKey.CATEGORY_INTERNATIONAL_SHIPPING),
+    ISLAND_SHIPPING(MessageKey.CATEGORY_ISLAND_SHIPPING),
+    DOMESTIC_SHIPPING(MessageKey.CATEGORY_DOMESTIC_SHIPPING),
+    PAYMENT_FEE(MessageKey.CATEGORY_PAYMENT_FEE),
     SHIPPING(MessageKey.CATEGORY_SHIPPING),
     FEE(MessageKey.CATEGORY_FEE),
     TAX(MessageKey.CATEGORY_TAX),
     OTHER(MessageKey.CATEGORY_OTHER);
 
     val label get() = message(labelKey)
+    val isFixed: Boolean get() = this in fixedCategories
+
+    companion object {
+        val fixedCategories = listOf(INTERNATIONAL_SHIPPING, ISLAND_SHIPPING, DOMESTIC_SHIPPING, PAYMENT_FEE, TAX)
+    }
 }

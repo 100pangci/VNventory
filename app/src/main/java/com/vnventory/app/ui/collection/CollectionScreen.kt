@@ -57,6 +57,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.domain.model.CollectionSort
+import com.vnventory.app.domain.model.versionKey
+import com.vnventory.app.domain.model.copyOrdinal
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.LoadingState
 import com.vnventory.app.ui.components.OperationError
@@ -102,11 +104,11 @@ fun CollectionContent(
             else listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24
         }
     }
-    val counts = remember(state.copies) { state.copies.mapNotNull { it.releaseId }.groupingBy { it }.eachCount() }
+    val counts = remember(state.allCopies) { state.allCopies.groupingBy { it.versionKey() }.eachCount() }
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp)) {
-                PageHeader(stringResource(R.string.collection_title), pluralStringResource(if (state.isSearching) R.plurals.collection_search_count else R.plurals.collection_total_count, state.copies.size, state.copies.size), eyebrow = stringResource(R.string.collection_eyebrow))
+                PageHeader(stringResource(R.string.collection_title), subtitle = null, eyebrow = stringResource(R.string.collection_eyebrow))
                 Spacer(Modifier.height(16.dp))
                 androidx.compose.material3.SearchBar(
                     inputField = {
@@ -158,7 +160,7 @@ fun CollectionContent(
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                         ) {
                             items(state.copies, key = { it.id }, contentType = { "ownedCover" }) { copy ->
-                                OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), counts[copy.releaseId] ?: 1)
+                                OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), counts[copy.versionKey()] ?: 1, state.showPrices, state.allCopies.copyOrdinal(copy))
                             }
                             if (state.isSearching) item(key = "searchSummary") {
                                 Text(pluralStringResource(R.plurals.collection_shown_count, state.copies.size, state.copies.size), Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -169,7 +171,7 @@ fun CollectionContent(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(state.copies, key = { it.id }, contentType = { "ownedRow" }) { copy ->
-                                OwnedListCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem())
+                                OwnedListCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), state.showPrices, state.allCopies.copyOrdinal(copy))
                             }
                             if (state.isSearching) item(key = "searchSummary") {
                                 Text(pluralStringResource(R.plurals.collection_shown_count, state.copies.size, state.copies.size), Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

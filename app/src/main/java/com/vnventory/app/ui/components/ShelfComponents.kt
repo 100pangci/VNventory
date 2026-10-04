@@ -52,11 +52,11 @@ import com.vnventory.app.R
 import com.vnventory.app.ui.text.localized
 
 @Composable
-fun PageHeader(title: String, subtitle: String, modifier: Modifier = Modifier, eyebrow: String = stringResource(R.string.brand_eyebrow)) {
+fun PageHeader(title: String, subtitle: String?, modifier: Modifier = Modifier, eyebrow: String = stringResource(R.string.brand_eyebrow)) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(eyebrow, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -116,7 +116,7 @@ fun SaveButton(label: String, saving: Boolean, enabled: Boolean, onClick: () -> 
 
 /** 同版本仍逐盒展示，编号让价格/品相相同的两盒也能区分。 */
 @Composable
-fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, sameReleaseCount: Int = 1) {
+fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, sameReleaseCount: Int = 1, showPrice: Boolean = false, ordinal: Int? = null) {
     PressableSurface(onClick, modifier) {
         Box(Modifier.padding(6.dp)) {
             VnCover(copy.coverUrl, copy.vnTitle, Modifier.fillMaxWidth().aspectRatio(.70f), corner = 16.dp)
@@ -124,20 +124,20 @@ fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mo
                 Tag(copy.condition.label.localized(), emphasized = true)
                 if (copy.isManualRelease) Tag(stringResource(R.string.manual_short))
             }
-            if (sameReleaseCount > 1) Tag(pluralStringResource(R.plurals.same_release_count, sameReleaseCount, sameReleaseCount), Modifier.align(Alignment.TopEnd).padding(8.dp))
+             if (sameReleaseCount > 1) Tag(stringResource(R.string.copy_multiplier, sameReleaseCount), Modifier.align(Alignment.TopEnd).padding(8.dp))
         }
         Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall, maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
             Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(Money.formatWithCode(copy.priceMinor, copy.currency), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            val number = stringResource(R.string.copy_number, copy.id)
-            Text(copy.purchaseDate?.let { stringResource(R.string.text_pair, number, it) } ?: number, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (showPrice) Text(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            ordinal?.let { Text(stringResource(R.string.copy_number, it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            copy.purchaseDate?.let { Text(it.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
 
 @Composable
-fun OwnedListCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun OwnedListCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, showPrice: Boolean = false, ordinal: Int? = null) {
     PressableSurface(onClick, modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             VnCover(copy.coverUrl, copy.vnTitle, Modifier.width(64.dp).height(92.dp))
@@ -145,10 +145,10 @@ fun OwnedListCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mod
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(Money.formatWithCode(copy.priceMinor, copy.currency), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                if (showPrice) Text(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Tag(copy.condition.label.localized())
-                    Text(stringResource(R.string.copy_number, copy.id), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ordinal?.let { Text(stringResource(R.string.copy_number, it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }

@@ -14,9 +14,10 @@ VNventory 是一款面向 Galgame / Visual Novel 实体收藏的 Android 应用�
 
 - **收藏书架**：封面网格与详细列表、搜索、排序；同一版本的多盒始终独立记录。
 - **VNDB 作品与版本**：按需搜索和分页，查看发行日期、平台、语言、发行商、JAN/EAN 与包装图；无对应版本时可创建手动版本，之后再绑定。
-- **逐盒购买记录**：记录价格、币种、品相、日期、店铺/渠道与备注；批量添加也会为每盒建立独立记录。
+- **逐盒购买记录**：价格可留空（未记录）或明确填 0；记录币种、品相、日期、店铺/渠道与备注，批量添加也为每盒建立独立记录。
 - **常用店铺/渠道**：在设置中维护名称，在收藏或批次表单里直接选择；也可临时填写。管理候选项不会更改历史购买记录。
-- **购买批次与成本**：集中记录多盒商品和运费、手续费、税费等费用，预览整个批次的最终成本。
+- **购买批次与成本**：直接选择国际运费、岛内运费、国内运费、手续费或税费，预览整个批次的成本与分摊；历史自定义费用仍可读取和编辑。
+- **按需展示价格**：「在书架显示价格」和「显示价格统计」独立设置，默认均关闭；详情始终可查看价格状态。统计仅汇总已记录金额并显示有价格的盒数/总盒数，不要求补齐历史记录。
 - **三种费用分摊**：平均分摊、按价格比例、手动指定；显示未分摊金额，并在保存时再次校验。
 - **JSON 备份与恢复**：系统文件选择器导出或导入，可追加或二次确认后覆盖；包含购买记录和可选恢复的常用店铺/渠道。
 - **书架风格界面**：深浅主题、减少动态效果支持、预测性返回，以及为新设计的“收集 V”品牌图标。
@@ -63,20 +64,20 @@ python3 scripts/convert-branding.py --write
 
 ## 金额与成本规则
 
-- 金额使用 `Long` 最小货币单位存储：JPY 以円计，CNY 以分计；输入、格式化统一经过 `domain/model/Money.kt`，不使用浮点金额。
+- 金额使用 `Long` 最小货币单位存储：JPY 以円计，CNY 以分计；输入、格式化统一经过 `domain/model/Money.kt`，不使用浮点金额。商品价格 `null` 表示未记录，`0` 表示已知零价；空白不会转换为 0，也不会自动推算价格。未知价格在升降序排序中均排最后。
 - 自动分摊按“模式 + 费用币种”池化计算，并以最大余数法保证总额守恒；计算结果不落库。
-- 按价格比例分摊要求本订单商品币种一致，因为应用不做隐式汇率换算；全部商品价格为零时退化为平均分摊。
+- 按价格比例分摊要求本订单商品价格全部已知且币种一致，因为应用不猜价格、不做隐式汇率换算；全部商品价格明确为零时退化为平均分摊。已有比例费用遇到未知价格时保留费用并提示未分摊，不阻止将购买价格清空。平均和手动分摊仍可用于未知价格商品。
 - 手动分摊只保存用户指定值：空白代表 0，拒绝非法、负数、超额或不属于当前订单的分配；未分完金额明确显示。
 - 比例运算使用 `BigInteger`，各币种汇总进行溢出检查。超出 `Long` 范围时拒绝保存并回滚事务。
-- 订单支出按币种分别满足：**商品金额 + 全部费用 = 已分摊收藏成本 + 未分摊费用**。
+- 已记录金额按币种分别满足：**已知商品金额 + 全部费用 = 已记录收藏成本 + 未分摊费用**。缺失商品价格时，这不是完整投入；订单详情显示价格覆盖数量。
 
 ## 本地数据与数据库
 
-Room 当前为 **v2**。VNDB 的 VN 与 Release 缓存通过 `release_vn` 多对多关联，以支持同一 Release 属于多个 VN。v1 → v2 Migration 只调整元数据缓存关联，不重建购买事实表。
+Room 当前为 **v3**。VNDB 的 VN 与 Release 缓存通过 `release_vn` 多对多关联。保留正式的 v1 → v2 → v3 路径，不使用破坏性迁移：v1 → v2 调整缓存关联；v2 → v3 将 `owned_copy.priceMinor` 改为 nullable，原价格（包括 0）、ID、快照、订单关联、自增序列和手动费用分摊均保留。费用旧分类和名称列不删除。
 
 每盒收藏保存标题、版本名和封面链接快照。即使 VNDB 缓存变化或清空，用户的购买记录也不受影响。费用自动分摊实时计算；只有手动分摊明细保存到数据库。
 
-常用店铺/渠道和默认货币保存在 DataStore。备份在独立的 `VNventoryBackup` JSON 格式中携带店铺候选项；恢复旧版备份时，如果文件没有店铺列表字段，就保留设备当前列表。候选项改名或删除不会重写收藏及批次中的历史名称。
+常用店铺/渠道、默认货币和价格展示开关保存在 DataStore。`VNventoryBackup` JSON 格式现为 **v2**，可表达 `priceMinor: null`，同时接受 v1 的整数价格及历史费用分类/名称；新增开关随备份保存，旧备份缺少开关时使用 false。恢复时展示开关随配置恢复，默认货币和店铺列表可单独选择是否恢复；旧备份没有店铺列表时保留本机列表。候选项改名或删除不会重写历史名称。旧应用不支持 v2 备份，请保留升级前的备份以备回退。
 
 ## 备份、隐私与网络
 
@@ -119,9 +120,11 @@ Release 开启 R8 优化/混淆和资源压缩；配置签名后 APK 使用 v2/v
 ./gradlew --stop
 ```
 
-没有本地签名配置时 Debug 构建和测试不受影响，Release 也可构建为未签名 APK；签名 Release 需要事先准备私有配置。Release APK 位于 `app/build/outputs/apk/release/app-release.apk`。
+没有本地签名配置时 Debug 构建和测试不受影响；本地仍可执行 `assembleRelease` 生成未签名 APK，但该包不能作为已签名正式版的升级包。已签名 APK 位于 `app/build/outputs/apk/release/app-release.apk`，无签名配置时为同目录的 `app-release-unsigned.apk`。
 
-GitHub Actions 会在推送 `vMAJOR.MINOR.PATCH` 标签时创建 GitHub Release，并按标签设置 `versionName`。Release notes 优先由 GitHub 生成；没有合并 PR 变更标题时，会补充该版本的提交摘要。发布后 notes 自动追加到仓库根目录的 `CHANGELOG.md`，由 Actions bot 提交到 `main`。Android `versionCode` 根据 `MAJOR.MINOR.PATCH` 计算（`MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`；`MINOR` 和 `PATCH` 均须小于 1000），本地默认版本也使用同一规则。需要签名发布时，在仓库 Actions secrets 中配置 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。未配置签名密钥时仍会发布未签名 APK，该 APK 不能作为已有签名安装的更新包。
+本地默认版本为 **1.1.0**（versionCode **1001000**，高于已有 `v1.0.0`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
+
+正式 tag 发布必须配齐 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。缺少任意必要 secret、构建失败、APK 缺失或签名校验失败均不发布，不允许用 unsigned APK 兜底。临时签名文件使用私有权限，日志不输出私钥或密码。Release notes 发布后幂等追加到 `CHANGELOG.md`，由 Actions bot 提交到 `main`；CHANGELOG 更新失败不影响已发布 APK，bot 的普通分支提交不会触发 tag 发布。
 
 ## 当前不包含
 

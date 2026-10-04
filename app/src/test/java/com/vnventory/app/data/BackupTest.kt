@@ -106,6 +106,32 @@ class BackupTest {
         assertThrows(IllegalArgumentException::class.java) { decode(BackupCodec.encode(data)) }
     }
 
+    @Test fun `空价格零价格与展示设置往返旧版恢复使用关闭默认`() = runTest {
+        val original = sample().copy(copies = sample().copies.mapIndexed { index, copy ->
+            copy.copy(priceMinor = if (index == 0) null else 0)
+        }, showShelfPrices = true, showPriceStats = true)
+        assertEquals(original, decode(BackupCodec.encode(original)))
+        val settings = settings()
+        val repo = repository(settings)
+        repo.restore(decode(BackupCodec.encode(original)), true, true)
+        val restored = repo.snapshot()
+        assertNull(restored.copies.first().priceMinor)
+        assertEquals(0L, restored.copies[1].priceMinor)
+        assertTrue(settings.showShelfPrices.first())
+        assertTrue(settings.showPriceStats.first())
+        val root = Json.parseToJsonElement(BackupCodec.encode(sample()).decodeToString()).jsonObject
+        val legacy = JsonObject(root + mapOf(
+            "schemaVersion" to kotlinx.serialization.json.JsonPrimitive(1),
+            "settings" to JsonObject(root.getValue("settings").jsonObject - "showShelfPrices" - "showPriceStats"),
+        ))
+        val old = decode(legacy.toString().encodeToByteArray())
+        assertEquals(50L, old.copies.first().priceMinor)
+        repo.restore(old, true, true)
+        assertFalse(settings.showShelfPrices.first())
+        assertFalse(settings.showPriceStats.first())
+        assertEquals("手续费", repo.snapshot().expenses.first().name)
+    }
+
     @Test fun `JSON往返保留配置快照日期金额与全部购买事实`() {
         val original = sample()
         val bytes = BackupCodec.encode(original)
@@ -123,7 +149,7 @@ class BackupTest {
         val json = BackupCodec.encode(sample()).decodeToString()
         for (text in listOf("{}", "not JSON", json.take(json.length / 2),
             json.replace("VNventoryBackup", "OtherBackup"),
-            json.replace("\"schemaVersion\": 1", "\"schemaVersion\": 999"),
+            json.replace("\"schemaVersion\": 2", "\"schemaVersion\": 999"),
             json.replace("2026-10-01", "2026-02-30"),
             json.replace("CUSTOM", "UNKNOWN"),
             json.replace("\"priceMinor\": 50", "\"priceMinor\": 50.5"))) {

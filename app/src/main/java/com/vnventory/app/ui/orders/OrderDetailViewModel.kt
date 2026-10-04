@@ -20,7 +20,7 @@ data class ExpenseEditorState(
     val open: Boolean = false,
     val editingId: Long? = null,
     val name: String = "",
-    val category: ExpenseCategory = ExpenseCategory.SHIPPING,
+    val category: ExpenseCategory = ExpenseCategory.INTERNATIONAL_SHIPPING,
     val amountText: String = "",
     val currency: String = "CNY",
     val mode: AllocationMode = AllocationMode.EQUAL,
@@ -36,7 +36,7 @@ data class ExpenseEditorState(
         }
     val inputError: Message?
         get() {
-            if (name.isBlank()) return message(MessageKey.INPUT_EXPENSE_NAME)
+            if (editingId == null && !category.isFixed) return message(MessageKey.INPUT_EXPENSE_CATEGORY)
             val amount = parsedAmount ?: return message(MessageKey.INPUT_NONNEGATIVE_AMOUNT)
             if (mode == AllocationMode.MANUAL) {
                 val allocations = parsedManual ?: return message(MessageKey.INPUT_MANUAL_INVALID)
@@ -50,7 +50,8 @@ data class ExpenseEditorState(
     fun candidate(detail: OrderDetail): Expense {
         requireMessage(inputError == null) { inputError!! }
         val old = editingId?.let { id -> requireNotNullMessage(detail.expenses.find { it.id == id }) { message(MessageKey.EXPENSE_MISSING) } }
-        return Expense(editingId ?: 0, detail.order.id, name.trim(), category, parsedAmount!!,
+        val savedName = if (old != null && old.category == category) old.name else category.name
+        return Expense(editingId ?: 0, detail.order.id, savedName, category, parsedAmount!!,
             Money.normalize(currency), mode, old?.notes, old?.createdAt ?: System.currentTimeMillis(),
             if (mode == AllocationMode.MANUAL) parsedManual!! else emptyMap())
     }
@@ -108,8 +109,9 @@ class OrderDetailViewModel(
                 .mapValues { Money.toEditableString(it.value, expense.currency) })
     }
     fun closeExpenseEditor() { if (!savingState.value) { clearError(); editorState.update { it.copy(open = false) } } }
-    fun onExpenseNameChange(value: String) = editorState.update { it.copy(name = value) }
-    fun onExpenseCategoryChange(value: ExpenseCategory) = editorState.update { it.copy(category = value) }
+    fun onExpenseCategoryChange(value: ExpenseCategory) {
+        if (value.isFixed) editorState.update { it.copy(category = value) }
+    }
     fun onExpenseAmountChange(value: String) = editorState.update { it.copy(amountText = value) }
     fun onExpenseCurrencyChange(value: String) = editorState.update { it.copy(currency = Money.normalize(value)) }
     fun onExpenseModeChange(mode: AllocationMode) {

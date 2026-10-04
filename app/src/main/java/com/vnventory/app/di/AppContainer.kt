@@ -21,7 +21,9 @@ class AppContainer(private val appContext: Context) {
 
     val database: VNventoryDatabase by lazy { VNventoryDatabase.build(appContext) }
 
-    private val httpClient by lazy { VndbClientFactory.create(debugLogging = BuildConfig.DEBUG) }
+    private val httpClient by lazy {
+        VndbClientFactory.create(versionName = BuildConfig.VERSION_NAME, debugLogging = BuildConfig.DEBUG)
+    }
 
     val vndbApi: VndbApi by lazy { VndbApi(httpClient) }
 

@@ -20,7 +20,7 @@ data class OwnedCopy(
     val vnTitle: String,
     val releaseTitle: String?,
     val coverUrl: String?,
-    val priceMinor: Long,
+    val priceMinor: Long?,
     val currency: String,
     val condition: CopyCondition,
     val conditionNote: String?,
@@ -38,6 +38,16 @@ data class OwnedCopy(
         get() = releaseTitle?.takeIf { it.isNotBlank() }?.let(Message::Literal)
             ?: message(if (isManualRelease) MessageKey.MANUAL_RELEASE else MessageKey.UNKNOWN_RELEASE)
 }
+
+/** 同一 VN 下同一发行版本；手动版本按用户填写的版本名区分。 */
+fun OwnedCopy.versionKey(): Triple<String, String?, String?> = Triple(vnId, releaseId, releaseTitle.takeIf { releaseId == null })
+
+fun List<OwnedCopy>.copyOrdinal(copy: OwnedCopy): Int? {
+    val siblings = filter { it.versionKey() == copy.versionKey() }.sortedWith(compareBy({ it.createdAt }, { it.id }))
+    return if (siblings.size > 1) siblings.indexOfFirst { it.id == copy.id }.takeIf { it >= 0 }?.plus(1) else null
+}
+
+fun OwnedCopy.knownPriceTotals(): Map<String, Long> = priceMinor?.let { mapOf(currency to it) }.orEmpty()
 
 /**
  * 购买订单/转运批次。

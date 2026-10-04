@@ -16,8 +16,13 @@ val releaseSigningFile = providers.environmentVariable("VNVENTORY_SIGNING_PROPER
 val releaseSigningProperties = Properties().apply {
     if (releaseSigningFile.isFile) releaseSigningFile.inputStream().use { load(it) }
 }
-val configuredVersionName = providers.gradleProperty("vnventoryVersionName").getOrElse("0.1.0")
+val configuredVersionName = providers.gradleProperty("vnventoryVersionName").getOrElse("1.1.0")
 val configuredVersionCode = versionCodeFor(configuredVersionName)
+providers.gradleProperty("vnventoryVersionCode").orNull?.let { expected ->
+    require(expected.toIntOrNull() == configuredVersionCode) {
+        "VNventory versionCode does not match versionName $configuredVersionName"
+    }
+}
 
 private fun versionCodeFor(versionName: String): Int {
     val match = Regex("""(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)""")

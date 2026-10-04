@@ -4,7 +4,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -93,15 +92,13 @@ class VndbApi(private val client: HttpClient) : VndbService {
     private suspend inline fun <reified T> post(path: String, body: VndbQueryBody): T {
         val response = client.post(path) { setBody(body) }
         if (!response.status.isSuccess()) {
-            val snippet = runCatching { response.bodyAsText().take(300) }.getOrDefault("")
-            throw VndbApiException(message(MessageKey.VN_HTTP_ERROR, response.status.value, snippet))
+            throw VndbApiException(message(MessageKey.VN_HTTP_ERROR, response.status.value))
         }
         return response.body()
     }
 
     companion object {
         const val BASE_URL = "https://api.vndb.org/kana/"
-        const val USER_AGENT = "VNventory/0.1.0 (Android; personal collection manager)"
         const val PAGE_SIZE = 20
         const val RELEASE_PAGE_SIZE = 100
 

@@ -170,7 +170,7 @@ fun CopyEditScreen(
                                 val parsed = form.parsedPrice
                                 Text(
                                     when {
-                                        form.priceText.isBlank() -> stringResource(R.string.amount_blank_zero)
+                                         form.priceText.isBlank() -> stringResource(R.string.amount_blank_unknown)
                                         parsed != null -> stringResource(R.string.amount_equivalent, Money.format(parsed, form.currency))
                                         else -> stringResource(R.string.amount_invalid)
                                     }

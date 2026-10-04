@@ -62,6 +62,8 @@ import com.vnventory.app.domain.model.ExpenseCategory
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OrderDetail
 import com.vnventory.app.domain.model.OwnedCopy
+import com.vnventory.app.domain.model.knownPriceTotals
+import com.vnventory.app.domain.model.copyOrdinal
 import com.vnventory.app.ui.components.CurrencySelector
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.LabeledRow
@@ -154,6 +156,7 @@ fun OrderDetailScreen(
                     OrderCopyRow(
                         copy = copy,
                         cost = detail.costFor(copy.id),
+                        ordinal = detail.copies.copyOrdinal(copy),
                         onClick = { onCopyClick(copy.id) },
                         onRemove = { copyToRemove = copy },
                         modifier = Modifier.animateItem(),
@@ -214,7 +217,7 @@ fun OrderDetailScreen(
     expenseToDelete?.let { expense ->
         AlertDialog(
             onDismissRequest = { expenseToDelete = null },
-            title = { Text(stringResource(R.string.expense_delete_title, expense.name)) },
+            title = { Text(stringResource(R.string.expense_delete_title, expense.displayName.localized())) },
             text = { Text(stringResource(R.string.expense_delete_hint)) },
             confirmButton = {
                 TextButton(onClick = {
@@ -289,12 +292,11 @@ private fun OrderHeaderCard(detail: OrderDetail) {
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        LabeledRow(stringResource(R.string.allocated_cost)) {
-            com.vnventory.app.ui.components.MoneyTotalsInline(detail.breakdown.allocatedTotals)
+        val known = detail.copies.count { it.priceMinor != null }
+        if (known < detail.copies.size) {
+            Text(stringResource(R.string.price_coverage, known, detail.copies.size), style = MaterialTheme.typography.bodySmall)
         }
-        LabeledRow(stringResource(R.string.unallocated_fees)) {
-            com.vnventory.app.ui.components.MoneyTotalsInline(detail.breakdown.unallocatedTotals, emptyText = stringResource(R.string.none))
-        }
+        UnallocatedFees(detail.breakdown.unallocatedTotals)
         detail.breakdown.issues.forEach { Text(it.localized(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     }
 }
@@ -306,6 +308,7 @@ private fun OrderCopyRow(
     onClick: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
+    ordinal: Int? = null,
 ) {
     Row(
         modifier = modifier
@@ -336,14 +339,16 @@ private fun OrderCopyRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            ordinal?.let { Text(stringResource(R.string.copy_number, it), style = MaterialTheme.typography.labelSmall) }
             Text(
-                text = stringResource(R.string.copy_base_amount, Money.formatWithCode(copy.priceMinor, copy.currency)),
+                text = stringResource(R.string.copy_base_amount, copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Column(horizontalAlignment = Alignment.End) {
-            val totals = cost?.totalsByCurrency ?: mapOf(copy.currency to copy.priceMinor)
+            val totals = cost?.takeIf { it.feeShares.isNotEmpty() }?.totalsByCurrency.orEmpty()
+            if (totals.isNotEmpty()) Text(stringResource(if (copy.priceMinor == null) R.string.recorded_cost else R.string.detail_final_cost), style = MaterialTheme.typography.labelSmall)
             totals.entries.sortedBy { it.key }.forEach { (currency, amount) ->
                 Text(
                     text = Money.formatWithCode(amount, currency),
@@ -373,9 +378,9 @@ private fun ExpenseRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(expense.name, style = MaterialTheme.typography.titleSmall)
+            Text(expense.displayName.localized(), style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Tag(text = expense.category.label.localized())
+                if (expense.name != expense.category.name) Tag(text = expense.category.label.localized())
                 Tag(text = expense.mode.label.localized())
             }
         }
@@ -423,14 +428,9 @@ private fun ExpenseEditorSheet(
                 style = MaterialTheme.typography.titleMedium,
             )
 
-            OutlinedTextField(
-                value = editor.name,
-                onValueChange = viewModel::onExpenseNameChange,
-                label = { Text(stringResource(R.string.expense_name_hint)) },
-                singleLine = true,
-                isError = editor.name.isBlank(),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (editor.editingId != null && editor.name != editor.category.name) {
+                Text(editor.name, style = MaterialTheme.typography.bodySmall)
+            }
 
             Column {
                 Text(stringResource(R.string.expense_category), style = MaterialTheme.typography.labelMedium)
@@ -438,7 +438,7 @@ private fun ExpenseEditorSheet(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    ExpenseCategory.entries.forEach { category ->
+                    (ExpenseCategory.fixedCategories + listOfNotNull(editor.category.takeIf { editor.editingId != null && !it.isFixed })).forEach { category ->
                         FilterChip(
                             selected = editor.category == category,
                             onClick = { viewModel.onExpenseCategoryChange(category) },
@@ -474,7 +474,7 @@ private fun ExpenseEditorSheet(
                     AllocationMode.entries.forEach { mode ->
                         FilterChip(
                             selected = editor.mode == mode,
-                            enabled = mode != AllocationMode.BY_PRICE || detail.copies.map { it.currency }.distinct().size <= 1,
+                            enabled = mode != AllocationMode.BY_PRICE || (detail.copies.all { it.priceMinor != null } && detail.copies.map { it.currency }.distinct().size <= 1),
                             onClick = { viewModel.onExpenseModeChange(mode) },
                             label = { Text(mode.label.localized()) },
                         )
@@ -517,10 +517,12 @@ private fun ExpenseEditorSheet(
 private fun AllocationPreview(detail: OrderDetail, preview: OrderCostBreakdown) {
     Column {
         Text(stringResource(R.string.allocation_preview), style = MaterialTheme.typography.labelMedium)
+        val known = detail.copies.count { it.priceMinor != null }
+        if (known < detail.copies.size) Text(stringResource(R.string.price_coverage, known, detail.copies.size), style = MaterialTheme.typography.bodySmall)
         detail.copies.forEach { copy ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 Text(
-                    text = copy.vnTitle,
+                    text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.vnTitle, stringResource(R.string.copy_number, it)) } ?: copy.vnTitle,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -532,7 +534,14 @@ private fun AllocationPreview(detail: OrderDetail, preview: OrderCostBreakdown) 
             }
         }
         LabeledRow(stringResource(R.string.order_total_spending)) { com.vnventory.app.ui.components.MoneyTotalsInline(preview.totalsByCurrency) }
-        LabeledRow(stringResource(R.string.unallocated_fees)) { com.vnventory.app.ui.components.MoneyTotalsInline(preview.unallocatedTotals, emptyText = stringResource(R.string.none)) }
+        UnallocatedFees(preview.unallocatedTotals)
+    }
+}
+
+@Composable
+internal fun UnallocatedFees(totals: Map<String, Long>) {
+    if (totals.isNotEmpty()) LabeledRow(stringResource(R.string.unallocated_fees)) {
+        com.vnventory.app.ui.components.MoneyTotalsInline(totals, color = MaterialTheme.colorScheme.error)
     }
 }
 
@@ -556,7 +565,7 @@ private fun ManualAllocationEditor(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = copy.vnTitle,
+                        text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.vnTitle, stringResource(R.string.copy_number, it)) } ?: copy.vnTitle,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

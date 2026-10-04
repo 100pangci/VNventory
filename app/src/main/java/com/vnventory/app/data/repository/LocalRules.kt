@@ -16,7 +16,7 @@ internal object LocalRules {
     }
 
     fun copy(copy: OwnedCopy) {
-        requireMessage(copy.priceMinor >= 0) { message(MessageKey.COPY_PRICE_NEGATIVE) }
+        requireMessage(copy.priceMinor == null || copy.priceMinor >= 0) { message(MessageKey.COPY_PRICE_NEGATIVE) }
         requireMessage(copy.vnId.matches(Regex("v[1-9][0-9]*"))) { message(MessageKey.VN_ID_INVALID) }
         requireMessage(copy.vnTitle.isNotBlank() && !copy.releaseTitle.isNullOrBlank()) { message(MessageKey.TITLES_REQUIRED) }
         requireMessage(copy.condition != CopyCondition.CUSTOM || !copy.conditionNote.isNullOrBlank()) { message(MessageKey.CONDITION_NOTE_REQUIRED) }
@@ -34,7 +34,7 @@ internal object LocalRules {
 
     suspend fun totals(db: VNventoryDatabase) {
         // Checked arithmetic before commit also protects SQL SUM projections from overflow.
-        Money.totals(db.ownedCopyDao().getAll().map { it.currency to it.priceMinor } +
+        Money.totals(db.ownedCopyDao().getAll().mapNotNull { copy -> copy.priceMinor?.let { copy.currency to it } } +
             db.expenseDao().getAll().map { it.currency to it.amountMinor })
     }
 }

@@ -9,7 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
-data class BackupRestoreResult(val currencyRestored: Boolean, val shopsRestored: Boolean = false)
+data class BackupRestoreResult(val currencyRestored: Boolean, val shopsRestored: Boolean = false, val priceDisplayRestored: Boolean = false)
 
 class BackupRepository(
     private val database: VNventoryDatabase,
@@ -27,6 +27,8 @@ class BackupRepository(
                 expenses = database.expenseDao().getAll().sortedBy { it.id },
                 allocations = database.backupDao().getAllocations(),
                 shopChannels = preferences.shopChannels,
+                showShelfPrices = preferences.showShelfPrices,
+                showPriceStats = preferences.showPriceStats,
             )
         }
     }
@@ -57,14 +59,14 @@ class BackupRepository(
         withContext(NonCancellable) {
             val shops = data.shopChannels.takeIf { restoreShops }
             val success = try {
-                settings.restorePreferences(data.defaultCurrency.takeIf { restoreCurrency }, shops)
+                settings.restorePreferences(data.defaultCurrency.takeIf { restoreCurrency }, shops, data.showShelfPrices, data.showPriceStats)
                 true
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 false
             }
-            BackupRestoreResult(success && restoreCurrency, success && shops != null)
+            BackupRestoreResult(success && restoreCurrency, success && shops != null, success)
         }
     }
 }

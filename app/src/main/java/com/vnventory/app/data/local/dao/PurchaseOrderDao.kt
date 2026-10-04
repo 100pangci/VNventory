@@ -34,7 +34,7 @@ interface PurchaseOrderDao {
     @Query(
         """
         SELECT orderId AS orderId, currency AS currency,
-               SUM(priceMinor) AS total, COUNT(*) AS copyCount
+                SUM(priceMinor) AS total, COUNT(*) AS copyCount, COUNT(priceMinor) AS pricedCopyCount
         FROM owned_copy
         WHERE orderId IS NOT NULL
         GROUP BY orderId, currency

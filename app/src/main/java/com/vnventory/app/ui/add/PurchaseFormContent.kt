@@ -96,7 +96,7 @@ internal fun PurchaseFormContent(
                     value = form.priceText,
                     onValueChange = { onFormChange(form.copy(priceText = it)) },
                     label = { Text(stringResource(R.string.purchase_unit_price)) },
-                    supportingText = { Text(stringResource(if (!form.priceValid) R.string.amount_invalid else R.string.amount_blank_zero)) },
+                    supportingText = { Text(stringResource(if (!form.priceValid) R.string.amount_invalid else R.string.amount_blank_unknown)) },
                     isError = !form.priceValid,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -135,12 +135,13 @@ internal fun PurchaseFormContent(
                 val subtotal = form.subtotalMinor
                 Text(
                     text = when {
+                        form.priceText.isBlank() -> stringResource(R.string.not_recorded)
                         subtotal != null -> Money.formatWithCode(subtotal, form.currency)
                         !form.priceValid -> stringResource(R.string.purchase_price_check)
                         else -> stringResource(R.string.purchase_subtotal_overflow)
                     },
                     style = MaterialTheme.typography.titleLarge,
-                    color = if (subtotal == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                    color = if (subtotal == null && form.priceText.isNotBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 )
             }
         }

@@ -36,7 +36,8 @@ Android 原生应用：Galgame/VN 实体收藏管理（Kotlin + Compose + Materi
 - 禁止混币种商品 BY_PRICE（无汇率）；MANUAL 不能非法、负数或超额，部分分摊须显示未分摊金额。
   仓库在事务内二次校验，预览必须使用完整订单引擎；金额相加使用 `Money.add/sum/totals`，不得静默溢出。
 - **VNDB 是缓存、本地是事实来源**：`owned_copy` 保存标题/封面快照，VNDB 缓存被清理不影响收藏。
-- Room 当前 v2，VN/Release 通过 `release_vn` 多对多；v1→v2 非破坏性迁移已有回归测试。
+- Room 当前 v3，VN/Release 通过 `release_vn` 多对多；v1→v2→v3 非破坏性迁移已有真实 schema 回归测试。
+- 商品价格 `Long?`：null=未记录，0=真实零价；不把空值补成0。比例分摊要求全部商品价格已知，平均/手动不受影响。
 - 改 Room schema：升 `version` + 写 `Migration`（schema 导出目录 `app/schemas/`，勿手改）。
 - 用户可见文案统一放在 `app/src/main/res/values/strings.xml` / `messages.xml`；Compose 使用
   `stringResource` / `pluralStringResource`，不得重新硬编码。默认中文，后续通过 `values-<locale>/` 添加翻译；没有 XML 布局。

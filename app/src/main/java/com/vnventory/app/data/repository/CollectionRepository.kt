@@ -53,6 +53,8 @@ class CollectionRepository(
 
     fun observeCopyCount(): Flow<Int> = ownedCopyDao.observeCopyCount().flowOn(io)
 
+    fun observePricedCopyCount(): Flow<Int> = ownedCopyDao.observePricedCopyCount().flowOn(io)
+
     fun observeDistinctVnCount(): Flow<Int> = ownedCopyDao.observeDistinctVnCount().flowOn(io)
 
     fun observePriceTotals(): Flow<List<CurrencyTotal>> = ownedCopyDao.observePriceTotals().flowOn(io)
@@ -141,8 +143,8 @@ class CollectionRepository(
             CollectionSort.TITLE_DESC -> "vnTitle COLLATE NOCASE DESC, releaseTitle COLLATE NOCASE DESC, id DESC"
             CollectionSort.PURCHASE_DESC -> "(purchaseDate IS NULL) ASC, purchaseDate DESC, createdAt DESC"
             CollectionSort.PURCHASE_ASC -> "(purchaseDate IS NULL) ASC, purchaseDate ASC, createdAt ASC"
-            CollectionSort.PRICE_DESC -> "priceMinor DESC, id DESC"
-            CollectionSort.PRICE_ASC -> "priceMinor ASC, id ASC"
+            CollectionSort.PRICE_DESC -> "(priceMinor IS NULL) ASC, priceMinor DESC, id DESC"
+            CollectionSort.PRICE_ASC -> "(priceMinor IS NULL) ASC, priceMinor ASC, id ASC"
         }
         val sql = "SELECT * FROM owned_copy $where ORDER BY $orderBy"
         return if (keyword.isEmpty()) {

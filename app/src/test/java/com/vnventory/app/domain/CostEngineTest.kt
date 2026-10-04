@@ -14,6 +14,26 @@ import com.vnventory.app.domain.text.message
 
 class CostEngineTest {
 
+    @Test fun `未知价格不冒充零成本并阻止猜测比例权重`() {
+        val copies = listOf(CostCopyInput(1, null, "CNY"), CostCopyInput(2, 0, "JPY"), CostCopyInput(3, 100, "JPY"))
+        val goods = CostEngine.computeOrderCosts(copies, emptyList())
+        assertEquals(mapOf("JPY" to 100L), goods.goodsTotals)
+        assertEquals(emptyMap<String, Long>(), goods.copyCosts.first().totalsByCurrency)
+        assertEquals(mapOf("JPY" to 0L), goods.copyCosts[1].totalsByCurrency)
+        assertNull(goods.copyCosts.first().basePriceMinor)
+        val sameCurrency = copies.map { it.copy(currency = "JPY") }
+        val byPrice = expense(1, 90, AllocationMode.BY_PRICE)
+        assertEquals(message(MessageKey.ALLOCATION_PRICE_MISSING), CostEngine.expenseProblem(byPrice, sameCurrency))
+        val result = CostEngine.computeOrderCosts(sameCurrency, listOf(byPrice))
+        assertEquals(mapOf("JPY" to 90L), result.unallocatedTotals)
+        assertEquals(1, result.issues.size)
+        val equal = CostEngine.computeOrderCosts(sameCurrency, listOf(expense(2, 90, AllocationMode.EQUAL)))
+        assertEquals(mapOf("JPY" to 30L), equal.copyCosts.first().totalsByCurrency)
+        val manual = CostEngine.computeOrderCosts(sameCurrency, listOf(expense(3, 90, AllocationMode.MANUAL, manual = mapOf(1L to 40L))))
+        assertEquals(mapOf("JPY" to 40L), manual.copyCosts.first().totalsByCurrency)
+        assertEquals(mapOf("JPY" to 50L), manual.unallocatedTotals)
+    }
+
     private fun copy(id: Long, price: Long, currency: String = "JPY") =
         CostCopyInput(copyId = id, priceMinor = price, currency = currency)
 

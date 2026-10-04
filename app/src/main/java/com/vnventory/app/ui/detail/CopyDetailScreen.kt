@@ -46,6 +46,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.domain.model.Money
+import com.vnventory.app.domain.model.knownPriceTotals
 import com.vnventory.app.ui.components.CostHighlight
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.LabeledRow
@@ -89,7 +90,7 @@ fun CopyDetailScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(stringResource(R.string.detail_delete_title)) },
-            text = { Text(stringResource(R.string.detail_delete_hint, state.copy?.id ?: 0L)) },
+            text = { Text(stringResource(R.string.detail_delete_hint)) },
             confirmButton = { TextButton(onClick = { confirmDelete = false; viewModel.delete(onBack) }) { Text(stringResource(R.string.detail_delete_record), color = MaterialTheme.colorScheme.error) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.detail_keep)) } },
         )
@@ -111,14 +112,14 @@ fun CopyDetailContent(state: CopyDetailUiState, onOrderClick: (Long) -> Unit, mo
                 item(key = "poster") { DetailPoster(state) }
                 item(key = "cost") {
                     CostHighlight(
-                        totals = state.cost?.totalsByCurrency ?: mapOf(copy.currency to copy.priceMinor),
-                        label = stringResource(R.string.detail_final_cost),
-                        supporting = stringResource(if (copy.orderId == null) R.string.detail_standalone_hint else R.string.detail_order_cost_hint),
+                        totals = state.cost?.totalsByCurrency ?: copy.knownPriceTotals(),
+                        label = stringResource(if (state.costIncomplete) R.string.recorded_cost else R.string.detail_final_cost),
+                        supporting = stringResource(if (copy.priceMinor == null) R.string.detail_price_missing_hint else if (copy.orderId == null) R.string.detail_standalone_hint else R.string.detail_order_cost_hint),
                     )
                 }
                 item(key = "costBreakdown") {
                     SectionCard(title = stringResource(R.string.detail_cost_breakdown)) {
-                        LabeledRow(stringResource(R.string.base_price)) { Text(Money.formatWithCode(copy.priceMinor, copy.currency)) }
+                        LabeledRow(stringResource(R.string.base_price)) { Text(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded)) }
                         state.cost?.feeShares?.forEach { share ->
                             Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                                 Text(share.label.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -173,7 +174,7 @@ private fun DetailPoster(state: CopyDetailUiState) {
         Spacer(Modifier.height(12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Tag(copy.condition.label.localized(), emphasized = true)
-            Tag(stringResource(R.string.copy_number, copy.id))
+            state.ordinal?.let { Tag(stringResource(R.string.copy_number, it)) }
             if (copy.isManualRelease) Tag(stringResource(R.string.message_manual_release))
             state.release?.platforms?.forEach { Tag(it) }
         }

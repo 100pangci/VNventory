@@ -19,4 +19,7 @@ data class Expense(
     val createdAt: Long,
     /** 手动分摊明细：copyId -> 金额（仅 MANUAL 模式有值） */
     val allocations: Map<Long, Long> = emptyMap(),
-)
+) {
+    val displayName get() = if (category.isFixed && name == category.name) category.label
+        else com.vnventory.app.domain.text.Message.Literal(name)
+}

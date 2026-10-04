@@ -12,6 +12,7 @@ data class OrderSummary(
     val copyCount: Int,
     val goodsTotals: Map<String, Long>,
     val feeTotals: Map<String, Long>,
+    val pricedCopyCount: Int = copyCount,
 ) {
     /** 本体价 + 费用 */
     val grandTotals: Map<String, Long> = mergeTotals(goodsTotals, feeTotals)

@@ -73,7 +73,7 @@ data class PurchaseFormState(
 ) {
     val parsedPrice: Long? get() = Money.parse(priceText, currency)
 
-    /** 空价格按 0 处理；非空则必须可解析 */
+    /** 空白为未记录；非空则必须可解析（包括真实的 0）。 */
     val priceValid: Boolean get() = priceText.isBlank() || parsedPrice != null
 
     val quantityValid: Boolean get() = quantity in 1..99
@@ -82,12 +82,12 @@ data class PurchaseFormState(
 
     /** 商品本体小计，不含购买批次费用，仍采用检查加法。 */
     val subtotalMinor: Long?
-        get() = if (priceValid && quantityValid) {
-            runCatching { Money.sum(List(quantity) { parsedPrice ?: 0L }) }.getOrNull()
+        get() = if (priceValid && quantityValid && parsedPrice != null) {
+            runCatching { Money.sum(List(quantity) { requireNotNull(parsedPrice) }) }.getOrNull()
         } else null
 
     val canSave: Boolean get() = priceValid && quantityValid && manualVersionValid &&
-        subtotalMinor != null && (condition != CopyCondition.CUSTOM || conditionNote.isNotBlank())
+        (priceText.isBlank() || subtotalMinor != null) && (condition != CopyCondition.CUSTOM || conditionNote.isNotBlank())
 }
 
 data class AddFlowUiState(
@@ -368,7 +368,7 @@ class AddFlowViewModel(
                         vnTitle = vn.displayTitle,
                         releaseTitle = form.releaseTitle.takeIf { it.isNotBlank() },
                         coverUrl = coverUrl,
-                        priceMinor = form.parsedPrice ?: 0L,
+                        priceMinor = form.parsedPrice,
                         currency = Money.normalize(form.currency),
                         condition = form.condition,
                         conditionNote = form.conditionNote.takeIf { it.isNotBlank() },

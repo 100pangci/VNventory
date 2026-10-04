@@ -91,6 +91,13 @@ class SettingsViewModel(
             SettingsRepository.FALLBACK_CURRENCY,
         )
 
+    val showShelfPrices = settingsRepository.showShelfPrices
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val showPriceStats = settingsRepository.showPriceStats
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun setShowShelfPrices(value: Boolean) { launchAction { settingsRepository.setShowShelfPrices(value) } }
+    fun setShowPriceStats(value: Boolean) { launchAction { settingsRepository.setShowPriceStats(value) } }
+
     fun setDefaultCurrency(code: String) {
         launchAction { settingsRepository.setDefaultCurrency(code) }
     }
@@ -148,7 +155,9 @@ class SettingsViewModel(
                     else -> MessageKey.BACKUP_FEEDBACK_SHOPS_FAILED
                 }),
             )
-            _backupState.update { it.copy(pendingImport = null, replaceConfirmation = false, feedback = feedback) }
+            val completeFeedback = message(MessageKey.BACKUP_FEEDBACK_RESULT, feedback,
+                message(if (result.priceDisplayRestored) MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_RESTORED else MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_FAILED))
+            _backupState.update { it.copy(pendingImport = null, replaceConfirmation = false, feedback = completeFeedback) }
         }
     }
 

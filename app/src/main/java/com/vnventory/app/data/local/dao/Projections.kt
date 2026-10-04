@@ -17,8 +17,9 @@ data class CategoryTotal(
 data class OrderGoodsTotal(
     val orderId: Long,
     val currency: String,
-    val total: Long,
+    val total: Long?,
     val copyCount: Int,
+    val pricedCopyCount: Int,
 )
 
 /** 订单费用合计：某订单的全部费用，按币种分组 */

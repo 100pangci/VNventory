@@ -66,6 +66,58 @@ def transforms(parent, transform):
     return parent
 
 
+def reverse_closed_path(data):
+    """Reverse the SVG's absolute M/L/Q contours for non-zero-winding holes.
+
+    Geometry comes from the design source, never a separately maintained outline.
+    Unsupported commands fail loudly rather than silently drifting from the SVG.
+    """
+    tokens = re.findall(r"[A-Za-z]|[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?", data)
+    if re.sub(r"[\s,]+", "", data) != "".join(tokens):
+        raise ValueError("Unsupported hole path syntax")
+    index = 0
+    command = None
+    start = current = None
+    segments = []
+    while index < len(tokens):
+        if tokens[index].isalpha():
+            command = tokens[index]
+            index += 1
+        if command == "Z":
+            if current != start:
+                segments.append(("L", current, start, None))
+            if index != len(tokens):
+                raise ValueError("Hole must be one closed contour")
+            break
+        if command not in {"M", "L", "Q"}:
+            raise ValueError("Hole paths support only absolute M/L/Q/Z")
+        count = 4 if command == "Q" else 2
+        values = tuple(number(value) for value in tokens[index:index + count])
+        if len(values) != count:
+            raise ValueError("Incomplete hole path")
+        index += count
+        end = values[-2:]
+        if command == "M":
+            if start is not None:
+                raise ValueError("Hole must be one closed contour")
+            start = current = end
+            command = "L"
+        else:
+            if current is None:
+                raise ValueError("Hole must start with M")
+            segments.append((command, current, end, values[:2] if command == "Q" else None))
+            current = end
+    if command != "Z" or start is None:
+        raise ValueError("Hole must be closed")
+    result = "M" + ",".join(start)
+    for kind, previous, end, control in reversed(segments):
+        # A closing line returning to start is implicit in Z.
+        if kind == "L" and previous == start:
+            continue
+        result += kind + (",".join(control) + " " if control else "") + ",".join(previous)
+    return result + "Z"
+
+
 class Converter:
     def __init__(self):
         self.svg = ET.parse(SOURCE).getroot()
@@ -176,8 +228,8 @@ class Converter:
         root, group = self.vector(safe)
         group = transforms(group, self.ids["collection-mark"].get("transform"))
         # Reverse-wound holes work in both native VectorDrawable and Compose, without evenOdd clips.
-        label_hole = "M268,302Q263,304 265,311L291,371Q293,377 299,375L363,349Q370,346 367,340L342,280Q339,274 334,276Z"
-        tab_hole = "M678,247L673,251L676,257L682,254Z"
+        label_hole = reverse_closed_path(self.ids["spine-label-face"].get("d"))
+        tab_hole = reverse_closed_path(self.ids["tab-mark-face"].get("d"))
         group.append(element("clip-path", pathData="M0,0H1024V1024H0Z " + label_hole + " " + tab_hole))
         for name in ("left-game-sleeve", "right-game-sleeve"):
             path = self.ids[name].find("{http://www.w3.org/2000/svg}path")

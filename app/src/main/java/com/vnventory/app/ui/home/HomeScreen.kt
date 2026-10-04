@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.domain.model.OwnedCopy
+import com.vnventory.app.domain.model.copyOrdinal
 import com.vnventory.app.ui.components.CostHighlight
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.MoneyTotalsInline
@@ -112,18 +113,18 @@ fun HomeContent(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         items(recent, key = { it.id }) { copy ->
-                            OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.width(164.dp).animateItem())
+                            OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.width(164.dp).animateItem(), showPrice = stats.showShelfPrices, ordinal = stats.allCopies.ifEmpty { recent }.copyOrdinal(copy))
                         }
                     }
                 }
             }
-            item(key = "costs") {
+            if (stats.showPriceStats) item(key = "costs") {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SectionHeading(stringResource(R.string.collection_spending), stringResource(R.string.collection_spending_hint))
                     CostHighlight(
                         stats.grandTotals,
-                        stringResource(R.string.all_spending),
-                        supporting = stringResource(R.string.all_spending_hint),
+                        stringResource(R.string.recorded_spending),
+                        supporting = stringResource(R.string.price_coverage, stats.pricedCopyCount, stats.copyCount),
                     )
                     TextButton(onClick = { showCosts = !showCosts }, modifier = Modifier.align(Alignment.End)) {
                         Text(stringResource(if (showCosts) R.string.spending_collapse else R.string.spending_expand))

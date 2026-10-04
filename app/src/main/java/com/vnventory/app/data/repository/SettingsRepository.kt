@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.ShopChannels
@@ -24,7 +25,7 @@ import java.io.IOException
 /** 应用设置（DataStore，位于应用私有目录） */
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "vnventory_settings")
 
-data class SettingsSnapshot(val defaultCurrency: String, val shopChannels: List<String>)
+data class SettingsSnapshot(val defaultCurrency: String, val shopChannels: List<String>, val showShelfPrices: Boolean = false, val showPriceStats: Boolean = false)
 
 class SettingsRepository(
     private val dataStore: DataStore<Preferences>,
@@ -35,6 +36,16 @@ class SettingsRepository(
         .map { prefs -> prefs[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY }
 
     val shopChannels: Flow<List<String>> = dataStore.data.map { it.readShopChannels() }
+
+    val showShelfPrices: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_SHELF_PRICES] ?: false }
+    val showPriceStats: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_PRICE_STATS] ?: false }
+
+    suspend fun setShowShelfPrices(value: Boolean) { dataStore.edit { it[KEY_SHELF_PRICES] = value } }
+    suspend fun setShowPriceStats(value: Boolean) { dataStore.edit { it[KEY_PRICE_STATS] = value } }
 
     suspend fun addShopChannel(name: String) {
         val trimmed = name.trim()
@@ -68,17 +79,19 @@ class SettingsRepository(
     }
 
     /** Both preference fields restore atomically; neither changes if the DataStore write fails. */
-    suspend fun restorePreferences(currency: String?, shops: List<String>?) {
-        if (currency == null && shops == null) return
+    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null) {
+        if (currency == null && shops == null && shelfPrices == null && priceStats == null) return
         shops?.let(ShopChannels::validate)
         dataStore.edit { prefs ->
             currency?.let { prefs[KEY_DEFAULT_CURRENCY] = Money.normalize(it) }
             shops?.let { prefs[KEY_SHOP_CHANNELS] = Json.encodeToString(it) }
+            shelfPrices?.let { prefs[KEY_SHELF_PRICES] = it }
+            priceStats?.let { prefs[KEY_PRICE_STATS] = it }
         }
     }
 
     suspend fun snapshot(): SettingsSnapshot = dataStore.data.first().let {
-        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels())
+        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false)
     }
 
     private fun Preferences.readShopChannels(): List<String> {
@@ -101,5 +114,7 @@ class SettingsRepository(
         const val FALLBACK_CURRENCY = "CNY"
         private val KEY_DEFAULT_CURRENCY = stringPreferencesKey("default_currency")
         private val KEY_SHOP_CHANNELS = stringPreferencesKey("shop_channels")
+        private val KEY_SHELF_PRICES = booleanPreferencesKey("show_shelf_prices")
+        private val KEY_PRICE_STATS = booleanPreferencesKey("show_price_stats")
     }
 }

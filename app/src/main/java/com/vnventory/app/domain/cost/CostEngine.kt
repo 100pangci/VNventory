@@ -9,7 +9,7 @@ import com.vnventory.app.domain.text.MessageKey
 import com.vnventory.app.domain.text.message
 import com.vnventory.app.domain.text.requireMessage
 
-data class CostCopyInput(val copyId: Long, val priceMinor: Long, val currency: String)
+data class CostCopyInput(val copyId: Long, val priceMinor: Long?, val currency: String)
 
 data class CostExpenseInput(
     val expenseId: Long,
@@ -19,7 +19,9 @@ data class CostExpenseInput(
     val currency: String,
     val mode: AllocationMode,
     val manualAllocations: Map<Long, Long> = emptyMap(),
-)
+) {
+    val displayName: Message get() = if (category.isFixed && name == category.name) category.label else Message.Literal(name)
+}
 
 enum class FeeKind { EQUAL_POOL, BY_PRICE_POOL, MANUAL }
 
@@ -33,12 +35,12 @@ data class FeeShare(
 
 data class CopyCost(
     val copyId: Long,
-    val basePriceMinor: Long,
+    val basePriceMinor: Long?,
     val baseCurrency: String,
     val feeShares: List<FeeShare>,
 ) {
     val totalsByCurrency: Map<String, Long> = Money.totals(
-        listOf(baseCurrency to basePriceMinor) + feeShares.map { it.currency to it.amountMinor }
+        listOfNotNull(basePriceMinor?.let { baseCurrency to it }) + feeShares.map { it.currency to it.amountMinor }
     )
 }
 
@@ -61,6 +63,9 @@ object CostEngine {
         if (expense.mode == AllocationMode.BY_PRICE && copies.map { Money.normalize(it.currency) }.distinct().size > 1) {
             return message(MessageKey.MIXED_CURRENCY_ALLOCATION)
         }
+        if (expense.mode == AllocationMode.BY_PRICE && copies.any { it.priceMinor == null }) {
+            return message(MessageKey.ALLOCATION_PRICE_MISSING)
+        }
         if (expense.mode == AllocationMode.MANUAL) {
             val ids = copies.map { it.copyId }.toSet()
             if (expense.manualAllocations.keys.any { it !in ids }) return message(MessageKey.ALLOCATION_COPY_MISMATCH)
@@ -75,13 +80,13 @@ object CostEngine {
 
     fun computeOrderCosts(copies: List<CostCopyInput>, expenses: List<CostExpenseInput>): OrderCostBreakdown {
         requireMessage(copies.map { it.copyId }.distinct().size == copies.size) { message(MessageKey.COPY_IDS_DUPLICATE) }
-        requireMessage(copies.all { it.priceMinor >= 0 }) { message(MessageKey.COPY_PRICE_NEGATIVE) }
+        requireMessage(copies.all { it.priceMinor == null || it.priceMinor >= 0 }) { message(MessageKey.COPY_PRICE_NEGATIVE) }
         requireMessage(expenses.all { it.amountMinor >= 0 }) { message(MessageKey.EXPENSE_NEGATIVE) }
         val shares = copies.associate { it.copyId to mutableListOf<FeeShare>() }
         val issues = mutableListOf<Message>()
         val valid = expenses.filter { expense ->
             val problem = expenseProblem(expense, copies)
-            if (problem != null) issues.add(message(MessageKey.ALLOCATION_ISSUE, expense.name, problem))
+            if (problem != null) issues.add(message(MessageKey.ALLOCATION_ISSUE, expense.displayName, problem))
             problem == null
         }
         valid.filter { it.mode != AllocationMode.MANUAL }
@@ -89,11 +94,11 @@ object CostEngine {
             .forEach { (key, group) ->
                 val (mode, currency) = key
                 val amount = Money.sum(group.map { it.amountMinor })
-                val weights = if (mode == AllocationMode.EQUAL) copies.map { 1L } else copies.map { it.priceMinor }
+                val weights = if (mode == AllocationMode.EQUAL) copies.map { 1L } else copies.map { requireNotNull(it.priceMinor) }
                 val split = allocateProportionally(amount, weights)
                 copies.forEachIndexed { index, copy ->
                     shares.getValue(copy.copyId).add(FeeShare(
-                        null, if (group.size == 1) Message.Literal(group.single().name) else message(MessageKey.ALLOCATION_POOL, mode.label, group.size),
+                        null, if (group.size == 1) group.single().displayName else message(MessageKey.ALLOCATION_POOL, mode.label, group.size),
                         if (mode == AllocationMode.EQUAL) FeeKind.EQUAL_POOL else FeeKind.BY_PRICE_POOL,
                         split[index], currency,
                     ))
@@ -101,11 +106,11 @@ object CostEngine {
             }
         valid.filter { it.mode == AllocationMode.MANUAL }.forEach { expense ->
             expense.manualAllocations.forEach { (id, amount) ->
-                shares.getValue(id).add(FeeShare(expense.expenseId, Message.Literal(expense.name), FeeKind.MANUAL, amount, expense.currency))
+                shares.getValue(id).add(FeeShare(expense.expenseId, expense.displayName, FeeKind.MANUAL, amount, expense.currency))
             }
         }
         val costs = copies.map { CopyCost(it.copyId, it.priceMinor, it.currency, shares.getValue(it.copyId)) }
-        val goods = Money.totals(copies.map { it.currency to it.priceMinor })
+        val goods = Money.totals(copies.mapNotNull { copy -> copy.priceMinor?.let { copy.currency to it } })
         val fees = Money.totals(expenses.map { it.currency to it.amountMinor })
         val assignedFees = Money.totals(shares.values.flatten().map { it.currency to it.amountMinor })
         val unallocated = fees.mapValues { (currency, amount) -> amount - (assignedFees[currency] ?: 0L) }
@@ -126,7 +131,7 @@ object CostEngine {
         val problem = expenseProblem(expense, copies)
         requireMessage(problem == null) { problem!! }
         if (expense.mode == AllocationMode.MANUAL) return expense.manualAllocations
-        val weights = if (expense.mode == AllocationMode.EQUAL) copies.map { 1L } else copies.map { it.priceMinor }
+        val weights = if (expense.mode == AllocationMode.EQUAL) copies.map { 1L } else copies.map { requireNotNull(it.priceMinor) }
         return copies.map { it.copyId }.zip(allocateProportionally(expense.amountMinor, weights)).toMap()
     }
 

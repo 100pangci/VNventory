@@ -15,7 +15,11 @@ import kotlinx.serialization.json.Json
 
 object VndbClientFactory {
 
-    fun create(debugLogging: Boolean = false): HttpClient = HttpClient(OkHttp) {
+    fun create(
+        versionName: String,
+        debugLogging: Boolean = false,
+        baseUrl: String = VndbApi.BASE_URL,
+    ): HttpClient = HttpClient(OkHttp) {
         expectSuccess = false
 
         install(ContentNegotiation) {
@@ -36,14 +40,18 @@ object VndbClientFactory {
 
         if (debugLogging) {
             install(Logging) {
+                // HEADERS 日志不记录 VNDB 响应正文。
                 level = LogLevel.HEADERS
             }
         }
 
         defaultRequest {
-            url(VndbApi.BASE_URL)
+            url(baseUrl)
             contentType(ContentType.Application.Json)
-            headers.append(HttpHeaders.UserAgent, VndbApi.USER_AGENT)
+            headers.append(HttpHeaders.UserAgent, userAgent(versionName))
         }
     }
+
+    internal fun userAgent(versionName: String): String =
+        "VNventory/$versionName (Android; personal collection manager)"
 }

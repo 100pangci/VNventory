@@ -14,7 +14,9 @@ class PurchaseFormTest {
 
     @Test fun `商品小计按最小货币单位精确计算`() {
         assertEquals(303L, PurchaseFormState(priceText = "1.01", currency = "CNY", quantity = 3).subtotalMinor)
-        assertEquals(0L, PurchaseFormState(priceText = "", quantity = 2).subtotalMinor)
+        assertNull(PurchaseFormState(priceText = "", quantity = 2).subtotalMinor)
+        assertTrue(PurchaseFormState(priceText = "", quantity = 2).canSave)
+        assertEquals(0L, PurchaseFormState(priceText = "0", quantity = 2).subtotalMinor)
     }
 
     @Test fun `数量非法或小计溢出时不展示伪造金额也不能保存`() {

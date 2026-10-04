@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Switch
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -86,6 +89,8 @@ fun SettingsPreferencesScreen(
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val currency by viewModel.defaultCurrency.collectAsStateWithLifecycle()
+    val shelfPrices by viewModel.showShelfPrices.collectAsStateWithLifecycle()
+    val priceStats by viewModel.showPriceStats.collectAsStateWithLifecycle()
     SettingsDetailScaffold(stringResource(R.string.settings_preferences), onBack) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -93,6 +98,11 @@ fun SettingsPreferencesScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item { OperationError(viewModel) }
+            item {
+                SectionCard(title = stringResource(R.string.price_display_settings)) {
+                    PriceDisplayPreferences(shelfPrices, priceStats, viewModel::setShowShelfPrices, viewModel::setShowPriceStats)
+                }
+            }
             item {
                 SectionCard(title = stringResource(R.string.settings_default_currency)) {
                     InfoLine(stringResource(R.string.settings_default_currency_hint))
@@ -108,6 +118,20 @@ fun SettingsPreferencesScreen(
                     if (currency !in Money.commonCurrencies) InfoLine(stringResource(R.string.settings_currency_current, currency))
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun PriceDisplayPreferences(shelfPrices: Boolean, priceStats: Boolean, onShelfPrices: (Boolean) -> Unit, onPriceStats: (Boolean) -> Unit) {
+    Column {
+        Row(Modifier.fillMaxWidth().toggleable(shelfPrices, role = Role.Switch, onValueChange = onShelfPrices), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.show_shelf_prices), Modifier.weight(1f))
+            Switch(shelfPrices, onCheckedChange = null)
+        }
+        Row(Modifier.fillMaxWidth().toggleable(priceStats, role = Role.Switch, onValueChange = onPriceStats), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.show_price_stats), Modifier.weight(1f))
+            Switch(priceStats, onCheckedChange = null)
         }
     }
 }
@@ -220,6 +244,7 @@ internal fun BackupImportDialogs(
                     }.getOrDefault(stringResource(R.string.unknown))
                     InfoLine(stringResource(R.string.backup_exported_at, exported))
                     InfoLine(stringResource(R.string.backup_import_modes_hint))
+                    InfoLine(stringResource(R.string.backup_price_display_hint))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = state.restoreCurrency, onCheckedChange = onRestoreCurrency, enabled = !state.busy)
                         Text(stringResource(R.string.backup_restore_currency, backup.defaultCurrency), style = MaterialTheme.typography.bodyMedium)

@@ -42,7 +42,7 @@ import com.vnventory.app.data.local.entity.VnCacheEntity
         ExpenseEntity::class,
         ExpenseAllocationEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -82,9 +82,35 @@ abstract class VNventoryDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // DROP 的外键级联会删除手动分摊；先完整保存，重建后恢复。
+                db.execSQL("CREATE TEMP TABLE allocations_backup AS SELECT * FROM expense_allocation")
+                db.execSQL("CREATE TEMP TABLE copy_sequence AS SELECT seq FROM sqlite_sequence WHERE name = 'owned_copy'")
+                db.execSQL("""CREATE TABLE owned_copy_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, vnId TEXT NOT NULL, releaseId TEXT,
+                    vnTitle TEXT NOT NULL, releaseTitle TEXT, coverUrl TEXT, priceMinor INTEGER,
+                    currency TEXT NOT NULL, condition TEXT NOT NULL, conditionNote TEXT, purchaseDate TEXT,
+                    shop TEXT, orderId INTEGER, notes TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL,
+                    FOREIGN KEY(orderId) REFERENCES purchase_order(id) ON UPDATE NO ACTION ON DELETE SET NULL
+                )""")
+                db.execSQL("INSERT INTO owned_copy_new SELECT * FROM owned_copy")
+                db.execSQL("DROP TABLE owned_copy")
+                db.execSQL("ALTER TABLE owned_copy_new RENAME TO owned_copy")
+                listOf("vnId", "releaseId", "orderId", "purchaseDate").forEach {
+                    db.execSQL("CREATE INDEX index_owned_copy_$it ON owned_copy($it)")
+                }
+                db.execSQL("UPDATE sqlite_sequence SET seq = MAX(seq, COALESCE((SELECT seq FROM copy_sequence), 0)) WHERE name = 'owned_copy'")
+                db.execSQL("INSERT INTO sqlite_sequence(name, seq) SELECT 'owned_copy', seq FROM copy_sequence WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'owned_copy')")
+                db.execSQL("INSERT OR REPLACE INTO expense_allocation SELECT * FROM allocations_backup")
+                db.execSQL("DROP TABLE allocations_backup")
+                db.execSQL("DROP TABLE copy_sequence")
+            }
+        }
+
         fun build(context: Context): VNventoryDatabase =
             Room.databaseBuilder(context, VNventoryDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }

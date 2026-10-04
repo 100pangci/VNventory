@@ -47,8 +47,11 @@ interface OwnedCopyDao {
     @Query("SELECT COUNT(DISTINCT vnId) FROM owned_copy")
     fun observeDistinctVnCount(): Flow<Int>
 
-    @Query("SELECT currency, SUM(priceMinor) AS total FROM owned_copy GROUP BY currency")
+    @Query("SELECT currency, SUM(priceMinor) AS total FROM owned_copy WHERE priceMinor IS NOT NULL GROUP BY currency")
     fun observePriceTotals(): Flow<List<CurrencyTotal>>
+
+    @Query("SELECT COUNT(*) FROM owned_copy WHERE priceMinor IS NOT NULL")
+    fun observePricedCopyCount(): Flow<Int>
 
     @Insert
     suspend fun insert(copy: OwnedCopyEntity): Long

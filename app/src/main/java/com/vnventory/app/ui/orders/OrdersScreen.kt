@@ -185,6 +185,11 @@ private fun OrderCard(summary: OrderSummary, modifier: Modifier = Modifier, onCl
                 totals = summary.grandTotals,
                 style = MaterialTheme.typography.titleMedium,
             )
+            if (summary.pricedCopyCount < summary.copyCount) Text(
+                stringResource(R.string.price_coverage, summary.pricedCopyCount, summary.copyCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             if (summary.feeTotals.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.order_fee_included, summary.feeTotals.entries.sortedBy { it.key }.joinToString(stringResource(R.string.separator_plus)) {

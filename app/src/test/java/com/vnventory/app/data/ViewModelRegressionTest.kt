@@ -123,7 +123,7 @@ class ViewModelRegressionTest {
         store.put("order", vm)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() }
         vm.uiState.first { it.detail != null }
-        vm.openNewExpense(); vm.onExpenseNameChange("Ship"); vm.onExpenseAmountChange("100")
+        vm.openNewExpense(); vm.onExpenseCategoryChange(ExpenseCategory.INTERNATIONAL_SHIPPING); vm.onExpenseAmountChange("100")
         // A global ledger overflow is checked inside the write transaction, after form validation.
         val copy = OwnedCopy(0,"v1",null,"A","Manual",null,Long.MAX_VALUE,"JPY",CopyCondition.USED,null,null,null,null,null,0,0)
         val copyId = collection.addCopies(listOf(copy)).single()

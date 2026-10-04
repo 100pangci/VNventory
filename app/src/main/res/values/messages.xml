@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="message_backup_feedback_price_display_restored">价格展示设置已恢复。</string>
+    <string name="message_backup_feedback_price_display_failed">收藏数据已恢复，但价格展示设置写入失败；请在设置中手动调整，不要重复导入。</string>
+    <string name="message_allocation_price_missing">部分商品未记录价格，无法按价格比例分摊；请选择平均或手动分摊。</string>
+    <string name="message_input_expense_category">请选择固定费用类型</string>
+    <string name="message_category_international_shipping">国际运费</string>
+    <string name="message_category_island_shipping">岛内运费</string>
+    <string name="message_category_domestic_shipping">国内运费</string>
+    <string name="message_category_payment_fee">手续费</string>
     <!-- Domain messages stay language-independent; their keys are resolved only by the UI. -->
     <string name="message_amount_total_overflow">金额合计超出可支持的范围</string>
     <string name="message_expense_negative">费用不能为负数</string>
@@ -52,7 +60,7 @@
     <string name="message_backup_read_denied">无法读取此文件，请重新选择备份文件</string>
     <string name="message_vn_not_found">VNDB 未找到 VN：%1$s</string>
     <string name="message_vn_pagination_stalled">VNDB 分页未前进，请重试</string>
-    <string name="message_vn_http_error">VNDB 返回 HTTP %1$d：%2$s</string>
+    <string name="message_vn_http_error">VNDB 请求失败（HTTP %1$d）</string>
     <string name="message_error_http">VNDB 请求失败</string>
     <string name="message_error_parse">数据解析失败，请检查数据格式后重试</string>
     <string name="message_error_network">网络连接失败，请检查网络后重试</string>

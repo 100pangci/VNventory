@@ -112,7 +112,7 @@ class CopyEditViewModel(
             if (copy != null) {
                 formState.value = EditFormState(
                     releaseTitle = copy.releaseTitle.orEmpty(),
-                    priceText = Money.toEditableString(copy.priceMinor, copy.currency),
+                    priceText = copy.priceMinor?.let { Money.toEditableString(it, copy.currency) }.orEmpty(),
                     currency = copy.currency,
                     condition = copy.condition,
                     conditionNote = copy.conditionNote.orEmpty(),
@@ -155,7 +155,7 @@ class CopyEditViewModel(
                         } else {
                             copy.releaseTitle
                         },
-                        priceMinor = form.parsedPrice ?: 0L,
+                        priceMinor = form.parsedPrice,
                         currency = Money.normalize(form.currency),
                         condition = form.condition,
                         conditionNote = form.conditionNote.takeIf { it.isNotBlank() },

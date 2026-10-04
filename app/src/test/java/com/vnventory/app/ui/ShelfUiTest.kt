@@ -94,12 +94,12 @@ class ShelfUiTest {
         show { HomeContent(ShelfPreviewData.stats, ShelfPreviewData.copies, {}, { selected = it }, {}) }
         compose.onNodeWithText("故事，收进书架").assertIsDisplayed()
         capture("home-light", covers = 3)
-        compose.onNodeWithText("盒 #101", substring = true).performClick()
+        compose.onNodeWithText("第 1 盒").performClick()
         assertEquals(101L, selected)
     }
 
     @Test fun `深色首页与金额构成展开截图`() {
-        show(dark = true) { HomeContent(ShelfPreviewData.stats, ShelfPreviewData.copies, {}, {}, {}) }
+        show(dark = true) { HomeContent(ShelfPreviewData.stats.copy(showPriceStats = true), ShelfPreviewData.copies, {}, {}, {}) }
         capture("home-dark", covers = 3)
         compose.onNodeWithText("查看支出构成").performScrollTo().performClick()
         compose.onNodeWithText("运费").performScrollTo().assertIsDisplayed()
@@ -121,7 +121,7 @@ class ShelfUiTest {
         capture("collection-grid", covers = 3)
         compose.onNodeWithText("详细列表").performClick().assertIsSelected()
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithText("盒 #102").performScrollTo().performClick()
+        compose.onNodeWithText("第 2 盒").performScrollTo().performClick()
         assertEquals(102L, selected)
         capture("collection-list")
         compose.onNodeWithText("排序 · 最近添加").performClick()
@@ -133,7 +133,7 @@ class ShelfUiTest {
         show(dark = true, fontScale = 1.5f) { CollectionContent(CollectionUiState(copies = ShelfPreviewData.copies, loading = false), {}, {}, {}, {}) }
         compose.onNodeWithText("封面书架").assertIsDisplayed()
         compose.onNodeWithText("详细列表").performClick()
-        compose.onNodeWithText("盒 #101").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("第 1 盒").performScrollTo().assertIsDisplayed()
         capture("collection-large-type", covers = 2)
     }
 

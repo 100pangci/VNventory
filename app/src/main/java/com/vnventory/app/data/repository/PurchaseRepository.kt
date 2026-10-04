@@ -54,7 +54,8 @@ class PurchaseRepository(
             OrderSummary(
                 order = order.toDomain(),
                 copyCount = goods.sumOf { it.copyCount },
-                goodsTotals = goods.associate { it.currency to it.total },
+                pricedCopyCount = goods.sumOf { it.pricedCopyCount },
+                goodsTotals = goods.mapNotNull { row -> row.total?.let { row.currency to it } }.toMap(),
                 feeTotals = fees.associate { it.currency to it.total },
             )
         }

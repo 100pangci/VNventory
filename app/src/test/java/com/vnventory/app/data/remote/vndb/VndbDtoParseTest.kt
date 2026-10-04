@@ -1,5 +1,6 @@
 package com.vnventory.app.data.remote.vndb
 
+import com.vnventory.app.BuildConfig
 import com.vnventory.app.data.mapper.toDomain
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -12,6 +13,30 @@ import org.junit.Test
  * JSON 样本取自 2026-10 对 api.vndb.org/kana 的真实响应（已截取字段）。
  */
 class VndbDtoParseTest {
+
+    @Test
+    fun `User-Agent uses the configured app version rather than a hardcoded release`() {
+        assertEquals(
+            "VNventory/${BuildConfig.VERSION_NAME} (Android; personal collection manager)",
+            VndbClientFactory.userAgent(BuildConfig.VERSION_NAME),
+        )
+        assertEquals(
+            "VNventory/0.2.0 (Android; personal collection manager)",
+            VndbClientFactory.userAgent("0.2.0"),
+        )
+        assertEquals(
+            "VNventory/1.12.3 (Android; personal collection manager)",
+            VndbClientFactory.userAgent("1.12.3"),
+        )
+    }
+
+    @Test
+    fun `generated app version name and code share the MAJOR MINOR PATCH semantics`() {
+        assertTrue(Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)")
+            .matches(BuildConfig.VERSION_NAME))
+        val (major, minor, patch) = BuildConfig.VERSION_NAME.split('.').map { it.toLong() }
+        assertEquals(major * 1_000_000 + minor * 1_000 + patch, BuildConfig.VERSION_CODE.toLong())
+    }
 
     private val json = Json {
         ignoreUnknownKeys = true

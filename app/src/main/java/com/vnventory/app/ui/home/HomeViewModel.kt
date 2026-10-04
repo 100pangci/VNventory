@@ -21,6 +21,10 @@ data class HomeStats(
     val feeTotals: Map<String, Long> = emptyMap(),
     val taxTotals: Map<String, Long> = emptyMap(),
     val otherTotals: Map<String, Long> = emptyMap(),
+    val pricedCopyCount: Int = 0,
+    val showPriceStats: Boolean = false,
+    val showShelfPrices: Boolean = false,
+    val allCopies: List<OwnedCopy> = emptyList(),
 ) {
     /** 全部支出 = 购入成本 + 运费 + 手续费 + 税费 + 其他 */
     val grandTotals: Map<String, Long> = mergeTotals(
@@ -36,18 +40,23 @@ class HomeViewModel(container: AppContainer) : ActionViewModel() {
 
     val stats: StateFlow<HomeStats> = combine(
         collectionRepository.observeDistinctVnCount(),
-        collectionRepository.observeCopyCount(),
+        combine(collectionRepository.observeCopyCount(), collectionRepository.observePricedCopyCount()) { all, priced -> all to priced },
         collectionRepository.observePriceTotals(),
         purchaseRepository.observeExpenseCategoryTotals(),
-    ) { vnCount, copyCount, priceTotals, categoryTotals ->
+        combine(container.settingsRepository.showShelfPrices, container.settingsRepository.showPriceStats, collectionRepository.observeCollection(com.vnventory.app.domain.model.CollectionQuery())) { shelf, stats, copies -> Triple(shelf, stats, copies) },
+    ) { vnCount, (copyCount, pricedCount), priceTotals, categoryTotals, (shelfPrices, priceStats, allCopies) ->
         HomeStats(
             vnCount = vnCount,
             copyCount = copyCount,
             priceTotals = priceTotals.associate { it.currency to it.total },
-            shippingTotals = categoryTotals.totalsFor(ExpenseCategory.SHIPPING),
-            feeTotals = categoryTotals.totalsFor(ExpenseCategory.FEE),
+            shippingTotals = categoryTotals.totalsFor(ExpenseCategory.SHIPPING, ExpenseCategory.INTERNATIONAL_SHIPPING, ExpenseCategory.ISLAND_SHIPPING, ExpenseCategory.DOMESTIC_SHIPPING),
+            feeTotals = categoryTotals.totalsFor(ExpenseCategory.FEE, ExpenseCategory.PAYMENT_FEE),
             taxTotals = categoryTotals.totalsFor(ExpenseCategory.TAX),
             otherTotals = categoryTotals.totalsFor(ExpenseCategory.OTHER),
+            pricedCopyCount = pricedCount,
+            showShelfPrices = shelfPrices,
+            showPriceStats = priceStats,
+            allCopies = allCopies,
         )
     }.catch { reportError(it); emit(HomeStats()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeStats())
@@ -58,5 +67,6 @@ class HomeViewModel(container: AppContainer) : ActionViewModel() {
 }
 
 private fun List<com.vnventory.app.data.local.dao.CategoryTotal>.totalsFor(
-    category: ExpenseCategory,
-): Map<String, Long> = filter { it.category == category.name }.associate { it.currency to it.total }
+    vararg categories: ExpenseCategory,
+): Map<String, Long> = com.vnventory.app.domain.model.Money.totals(
+    filter { row -> categories.any { row.category == it.name } }.map { it.currency to it.total })

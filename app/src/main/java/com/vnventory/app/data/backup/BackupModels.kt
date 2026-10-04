@@ -39,7 +39,12 @@ data class BackupDocument(
 )
 
 @Serializable
-data class BackupSettings(val defaultCurrency: String, val shopChannels: List<String>? = null)
+data class BackupSettings(
+    val defaultCurrency: String,
+    val shopChannels: List<String>? = null,
+    val showShelfPrices: Boolean = false,
+    val showPriceStats: Boolean = false,
+)
 
 @Serializable
 data class BackupOrder(
@@ -61,7 +66,7 @@ data class BackupCopy(
     val vnTitle: String,
     val releaseTitle: String?,
     val coverUrl: String?,
-    val priceMinor: Long,
+    val priceMinor: Long?,
     val currency: String,
     val condition: String,
     val conditionNote: String?,
@@ -98,6 +103,8 @@ data class BackupData(
     val allocations: List<ExpenseAllocationEntity>,
     /** Null means an older backup has no such preference; restoring it must not erase local candidates. */
     val shopChannels: List<String>? = null,
+    val showShelfPrices: Boolean = false,
+    val showPriceStats: Boolean = false,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
@@ -147,15 +154,16 @@ data class BackupData(
                 ),
                 copiesByOrder[it.orderId].orEmpty().map { copy -> CostCopyInput(copy.id, copy.priceMinor, copy.currency) },
             )
-            requireMessage(problem == null) { problem!! }
+            // 缺失价格可让既有比例分摊暂时失效；恢复购买事实，不猜价格。
+            requireMessage(problem == null || problem == message(MessageKey.ALLOCATION_PRICE_MISSING)) { problem!! }
         }
-        Money.totals(copies.map { it.currency to it.priceMinor } + expenses.map { it.currency to it.amountMinor })
+        Money.totals(copies.mapNotNull { copy -> copy.priceMinor?.let { copy.currency to it } } + expenses.map { it.currency to it.amountMinor })
     }
 }
 
 object BackupCodec {
     const val FORMAT = "VNventoryBackup"
-    const val VERSION = 1
+    const val VERSION = 2
     const val MAX_BYTES = 32 * 1024 * 1024
     private val json = Json {
         prettyPrint = true
@@ -168,7 +176,7 @@ object BackupCodec {
             format = FORMAT,
             schemaVersion = VERSION,
             exportedAt = data.exportedAt,
-            settings = BackupSettings(data.defaultCurrency, data.shopChannels),
+            settings = BackupSettings(data.defaultCurrency, data.shopChannels, data.showShelfPrices, data.showPriceStats),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
             expenses = data.expenses.map { it.toBackup() },
@@ -196,7 +204,7 @@ object BackupCodec {
             throw MessageException(message(MessageKey.BACKUP_INVALID_UTF8), e)
         }
         requireMessage(document.format == FORMAT) { message(MessageKey.BACKUP_WRONG_FORMAT) }
-        requireMessage(document.schemaVersion == VERSION) { message(MessageKey.BACKUP_UNSUPPORTED_VERSION) }
+        requireMessage(document.schemaVersion in 1..VERSION) { message(MessageKey.BACKUP_UNSUPPORTED_VERSION) }
         val data = try {
             BackupData(
                 exportedAt = document.exportedAt,
@@ -206,6 +214,8 @@ object BackupCodec {
                 expenses = document.expenses.map { it.toEntity() },
                 allocations = document.allocations.map { ExpenseAllocationEntity(it.expenseId, it.ownedCopyId, it.amountMinor) },
                 shopChannels = document.settings.shopChannels,
+                showShelfPrices = document.settings.showShelfPrices,
+                showPriceStats = document.settings.showPriceStats,
             )
         } catch (e: java.time.DateTimeException) {
             throw MessageException(message(MessageKey.BACKUP_INVALID_DATE), e)

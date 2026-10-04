@@ -55,7 +55,7 @@
       <path d="M253 287 435 722Q441 737 450 737" fill="none" stroke="#FCF1FF" stroke-opacity=".39" stroke-width="2.5" stroke-linecap="round"/>
       <!-- Shallow inset label on the rear case spine. -->
       <path d="M266 300 333 273Q341 270 344 278L370 340Q373 348 365 351L299 378Q291 381 288 373L262 311Q259 303 266 300Z" fill="#A78CBB" opacity=".48"/>
-      <path d="M268 302 334 276Q339 274 342 280L367 340Q370 346 363 349L299 375Q293 377 291 371L265 311Q263 304 268 302Z" fill="url(#label)"/>
+      <path id="spine-label-face" d="M268 302 334 276Q339 274 342 280L367 340Q370 346 363 349L299 375Q293 377 291 371L265 311Q263 304 268 302Z" fill="url(#label)"/>
       <path d="M274 314 335 289M282 333 332 313" fill="none" stroke="#967AAD" stroke-width="4.2" stroke-linecap="round"/>
       <path d="M291 353 311 345" fill="none" stroke="#AB8CBD" stroke-width="3" stroke-linecap="round"/>
       <path d="M292 374Q296 377 301 374L364 348" fill="none" stroke="#FFF7FF" stroke-opacity=".6" stroke-width="1.6" stroke-linecap="round"/>
@@ -84,7 +84,7 @@
       <path d="M673 224 708 238" fill="none" stroke="#FFF7DB" stroke-opacity=".84" stroke-width="1.5" stroke-linecap="round"/>
       <path d="M653 289 672 284 683 301" fill="none" stroke="#FFE8B7" stroke-opacity=".58" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
       <path d="M679 246 684 255 675 260 671 251Z" fill="#C38B47" opacity=".65"/>
-      <path d="M678 247 682 254 676 257 673 251Z" fill="#FFE1A9"/>
+      <path id="tab-mark-face" d="M678 247 682 254 676 257 673 251Z" fill="#FFE1A9"/>
     </g>
   </g>
 </svg>

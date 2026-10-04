@@ -22,6 +22,14 @@ fun Resources.resolve(message: Message): String = when (message) {
 @get:StringRes
 val MessageKey.resourceId: Int
     get() = when (this) {
+        MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_RESTORED -> R.string.message_backup_feedback_price_display_restored
+        MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_FAILED -> R.string.message_backup_feedback_price_display_failed
+        MessageKey.ALLOCATION_PRICE_MISSING -> R.string.message_allocation_price_missing
+        MessageKey.INPUT_EXPENSE_CATEGORY -> R.string.message_input_expense_category
+        MessageKey.CATEGORY_INTERNATIONAL_SHIPPING -> R.string.message_category_international_shipping
+        MessageKey.CATEGORY_ISLAND_SHIPPING -> R.string.message_category_island_shipping
+        MessageKey.CATEGORY_DOMESTIC_SHIPPING -> R.string.message_category_domestic_shipping
+        MessageKey.CATEGORY_PAYMENT_FEE -> R.string.message_category_payment_fee
         MessageKey.AMOUNT_TOTAL_OVERFLOW -> R.string.message_amount_total_overflow
         MessageKey.EXPENSE_NEGATIVE -> R.string.message_expense_negative
         MessageKey.MIXED_CURRENCY_ALLOCATION -> R.string.message_mixed_currency_allocation
