@@ -23,6 +23,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -119,20 +120,20 @@ class ShelfUiTest {
         var selected: Long? = null
         show { CollectionContent(CollectionUiState(copies = ShelfPreviewData.copies, loading = false), {}, { sort = it }, {}, { selected = it }) }
         capture("collection-grid", covers = 3)
-        compose.onNodeWithText("详细列表").performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("详细列表").performClick().assertIsSelected()
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithText("第 2 盒").performScrollTo().performClick()
         assertEquals(102L, selected)
         capture("collection-list")
-        compose.onNodeWithText("排序 · 最近添加").performClick()
+        compose.onNodeWithContentDescription("排序 · 最近添加").performClick()
         compose.onNodeWithText(ApplicationProvider.getApplicationContext<Context>().resources.resolve(CollectionSort.PRICE_ASC.label)).performClick()
         assertEquals(CollectionSort.PRICE_ASC, sort)
     }
 
     @Test fun `大字体收藏页保持操作入口可见并截图`() {
         show(dark = true, fontScale = 1.5f) { CollectionContent(CollectionUiState(copies = ShelfPreviewData.copies, loading = false), {}, {}, {}, {}) }
-        compose.onNodeWithText("封面书架").assertIsDisplayed()
-        compose.onNodeWithText("详细列表").performClick()
+        compose.onNodeWithContentDescription("封面书架").assertIsDisplayed()
+        compose.onNodeWithContentDescription("详细列表").performClick()
         compose.onNodeWithText("第 1 盒").performScrollTo().assertIsDisplayed()
         capture("collection-large-type", covers = 2)
     }

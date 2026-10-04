@@ -23,6 +23,8 @@ import com.vnventory.app.data.repository.SettingsRepository
 import com.vnventory.app.domain.model.AllocationMode
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.ExpenseCategory
+import com.vnventory.app.domain.model.AppearancePreferences
+import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.ui.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -104,6 +106,36 @@ class BackupTest {
 
     private fun invalid(data: BackupData) {
         assertThrows(IllegalArgumentException::class.java) { decode(BackupCodec.encode(data)) }
+    }
+
+    @Test fun `外观设置往返恢复且v1v2旧备份不覆盖本机主题`() = runTest {
+        val appearance = AppearancePreferences(ThemeMode.DARK, true)
+        val original = sample().copy(appearance = appearance)
+        assertEquals(original, decode(BackupCodec.encode(original)))
+        val settings = settings()
+        val repo = repository(settings)
+        val result = repo.restore(original, true, true)
+        assertTrue(result.appearanceRestored)
+        assertEquals(appearance, settings.appearance.first())
+        assertEquals(appearance, repo.snapshot().appearance)
+        val current = AppearancePreferences(ThemeMode.LIGHT, false)
+        settings.setThemeMode(current.themeMode)
+        settings.setDynamicColor(current.dynamicColor)
+        val root = Json.parseToJsonElement(BackupCodec.encode(original).decodeToString()).jsonObject
+        for (version in listOf(1, 2)) {
+            val oldDocument = JsonObject(root + mapOf(
+                "schemaVersion" to kotlinx.serialization.json.JsonPrimitive(version),
+                "settings" to JsonObject(root.getValue("settings").jsonObject - "appearance"),
+            ))
+            val legacy = decode(oldDocument.toString().encodeToByteArray())
+            assertNull(legacy.appearance)
+            assertFalse(repo.restore(legacy, true, true).appearanceRestored)
+            assertEquals(current, settings.appearance.first())
+            assertEquals("作品名", repo.snapshot().copies.first().vnTitle)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            decode(BackupCodec.encode(original).decodeToString().replace("\"DARK\"", "\"SUNSET\"").encodeToByteArray())
+        }
     }
 
     @Test fun `空价格零价格与展示设置往返旧版恢复使用关闭默认`() = runTest {

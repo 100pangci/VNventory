@@ -22,6 +22,11 @@ fun Resources.resolve(message: Message): String = when (message) {
 @get:StringRes
 val MessageKey.resourceId: Int
     get() = when (this) {
+        MessageKey.THEME_SYSTEM -> R.string.message_theme_system
+        MessageKey.THEME_LIGHT -> R.string.message_theme_light
+        MessageKey.THEME_DARK -> R.string.message_theme_dark
+        MessageKey.BACKUP_FEEDBACK_APPEARANCE_RESTORED -> R.string.message_backup_feedback_appearance_restored
+        MessageKey.BACKUP_FEEDBACK_APPEARANCE_FAILED -> R.string.message_backup_feedback_appearance_failed
         MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_RESTORED -> R.string.message_backup_feedback_price_display_restored
         MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_FAILED -> R.string.message_backup_feedback_price_display_failed
         MessageKey.ALLOCATION_PRICE_MISSING -> R.string.message_allocation_price_missing

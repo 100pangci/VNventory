@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="message_theme_system">跟随系统</string>
+    <string name="message_theme_light">浅色</string>
+    <string name="message_theme_dark">深色</string>
+    <string name="message_backup_feedback_appearance_restored">外观设置已恢复。</string>
+    <string name="message_backup_feedback_appearance_failed">收藏数据已恢复，但外观设置写入失败；请在设置中手动调整，不要重复导入。</string>
     <string name="message_backup_feedback_price_display_restored">价格展示设置已恢复。</string>
     <string name="message_backup_feedback_price_display_failed">收藏数据已恢复，但价格展示设置写入失败；请在设置中手动调整，不要重复导入。</string>
     <string name="message_allocation_price_missing">部分商品未记录价格，无法按价格比例分摊；请选择平均或手动分摊。</string>
@@ -53,7 +58,7 @@
     <string name="message_backup_wrong_format">请选择 VNventory 导出的备份文件</string>
     <string name="message_backup_unsupported_version">不支持此备份版本，请使用兼容的 VNventory 版本恢复</string>
     <string name="message_backup_invalid_date">备份中的日期无效</string>
-    <string name="message_backup_invalid_enum">备份中的品相、费用分类或分摊方式无效</string>
+    <string name="message_backup_invalid_enum">备份中的品相、费用分类、分摊方式或主题模式无效</string>
     <string name="message_backup_export_failed">备份导出失败，请检查存储空间和文件权限</string>
     <string name="message_backup_export_denied">无法写入此位置，请重新选择备份保存位置</string>
     <string name="message_backup_read_failed">备份文件读取失败，请检查文件是否可用</string>

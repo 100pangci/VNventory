@@ -9,10 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -22,13 +19,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.DrawableRes
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.ui.components.PageHeader
+import com.vnventory.app.ui.components.ShelfIconTile
 import androidx.compose.ui.res.stringResource
 import com.vnventory.app.R
 
@@ -62,18 +60,18 @@ internal fun SettingsHomeContent(
         item { PageHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_hint), eyebrow = stringResource(R.string.settings_eyebrow)) }
         item { SettingsGroupTitle(stringResource(R.string.settings_collection)) }
         item {
-            SettingsEntry(Icons.Default.Settings, stringResource(R.string.settings_preferences), stringResource(R.string.settings_currency_summary, defaultCurrency), onPreferences)
+            SettingsEntry(R.drawable.ic_ui_preferences, stringResource(R.string.settings_preferences), stringResource(R.string.settings_currency_summary, defaultCurrency), onPreferences)
         }
-        item { SettingsEntry(Icons.Default.Settings, stringResource(R.string.shops_settings), stringResource(R.string.shops_settings_hint), onShops) }
+        item { SettingsEntry(R.drawable.ic_ui_shop, stringResource(R.string.shops_settings), stringResource(R.string.shops_settings_hint), onShops) }
         item { SettingsDivider() }
         item { SettingsGroupTitle(stringResource(R.string.settings_data)) }
         item {
-            SettingsEntry(Icons.Default.Refresh, stringResource(R.string.settings_backup), stringResource(R.string.settings_backup_hint), onData)
+            SettingsEntry(R.drawable.ic_ui_backup, stringResource(R.string.settings_backup), stringResource(R.string.settings_backup_hint), onData)
         }
         item { SettingsDivider() }
         item { SettingsGroupTitle(stringResource(R.string.settings_app)) }
         item {
-            SettingsEntry(Icons.Default.Info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_hint), onAbout)
+            SettingsEntry(R.drawable.ic_ui_info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_hint), onAbout)
         }
     }
 }
@@ -90,15 +88,15 @@ private fun SettingsGroupTitle(title: String) {
 
 @Composable
 private fun SettingsDivider() {
-    HorizontalDivider(Modifier.padding(start = 56.dp), color = MaterialTheme.colorScheme.outlineVariant)
+    HorizontalDivider(Modifier.padding(start = 72.dp), color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
-internal fun SettingsEntry(icon: ImageVector, title: String, supporting: String, onClick: () -> Unit) {
+internal fun SettingsEntry(@DrawableRes icon: Int, title: String, supporting: String, onClick: () -> Unit) {
     ListItem(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 84.dp).clickable(onClick = onClick),
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-        leadingContent = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+        leadingContent = { ShelfIconTile(icon, size = 40.dp) },
         headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) },
         supportingContent = { Text(supporting, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },

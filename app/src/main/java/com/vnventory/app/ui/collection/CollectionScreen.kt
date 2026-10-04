@@ -5,9 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +14,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,17 +30,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -50,8 +53,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -107,37 +115,40 @@ fun CollectionContent(
     val counts = remember(state.allCopies) { state.allCopies.groupingBy { it.versionKey() }.eachCount() }
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp)) {
+            Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp)) {
                 PageHeader(stringResource(R.string.collection_title), subtitle = null, eyebrow = stringResource(R.string.collection_eyebrow))
                 Spacer(Modifier.height(16.dp))
-                androidx.compose.material3.SearchBar(
-                    inputField = {
-                        androidx.compose.material3.SearchBarDefaults.InputField(
-                            query = state.query.search,
-                            onQueryChange = onSearchChange,
-                            onSearch = { focus.clearFocus() },
-                            expanded = false,
-                            onExpandedChange = {},
-                            placeholder = { Text(stringResource(R.string.collection_search_hint)) },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            trailingIcon = if (state.query.search.isNotEmpty()) ({
-                                IconButton(onClick = { onSearchChange(""); focus.clearFocus() }) { Icon(Icons.Default.Clear, stringResource(R.string.search_clear)) }
-                            }) else null,
-                        )
-                    },
-                    expanded = false,
-                    onExpandedChange = {},
+                TextField(
+                    value = state.query.search,
+                    onValueChange = onSearchChange,
+                    placeholder = { Text(stringResource(R.string.collection_search_hint)) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = if (state.query.search.isNotEmpty()) ({
+                        IconButton(onClick = { onSearchChange(""); focus.clearFocus() }) { Icon(Icons.Default.Clear, stringResource(R.string.search_clear)) }
+                    }) else null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
                     modifier = Modifier.fillMaxWidth(),
-                    shape = MaterialTheme.shapes.large,
-                    tonalElevation = 1.dp,
-                    shadowElevation = 0.dp,
-                ) {}
+                    shape = MaterialTheme.shapes.medium,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    ),
+                )
                 Spacer(Modifier.height(8.dp))
-                // 排序和视图切换分两行，避免窄屏/大字体互相挤压。
-                SortMenu(state.query.sort, onSortChange)
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    SegmentedButton(isGrid, { focus.clearFocus(); isGrid = true }, SegmentedButtonDefaults.itemShape(0, 2)) { Text(stringResource(R.string.collection_grid)) }
-                    SegmentedButton(!isGrid, { focus.clearFocus(); isGrid = false }, SegmentedButtonDefaults.itemShape(1, 2)) { Text(stringResource(R.string.collection_list)) }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SortMenu(state.query.sort, onSortChange, Modifier.weight(1f))
+                    SingleChoiceSegmentedButtonRow(Modifier.width(104.dp)) {
+                        SegmentedButton(isGrid, { focus.clearFocus(); isGrid = true }, SegmentedButtonDefaults.itemShape(0, 2), icon = {}) {
+                            Icon(painterResource(R.drawable.ic_ui_grid), contentDescription = stringResource(R.string.collection_grid), modifier = Modifier.size(20.dp))
+                        }
+                        SegmentedButton(!isGrid, { focus.clearFocus(); isGrid = false }, SegmentedButtonDefaults.itemShape(1, 2), icon = {}) {
+                            Icon(painterResource(R.drawable.ic_ui_list), contentDescription = stringResource(R.string.collection_list), modifier = Modifier.size(20.dp))
+                        }
+                    }
                 }
                 error()
             }
@@ -155,9 +166,9 @@ fun CollectionContent(
                         if (grid) LazyVerticalGrid(
                             columns = GridCells.Adaptive(148.dp),
                             state = gridState,
-                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 104.dp),
+                            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 104.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
                             items(state.copies, key = { it.id }, contentType = { "ownedCover" }) { copy ->
                                 OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), counts[copy.versionKey()] ?: 1, state.showPrices, state.allCopies.copyOrdinal(copy))
@@ -167,7 +178,7 @@ fun CollectionContent(
                             }
                         } else LazyColumn(
                             state = listState,
-                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 104.dp),
+                            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 104.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(state.copies, key = { it.id }, contentType = { "ownedRow" }) { copy ->
@@ -186,11 +197,15 @@ fun CollectionContent(
 }
 
 @Composable
-private fun SortMenu(current: CollectionSort, onSelect: (CollectionSort) -> Unit) {
+private fun SortMenu(current: CollectionSort, onSelect: (CollectionSort) -> Unit, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
-        TextButton(onClick = { expanded = true }) {
-            Text(stringResource(R.string.collection_sort, current.label.localized()), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val label = stringResource(R.string.collection_sort, current.label.localized())
+    Box(modifier) {
+        TextButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth().semantics { contentDescription = label }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)) {
+            Icon(painterResource(R.drawable.ic_ui_sort), contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(current.label.localized(), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
         }
         DropdownMenu(expanded, { expanded = false }) {
             CollectionSort.entries.forEach { sort ->

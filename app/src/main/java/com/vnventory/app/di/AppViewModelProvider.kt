@@ -14,6 +14,7 @@ import com.vnventory.app.ui.home.HomeViewModel
 import com.vnventory.app.ui.orders.OrderDetailViewModel
 import com.vnventory.app.ui.orders.OrdersViewModel
 import com.vnventory.app.ui.settings.SettingsViewModel
+import com.vnventory.app.ui.theme.ThemeViewModel
 import com.vnventory.app.domain.text.MessageKey
 import com.vnventory.app.domain.text.message
 import com.vnventory.app.domain.text.requireNotNullMessage
@@ -34,6 +35,8 @@ object AppViewModelProvider {
         initializer { OrdersViewModel(appContainer()) }
 
         initializer { SettingsViewModel(appContainer()) }
+
+        initializer { ThemeViewModel(appContainer()) }
 
         initializer {
             AddFlowViewModel(

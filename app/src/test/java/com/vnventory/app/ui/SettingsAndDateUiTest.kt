@@ -77,7 +77,7 @@ class SettingsAndDateUiTest {
         var data = 0
         var about = 0
         show { SettingsHomeContent("JPY", { preferences++ }, { data++ }, { about++ }) }
-        compose.onNodeWithText("默认货币 · JPY").assertIsDisplayed()
+        compose.onNodeWithText("外观、价格展示与默认货币 · JPY").assertIsDisplayed()
         compose.onNodeWithText("偏好设置").performClick()
         compose.onNodeWithText("备份与恢复").performClick()
         compose.onNodeWithText("关于与数据来源").performScrollTo().performClick()

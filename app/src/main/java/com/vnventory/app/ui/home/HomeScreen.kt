@@ -6,7 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,24 +14,30 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,6 +52,8 @@ import com.vnventory.app.ui.components.OwnedCoverCard
 import com.vnventory.app.ui.components.PageHeader
 import com.vnventory.app.ui.components.SectionCard
 import com.vnventory.app.ui.components.SectionHeading
+import com.vnventory.app.ui.components.ShelfIconTile
+import androidx.annotation.DrawableRes
 import androidx.compose.ui.res.stringResource
 import com.vnventory.app.R
 
@@ -73,47 +81,57 @@ fun HomeContent(
     error: @Composable () -> Unit = {},
 ) {
     var showCosts by rememberSaveable { mutableStateOf(false) }
-    Box(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        // 窄屏仍留下一点下一张封面；宽屏不过度放大海报。
+        val coverWidth = ((maxWidth - 60.dp) / 2).coerceIn(144.dp, 192.dp)
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 104.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            contentPadding = PaddingValues(top = 20.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             item(key = "heading") {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    PageHeader(stringResource(R.string.home_title), stringResource(R.string.home_subtitle))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        PageHeader(stringResource(R.string.home_title), subtitle = null, modifier = Modifier.weight(1f))
+                        FilledTonalIconButton(onClick = onAddClick, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_collection))
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CollectionCount(stringResource(R.string.works), stats.vnCount, Modifier.weight(1f))
-                        CollectionCount(stringResource(R.string.physical_copies), stats.copyCount, Modifier.weight(1f))
+                        CollectionCount(stringResource(R.string.works), stats.vnCount, R.drawable.ic_ui_shelf, Modifier.weight(1f))
+                        CollectionCount(stringResource(R.string.physical_copies), stats.copyCount, R.drawable.ic_ui_batch, Modifier.weight(1f))
                     }
                     error()
                 }
             }
-            item(key = "recentTitle") {
-                Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SectionHeading(stringResource(R.string.recent_collection), stringResource(R.string.recent_collection_hint))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onAddClick, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.add_collection_shortcut)) }
-                        TextButton(onClick = onSeeAllClick, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.browse_all)) }
-                    }
-                }
-            }
             item(key = "shelf") {
-                if (recent.isEmpty()) {
-                    EmptyState(
-                        title = stringResource(R.string.home_empty_title),
-                        subtitle = stringResource(R.string.home_empty_hint),
-                        modifier = Modifier.fillMaxWidth(),
-                        actionLabel = stringResource(R.string.add_first_copy),
-                        onAction = onAddClick,
-                    )
-                } else {
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        items(recent, key = { it.id }) { copy ->
-                            OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.width(164.dp).animateItem(), showPrice = stats.showShelfPrices, ordinal = stats.allCopies.ifEmpty { recent }.copyOrdinal(copy))
+                Column {
+                    Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.recent_collection), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).semantics { heading() })
+                        TextButton(onClick = onSeeAllClick) {
+                            Text(stringResource(R.string.browse_all))
+                            Spacer(Modifier.width(6.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    if (recent.isEmpty()) {
+                        EmptyState(
+                            title = stringResource(R.string.home_empty_title),
+                            subtitle = stringResource(R.string.home_empty_hint),
+                            modifier = Modifier.fillMaxWidth(),
+                            actionLabel = stringResource(R.string.add_first_copy),
+                            onAction = onAddClick,
+                        )
+                    } else {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            items(recent, key = { it.id }) { copy ->
+                                OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.width(coverWidth).animateItem(),
+                                    showPrice = stats.showShelfPrices, ordinal = stats.allCopies.ifEmpty { recent }.copyOrdinal(copy), compact = true)
+                            }
                         }
                     }
                 }
@@ -145,11 +163,14 @@ fun HomeContent(
 }
 
 @Composable
-private fun CollectionCount(label: String, count: Int, modifier: Modifier) {
+private fun CollectionCount(label: String, count: Int, @DrawableRes icon: Int, modifier: Modifier) {
     Surface(modifier, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(count.toString(), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
-            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ShelfIconTile(icon)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(count.toString(), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.catch
 import com.vnventory.app.domain.text.Message
 import com.vnventory.app.domain.text.MessageKey
 import com.vnventory.app.domain.text.message
+import com.vnventory.app.domain.model.AppearancePreferences
+import com.vnventory.app.domain.model.ThemeMode
 
 data class BackupUiState(
     val busy: Boolean = false,
@@ -98,6 +100,12 @@ class SettingsViewModel(
     fun setShowShelfPrices(value: Boolean) { launchAction { settingsRepository.setShowShelfPrices(value) } }
     fun setShowPriceStats(value: Boolean) { launchAction { settingsRepository.setShowPriceStats(value) } }
 
+    val appearance = settingsRepository.appearance
+        .catch { reportError(it); emit(AppearancePreferences()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppearancePreferences())
+    fun setThemeMode(mode: ThemeMode) { launchAction { settingsRepository.setThemeMode(mode) } }
+    fun setDynamicColor(value: Boolean) { launchAction { settingsRepository.setDynamicColor(value) } }
+
     fun setDefaultCurrency(code: String) {
         launchAction { settingsRepository.setDefaultCurrency(code) }
     }
@@ -157,7 +165,9 @@ class SettingsViewModel(
             )
             val completeFeedback = message(MessageKey.BACKUP_FEEDBACK_RESULT, feedback,
                 message(if (result.priceDisplayRestored) MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_RESTORED else MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_FAILED))
-            _backupState.update { it.copy(pendingImport = null, replaceConfirmation = false, feedback = completeFeedback) }
+            val appearanceFeedback = if (backup.appearance == null) completeFeedback else message(MessageKey.BACKUP_FEEDBACK_RESULT, completeFeedback,
+                message(if (result.appearanceRestored) MessageKey.BACKUP_FEEDBACK_APPEARANCE_RESTORED else MessageKey.BACKUP_FEEDBACK_APPEARANCE_FAILED))
+            _backupState.update { it.copy(pendingImport = null, replaceConfirmation = false, feedback = appearanceFeedback) }
         }
     }
 

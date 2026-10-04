@@ -6,11 +6,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +36,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -39,12 +47,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.BuildConfig
 import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.domain.model.Money
+import com.vnventory.app.domain.model.AppearancePreferences
+import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.ui.components.AppLogo
 import com.vnventory.app.ui.components.SectionCard
@@ -91,6 +102,7 @@ fun SettingsPreferencesScreen(
     val currency by viewModel.defaultCurrency.collectAsStateWithLifecycle()
     val shelfPrices by viewModel.showShelfPrices.collectAsStateWithLifecycle()
     val priceStats by viewModel.showPriceStats.collectAsStateWithLifecycle()
+    val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     SettingsDetailScaffold(stringResource(R.string.settings_preferences), onBack) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -98,6 +110,11 @@ fun SettingsPreferencesScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item { OperationError(viewModel) }
+            item {
+                SectionCard(title = stringResource(R.string.settings_appearance)) {
+                    AppearancePreferencesContent(appearance, viewModel::setThemeMode, viewModel::setDynamicColor)
+                }
+            }
             item {
                 SectionCard(title = stringResource(R.string.price_display_settings)) {
                     PriceDisplayPreferences(shelfPrices, priceStats, viewModel::setShowShelfPrices, viewModel::setShowPriceStats)
@@ -118,6 +135,47 @@ fun SettingsPreferencesScreen(
                     if (currency !in Money.commonCurrencies) InfoLine(stringResource(R.string.settings_currency_current, currency))
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun AppearancePreferencesContent(
+    appearance: AppearancePreferences,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onDynamicColorChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    dynamicColorSupported: Boolean = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(R.string.settings_theme_mode), style = MaterialTheme.typography.bodyMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            ThemeMode.entries.forEachIndexed { index, mode ->
+                SegmentedButton(
+                    selected = appearance.themeMode == mode,
+                    onClick = { onThemeModeChange(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
+                    modifier = Modifier.heightIn(min = 48.dp).fillMaxHeight(),
+                    icon = {},
+                    colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer),
+                ) {
+                    Text(mode.label.localized(), style = MaterialTheme.typography.labelLarge.copy(lineBreak = LineBreak.Heading), textAlign = TextAlign.Center, maxLines = 2)
+                }
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                .toggleable(appearance.dynamicColor, enabled = dynamicColorSupported, role = Role.Switch, onValueChange = onDynamicColorChange),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.settings_dynamic_color), style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(if (dynamicColorSupported) R.string.settings_dynamic_color_hint else R.string.settings_dynamic_color_unavailable),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(appearance.dynamicColor, onCheckedChange = null, enabled = dynamicColorSupported)
         }
     }
 }
@@ -245,6 +303,7 @@ internal fun BackupImportDialogs(
                     InfoLine(stringResource(R.string.backup_exported_at, exported))
                     InfoLine(stringResource(R.string.backup_import_modes_hint))
                     InfoLine(stringResource(R.string.backup_price_display_hint))
+                    if (backup.appearance != null) InfoLine(stringResource(R.string.backup_appearance_hint))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = state.restoreCurrency, onCheckedChange = onRestoreCurrency, enabled = !state.busy)
                         Text(stringResource(R.string.backup_restore_currency, backup.defaultCurrency), style = MaterialTheme.typography.bodyMedium)

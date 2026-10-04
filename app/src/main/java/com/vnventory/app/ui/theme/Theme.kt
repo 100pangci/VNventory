@@ -1,14 +1,17 @@
 package com.vnventory.app.ui.theme
 
 import android.os.Build
+import android.content.Context
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import com.vnventory.app.domain.model.AppearancePreferences
 
 private val LightColorScheme = lightColorScheme(
     primary = PlumPrimary,
@@ -79,7 +82,7 @@ private val DarkColorScheme = darkColorScheme(
  *
  * @param darkTheme 是否深色（默认跟随系统）
  * @param dynamicColor 是否使用系统动态取色。默认关闭以保持品牌视觉，
- *   想跟随壁纸可在调用处传 true（Android 12+）。
+ *   设置中可启用跟随壁纸配色（Android 12+），旧系统自动回退固定配色。
  */
 @Composable
 fun VNventoryTheme(
@@ -87,20 +90,29 @@ fun VNventoryTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = appearanceColorScheme(LocalContext.current, darkTheme, dynamicColor)
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = VNventoryTypography,
         shapes = ShelfShapes,
+        content = content,
+    )
+}
+
+internal fun appearanceColorScheme(context: Context, darkTheme: Boolean, dynamicColor: Boolean, sdkInt: Int = Build.VERSION.SDK_INT): ColorScheme = when {
+    dynamicColor && sdkInt >= Build.VERSION_CODES.S && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    darkTheme -> DarkColorScheme
+    else -> LightColorScheme
+}
+
+/** 应用入口使用持久化外观设置，预览仍可直接指定 darkTheme。 */
+@Composable
+fun VNventoryTheme(appearance: AppearancePreferences, content: @Composable () -> Unit) {
+    VNventoryTheme(
+        darkTheme = appearance.themeMode.isDark(isSystemInDarkTheme()),
+        dynamicColor = appearance.dynamicColor,
         content = content,
     )
 }

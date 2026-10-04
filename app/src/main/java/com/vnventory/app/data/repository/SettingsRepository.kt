@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.ShopChannels
+import com.vnventory.app.domain.model.AppearancePreferences
+import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.domain.text.MessageException
 import com.vnventory.app.domain.text.MessageKey
 import com.vnventory.app.domain.text.message
@@ -25,7 +27,13 @@ import java.io.IOException
 /** 应用设置（DataStore，位于应用私有目录） */
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "vnventory_settings")
 
-data class SettingsSnapshot(val defaultCurrency: String, val shopChannels: List<String>, val showShelfPrices: Boolean = false, val showPriceStats: Boolean = false)
+data class SettingsSnapshot(
+    val defaultCurrency: String,
+    val shopChannels: List<String>,
+    val showShelfPrices: Boolean = false,
+    val showPriceStats: Boolean = false,
+    val appearance: AppearancePreferences = AppearancePreferences(),
+)
 
 class SettingsRepository(
     private val dataStore: DataStore<Preferences>,
@@ -46,6 +54,13 @@ class SettingsRepository(
 
     suspend fun setShowShelfPrices(value: Boolean) { dataStore.edit { it[KEY_SHELF_PRICES] = value } }
     suspend fun setShowPriceStats(value: Boolean) { dataStore.edit { it[KEY_PRICE_STATS] = value } }
+
+    val appearance: Flow<AppearancePreferences> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it.readAppearance() }
+
+    suspend fun setThemeMode(mode: ThemeMode) { dataStore.edit { it[KEY_THEME_MODE] = mode.name } }
+    suspend fun setDynamicColor(value: Boolean) { dataStore.edit { it[KEY_DYNAMIC_COLOR] = value } }
 
     suspend fun addShopChannel(name: String) {
         val trimmed = name.trim()
@@ -78,21 +93,30 @@ class SettingsRepository(
         }
     }
 
-    /** Both preference fields restore atomically; neither changes if the DataStore write fails. */
-    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null) {
-        if (currency == null && shops == null && shelfPrices == null && priceStats == null) return
+    /** All supplied preferences restore atomically; absent legacy appearance settings stay unchanged. */
+    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null) {
+        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null) return
         shops?.let(ShopChannels::validate)
         dataStore.edit { prefs ->
             currency?.let { prefs[KEY_DEFAULT_CURRENCY] = Money.normalize(it) }
             shops?.let { prefs[KEY_SHOP_CHANNELS] = Json.encodeToString(it) }
             shelfPrices?.let { prefs[KEY_SHELF_PRICES] = it }
             priceStats?.let { prefs[KEY_PRICE_STATS] = it }
+            appearance?.let {
+                prefs[KEY_THEME_MODE] = it.themeMode.name
+                prefs[KEY_DYNAMIC_COLOR] = it.dynamicColor
+            }
         }
     }
 
     suspend fun snapshot(): SettingsSnapshot = dataStore.data.first().let {
-        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false)
+        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance())
     }
+
+    private fun Preferences.readAppearance() = AppearancePreferences(
+        themeMode = ThemeMode.entries.firstOrNull { it.name == this[KEY_THEME_MODE] } ?: ThemeMode.SYSTEM,
+        dynamicColor = this[KEY_DYNAMIC_COLOR] ?: false,
+    )
 
     private fun Preferences.readShopChannels(): List<String> {
         val encoded = this[KEY_SHOP_CHANNELS] ?: return emptyList()
@@ -116,5 +140,7 @@ class SettingsRepository(
         private val KEY_SHOP_CHANNELS = stringPreferencesKey("shop_channels")
         private val KEY_SHELF_PRICES = booleanPreferencesKey("show_shelf_prices")
         private val KEY_PRICE_STATS = booleanPreferencesKey("show_price_stats")
+        private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+        private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
     }
 }
