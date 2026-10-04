@@ -121,7 +121,7 @@ Release 开启 R8 优化/混淆和资源压缩；配置签名后 APK 使用 v2/v
 
 没有本地签名配置时 Debug 构建和测试不受影响，Release 也可构建为未签名 APK；签名 Release 需要事先准备私有配置。Release APK 位于 `app/build/outputs/apk/release/app-release.apk`。
 
-GitHub Actions 会在推送 `vMAJOR.MINOR.PATCH` 标签时创建 GitHub Release，并按标签设置 `versionName`。Android `versionCode` 根据 `MAJOR.MINOR.PATCH` 计算（`MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`；`MINOR` 和 `PATCH` 均须小于 1000），本地默认版本也使用同一规则。需要签名发布时，在仓库 Actions secrets 中配置 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。未配置签名密钥时仍会发布未签名 APK，该 APK 不能作为已有签名安装的更新包。
+GitHub Actions 会在推送 `vMAJOR.MINOR.PATCH` 标签时创建 GitHub Release，并按标签设置 `versionName`。Release notes 优先由 GitHub 生成；没有合并 PR 变更标题时，会补充该版本的提交摘要。发布后 notes 自动追加到仓库根目录的 `CHANGELOG.md`，由 Actions bot 提交到 `main`。Android `versionCode` 根据 `MAJOR.MINOR.PATCH` 计算（`MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`；`MINOR` 和 `PATCH` 均须小于 1000），本地默认版本也使用同一规则。需要签名发布时，在仓库 Actions secrets 中配置 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。未配置签名密钥时仍会发布未签名 APK，该 APK 不能作为已有签名安装的更新包。
 
 ## 当前不包含
 
