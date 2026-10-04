@@ -122,7 +122,7 @@ Release 开启 R8 优化/混淆和资源压缩；配置签名后 APK 使用 v2/v
 
 没有本地签名配置时 Debug 构建和测试不受影响；本地仍可执行 `assembleRelease` 生成未签名 APK，但该包不能作为已签名正式版的升级包。已签名 APK 位于 `app/build/outputs/apk/release/app-release.apk`，无签名配置时为同目录的 `app-release-unsigned.apk`。
 
-本地默认版本为 **1.1.0**（versionCode **1001000**，高于已有 `v1.0.0`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
+本地默认版本为 **1.0.1**（versionCode **1000001**，高于已有 `v1.0.0`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
 
 正式 tag 发布必须配齐 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。缺少任意必要 secret、构建失败、APK 缺失或签名校验失败均不发布，不允许用 unsigned APK 兜底。临时签名文件使用私有权限，日志不输出私钥或密码。Release notes 发布后幂等追加到 `CHANGELOG.md`，由 Actions bot 提交到 `main`；CHANGELOG 更新失败不影响已发布 APK，bot 的普通分支提交不会触发 tag 发布。
 

@@ -22,11 +22,11 @@
 
 ## 工程收尾
 
-- 默认版本为 1.1.0 / 1001000，高于已存在的 v1.0.0。未改旧 tag，也未创建或推送新 tag。
+- 按用户最终指定，默认版本为 1.0.1 / 1000001，高于已存在的 v1.0.0；不修改旧 tag。
 - `AppContainer` 将实际 `BuildConfig.VERSION_NAME` 传给客户端工厂；`VndbApi` 不依赖 Android BuildConfig。所有 VNDB 端点继承统一 User-Agent 和集中 BASE_URL。
 - 保留 15 秒连接、30 秒请求/读超时，调试日志只记 headers，非 2xx 仅向 UI 暴露状态码。网络优先、写穿缓存、第一页离线回退及分页 stalled 保护未重写。
 - tag 发布提前校验版本和完整签名 secrets；构建后校验 APK 签名、文件存在和构建元数据中的版本/文件名。发布失败不更新 CHANGELOG，CHANGELOG 更新失败不影响已发布 APK；保留原幂等去重及 bot 分支提交不触发 tag 工作流。
-- 签名临时文件权限 600，结束时清理，不输出密码/私钥；本地仍能构建 unsigned Release。未实际发布 GitHub Release。
+- 签名临时文件权限 600，结束时清理，不输出密码/私钥；本地仍能构建 unsigned Release。正式签名与 GitHub Release 发布交由 tag 工作流，不手工上传本地 unsigned APK。
 - SVG 视觉设计不变，仅补充两个 path ID。单色图标的孔洞几何改为从 SVG 反向生成，不再在转换脚本中维护另一份轮廓；现有六个生成矢量资源逐字不变。
 
 ## 测试改动
@@ -116,7 +116,7 @@ scripts/tests/release-test.py
 - 月份切换/年度统计未新增：采用需求允许的小范围方案，默认关闭现有统计、排除未知价格并显示覆盖数量。
 - 已知 Gradle 10 兼容性弃用提示（包括现有 sourceSets.srcDir）未顺手更换构建 DSL 或升级工具链。
 - 未改 Room 与 DataStore 无法跨存储原子提交的既有架构，仅保持明确的部分恢复结果。
-- 未更改原签名、更改旧 tag、自动发布/推送；正式签名 secrets 仍需在 GitHub 仓库配置，不能靠本地模拟证明线上 secrets 有效。
+- 未更改原签名或旧 tag；正式签名 secrets 仍需在 GitHub 仓库配置，不能靠本地模拟证明线上 secrets 有效。
 - 本机无 AVD/真机操作，未把 Robolectric 交互测试宣称为真机验收；IME、返回手势和滚动体验仍需设备验证。
 
 ## 验证结果
@@ -124,7 +124,8 @@ scripts/tests/release-test.py
 - `python3 scripts/convert-branding.py --check`：通过，六个生成资源与 SVG 一致。
 - `scripts/check.sh --offline`：通过，161 项 JVM/Room/Compose 测试无失败、无跳过；18 项 Python 回归通过；Debug APK 和 Lint 构建通过。
 - 无私钥的 `:app:assembleRelease --offline`：通过，生成本地 unsigned APK；正式发布工作流不使用该包。
-- 最终联合复核 `env VNVENTORY_SIGNING_PROPERTIES=/tmp/opencode/vnventory-unsigned-test-missing.properties scripts/check.sh --offline :app:assembleRelease`：通过（签名配置路径刻意不存在），Debug、Release、测试、Lint 均成功。两个 APK 元数据均为 versionName 1.1.0 / versionCode 1001000。
+- 联合复核命令：`env VNVENTORY_SIGNING_PROPERTIES=/tmp/opencode/vnventory-unsigned-test-missing.properties scripts/check.sh --offline :app:assembleRelease`（签名配置路径刻意不存在），用于验证 Debug、Release、测试和 Lint。
+- 用户指定 v1.0.1 后重新执行联合复核：全部通过；两个 APK 元数据均为 versionName 1.0.1 / versionCode 1000001。再次停止 Gradle 并确认当前用户 Java 进程为 0。
 - Lint：0 错误，5 个既有告警（3 个调试预览矢量大小告警、2 个 Kotlin 插件新版本提示）；本次产生的未用资源和 Modifier 参数顺序告警已清理。不为消除告警改品牌设计或升级依赖。
 - APK：`app/build/outputs/apk/debug/app-debug.apk`；本地无签名验证产物 `app/build/outputs/apk/release/app-release-unsigned.apk`。
 - 工作流 YAML：使用本机已有 PyYAML 解析通过；全部 `run` 步骤经 `bash -n` 校验通过。未安装 actionlint，不声称完成 GitHub 托管环境或线上签名 secrets 的实测。
