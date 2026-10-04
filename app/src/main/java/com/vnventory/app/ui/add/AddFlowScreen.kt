@@ -56,6 +56,13 @@ import com.vnventory.app.ui.components.SaveButton
 import com.vnventory.app.ui.components.SectionHeading
 import com.vnventory.app.ui.components.PressableSurface
 import com.vnventory.app.ui.components.PredictiveStepContent
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.text.localized
+import com.vnventory.app.ui.text.resolve
 
 @Composable
 fun AddFlowScreen(
@@ -65,12 +72,13 @@ fun AddFlowScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val resources by rememberUpdatedState(LocalResources.current)
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is AddFlowEvent.Saved -> onSaved(event.copyIds.size)
-                is AddFlowEvent.Failed -> snackbarHostState.showSnackbar(event.message)
+                is AddFlowEvent.Failed -> snackbarHostState.showSnackbar(resources.resolve(event.message))
             }
         }
     }
@@ -136,14 +144,14 @@ private fun AddStepScaffold(
                 TopAppBar(
                     title = {
                         Text(when (step) {
-                            0 -> "搜索 VN"
-                            1 -> "选择版本"
-                            else -> "购入信息"
+                            0 -> stringResource(R.string.add_title_search)
+                            1 -> stringResource(R.string.add_step_release)
+                            else -> stringResource(R.string.add_title_purchase)
                         })
                     },
                     navigationIcon = {
                         IconButton(onClick = onBack, enabled = interactive) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                         }
                     },
                 )
@@ -158,14 +166,14 @@ private fun AddStepScaffold(
                         val order = state.orders.firstOrNull { it.order.id == state.form.orderId }?.order
                         if (order != null) {
                             Text(
-                                text = "将加入「${order.title}」",
+                                text = stringResource(R.string.add_order_context, order.title),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                             Spacer(Modifier.height(8.dp))
                         }
                         SaveButton(
-                            label = if (state.form.quantity > 1) "将 ${state.form.quantity} 盒放入书架" else "放入我的书架",
+                            label = if (state.form.quantity > 1) pluralStringResource(R.plurals.copies_add_label, state.form.quantity, state.form.quantity) else stringResource(R.string.add_save_copy),
                             saving = state.saving,
                             enabled = state.form.canSave && interactive,
                             onClick = onSave,
@@ -195,7 +203,7 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         OutlinedTextField(
             value = state.search.query,
             onValueChange = viewModel::onQueryChange,
-            placeholder = { Text("输入日文原名 / 中文译名 / 罗马字") },
+            placeholder = { Text(stringResource(R.string.vn_search_hint)) },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             singleLine = true,
             shape = MaterialTheme.shapes.medium,
@@ -206,7 +214,7 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
 
         if (state.search.offline) {
             Text(
-                text = "网络不可用：以下为本地缓存结果",
+                text = stringResource(R.string.vn_offline_hint),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -214,21 +222,21 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         }
 
         when {
-            state.search.loading -> LoadingState(message = "搜索中…")
+            state.search.loading -> LoadingState(message = stringResource(R.string.vn_searching))
 
             state.search.error != null && state.search.results.isEmpty() -> ErrorState(
-                message = state.search.error,
+                message = state.search.error.localized(),
                 onRetry = viewModel::retrySearch,
             )
 
             state.search.results.isEmpty() && state.search.hasSearched -> EmptyState(
-                title = "没有找到结果",
-                subtitle = "试试官方标题或日文原名；手动版本也应关联正确的作品",
+                title = stringResource(R.string.vn_no_results),
+                subtitle = stringResource(R.string.vn_no_results_hint),
             )
 
             state.search.results.isEmpty() -> EmptyState(
-                title = "从 VNDB 搜索作品",
-                subtitle = "例如：Ever17、月に寄りそう乙女の作法、サクラノ詩",
+                title = stringResource(R.string.vn_search_title),
+                subtitle = stringResource(R.string.vn_search_examples),
             )
 
             else -> LazyColumn(
@@ -241,10 +249,10 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
                 item {
                     if (state.search.loadingMore) CircularProgressIndicator()
                     else if (state.search.error != null) {
-                        Text(state.search.error, color = MaterialTheme.colorScheme.error)
-                        TextButton(onClick = viewModel::retrySearch) { Text("重试下一页") }
+                        Text(state.search.error.localized(), color = MaterialTheme.colorScheme.error)
+                        TextButton(onClick = viewModel::retrySearch) { Text(stringResource(R.string.vn_retry_page)) }
                     } else if (state.search.hasMore) {
-                        TextButton(onClick = viewModel::loadMore, modifier = Modifier.fillMaxWidth()) { Text("加载更多作品") }
+                        TextButton(onClick = viewModel::loadMore, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.vn_load_more)) }
                     }
                 }
             }
@@ -286,10 +294,7 @@ private fun VnSearchRow(vn: VnInfo, modifier: Modifier = Modifier, onClick: () -
                 )
             }
             Text(
-                text = buildString {
-                    append(vn.id)
-                    vn.released?.let { append(" · ").append(it) }
-                },
+                text = vn.released?.let { stringResource(R.string.text_pair, vn.id, it) } ?: vn.id,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -332,10 +337,7 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
                             )
                         }
                         Text(
-                            text = buildString {
-                                append(vn.id)
-                                vn.released?.let { append(" · 发售 ").append(it) }
-                            },
+                            text = vn.released?.let { stringResource(R.string.vn_id_release_date, vn.id, it) } ?: vn.id,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -365,12 +367,12 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        text = "找不到对应版本？创建手动版本",
+                        text = stringResource(R.string.release_manual_create),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                     Text(
-                        text = "手动版本先记录一盒，之后可以在详情里绑定到 VNDB Release",
+                        text = stringResource(R.string.release_manual_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
                     )
@@ -379,13 +381,13 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         }
 
         if (releases.loading && releases.releases.isEmpty()) {
-            item { LoadingState(modifier = Modifier.height(200.dp), message = "正在加载可选版本…") }
+            item { LoadingState(modifier = Modifier.height(200.dp), message = stringResource(R.string.release_loading)) }
         }
 
         releases.error?.let { error ->
             item {
                 ErrorState(
-                    message = error,
+                    message = error.localized(),
                     modifier = Modifier.height(200.dp),
                     onRetry = { viewModel.selectVn(vn) },
                 )
@@ -395,14 +397,14 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         if (!releases.loading && releases.error == null && releases.releases.isEmpty()) {
             item {
                 Text(
-                    text = "没有可选的官方版本记录，请使用手动版本。",
+                    text = stringResource(R.string.release_no_official),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
-        item { SectionHeading("可选版本", "已隐藏标记为非官方的发行记录。") }
+        item { SectionHeading(stringResource(R.string.release_options), stringResource(R.string.release_options_hint)) }
 
         items(releases.releases, key = { it.id }) { release ->
             ReleaseRow(release = release, coverFallback = vn.imageUrl, modifier = Modifier.animateItem(), onClick = {
@@ -437,14 +439,14 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: M
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = release.released ?: "发售日未知",
+                text = release.released ?: stringResource(R.string.release_date_unknown),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 release.platforms.take(4).forEach { Tag(text = it) }
-                if (release.platforms.size > 4) Tag(text = "+${release.platforms.size - 4}")
+                if (release.platforms.size > 4) Tag(text = stringResource(R.string.release_more_platforms, release.platforms.size - 4))
             }
             Spacer(Modifier.height(4.dp))
             Text(
@@ -453,8 +455,8 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: M
                         append(release.languages.joinToString("/"))
                     }
                     if (release.publishers.isNotEmpty()) {
-                        if (isNotEmpty()) append(" · ")
-                        append(release.publishers.joinToString("、"))
+                        if (isNotEmpty()) append(stringResource(R.string.separator_dot))
+                        append(release.publishers.joinToString(stringResource(R.string.separator_names)))
                     }
                 },
                 style = MaterialTheme.typography.bodySmall,
@@ -464,7 +466,7 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: M
             )
             release.jan?.let { jan ->
                 Text(
-                    text = "JAN/EAN: $jan",
+                    text = stringResource(R.string.release_barcode, jan),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

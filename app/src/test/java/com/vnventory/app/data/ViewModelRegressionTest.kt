@@ -24,6 +24,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
 import java.util.UUID
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -46,6 +48,13 @@ class ViewModelRegressionTest {
         val dataStore = PreferenceDataStoreFactory.create(scope = backgroundScope) { File(context.cacheDir, "${UUID.randomUUID()}.preferences_pb") }
         return AddFlowViewModel(VnRepository(api, db.vnCacheDao(), Dispatchers.Unconfined), collection, purchases, SettingsRepository(dataStore), null)
             .also { store.put("add", it); backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { it.uiState.collect() } }
+    }
+
+    private fun TestScope.settings(): SettingsRepository {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        return SettingsRepository(PreferenceDataStoreFactory.create(scope = backgroundScope) {
+            File(context.cacheDir, "${UUID.randomUUID()}.preferences_pb")
+        })
     }
 
     @Test fun `搜索加载下一页去重且失败可重试不丢第一页`() = runTest {
@@ -119,7 +128,7 @@ class ViewModelRegressionTest {
         val copy = OwnedCopy(0,"v1",null,"A","Manual",null,Long.MAX_VALUE,"JPY",CopyCondition.USED,null,null,null,null,null,0,0)
         val copyId = collection.addCopies(listOf(copy)).single()
         vm.saveExpense()
-        assertTrue(vm.actionError.first { it != null }!!.contains("范围"))
+        assertEquals(message(MessageKey.AMOUNT_TOTAL_OVERFLOW), vm.actionError.first { it != null })
         assertTrue(vm.uiState.first { !it.savingExpense }.editor.open)
         assertTrue(purchases.observeOrderDetail(id).first()!!.expenses.isEmpty())
         collection.delete(copyId)
@@ -132,7 +141,7 @@ class ViewModelRegressionTest {
     @Test fun `收藏编辑失败不崩溃不修改记录并能修正后保存`() = runTest {
         val copy = OwnedCopy(0,"v1",null,"A","Manual",null,10,"JPY",CopyCondition.USED,null,null,null,null,null,0,0)
         val ids = collection.addCopies(listOf(copy, copy))
-        val vm = CopyEditViewModel(collection, VnRepository(FakeVndb(), db.vnCacheDao(), Dispatchers.Unconfined), purchases, ids[0])
+        val vm = CopyEditViewModel(collection, VnRepository(FakeVndb(), db.vnCacheDao(), Dispatchers.Unconfined), purchases, ids[0], settings())
         store.put("edit", vm)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() }
         vm.uiState.first { !it.loading && it.copy != null }
@@ -179,5 +188,37 @@ class ViewModelRegressionTest {
             assertEquals(6800L, copy.priceMinor)
             assertEquals("JPY", copy.currency)
         }
+    }
+
+    @Test fun `常用店铺实时进入新增编辑表单但改名删除不改历史快照`() = runTest {
+        val settings = settings()
+        settings.addShopChannel("駿河屋")
+        val vnRepo = VnRepository(FakeVndb(), db.vnCacheDao(), Dispatchers.Unconfined)
+        val add = AddFlowViewModel(vnRepo, collection, purchases, settings, null)
+        store.put("shop-add", add)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { add.uiState.collect() }
+        add.uiState.first { it.shopChannels == listOf("駿河屋") }
+        add.selectVn(VndbVnDto("v1", title = "A").toDomain())
+        add.selectManualVersion()
+        add.onManualTitleChange("Manual")
+        add.onShopChange("駿河屋")
+        add.save()
+        val copyId = (add.events.first() as AddFlowEvent.Saved).copyIds.single()
+        assertEquals("駿河屋", collection.getById(copyId)!!.shop)
+        settings.renameShopChannel("駿河屋", "メルカリ")
+        add.uiState.first { it.shopChannels == listOf("メルカリ") }
+        assertEquals("駿河屋", collection.getById(copyId)!!.shop)
+        val edit = CopyEditViewModel(collection, vnRepo, purchases, copyId, settings)
+        store.put("shop-edit", edit)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { edit.uiState.collect() }
+        val loaded = edit.uiState.first { !it.loading && it.shopChannels == listOf("メルカリ") }
+        assertEquals("駿河屋", loaded.form.shop)
+        edit.onShopChange("メルカリ")
+        val saved = CompletableDeferred<Unit>()
+        edit.save { saved.complete(Unit) }
+        saved.await()
+        settings.removeShopChannel("メルカリ")
+        edit.uiState.first { it.shopChannels.isEmpty() }
+        assertEquals("メルカリ", collection.getById(copyId)!!.shop)
     }
 }

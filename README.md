@@ -1,306 +1,126 @@
-# VNventory
+<p align="center">
+  <img src="assets/branding/vnventory.svg" alt="VNventory — The collected V" width="180">
+</p>
 
-面向 **Galgame / Visual Novel 实体收藏** 的管理工具（Android 原生）。
+<h1 align="center">VNventory</h1>
 
-核心不是“玩过什么”，而是记录清楚：**我买了哪个具体版本、买了几盒、每盒最终实际花了多少钱。**
+<p align="center">把每一盒收藏，都收进书架。</p>
 
----
+VNventory 是一款面向 Galgame / Visual Novel 实体收藏的 Android 应用。记录的不只是玩过哪些作品，更是：**买了哪个具体版本、拥有几盒，以及每盒最终实际花了多少钱。**
 
-## 一、项目定位与 MVP 范围
+应用无需账号或云服务，收藏和购买记录保存在本机。VNDB 只提供可重新加载的作品与版本元数据；用户的收藏记录才是事实来源。
 
-以「实体盒（OwnedCopy）」为中心：
+## 功能
 
-- 同一个 VNDB Release 可以拥有 **多盒**，每盒的价格 / 品相 / 购买时间 / 店铺 / 备注都可以不同；
-- 一次购买 / 一次转运 = 一个 **PurchaseOrder（购买批次）**，批次里的运费、手续费、税费等按规则 **实时分摊** 到每一盒；
-- VNDB 数据只是 **元数据缓存**：VNDB 数据变化、缓存被清空，都不会影响用户的购买记录；
-- 找不到对应版本时可以先建 **手动版本**，之后随时绑定到 VNDB Release（数据结构和 UI 均已支持）。
+- **收藏书架**：封面网格与详细列表、搜索、排序；同一版本的多盒始终独立记录。
+- **VNDB 作品与版本**：按需搜索和分页，查看发行日期、平台、语言、发行商、JAN/EAN 与包装图；无对应版本时可创建手动版本，之后再绑定。
+- **逐盒购买记录**：记录价格、币种、品相、日期、店铺/渠道与备注；批量添加也会为每盒建立独立记录。
+- **常用店铺/渠道**：在设置中维护名称，在收藏或批次表单里直接选择；也可临时填写。管理候选项不会更改历史购买记录。
+- **购买批次与成本**：集中记录多盒商品和运费、手续费、税费等费用，预览整个批次的最终成本。
+- **三种费用分摊**：平均分摊、按价格比例、手动指定；显示未分摊金额，并在保存时再次校验。
+- **JSON 备份与恢复**：系统文件选择器导出或导入，可追加或二次确认后覆盖；包含购买记录和可选恢复的常用店铺/渠道。
+- **书架风格界面**：深浅主题、减少动态效果支持、预测性返回，以及为新设计的“收集 V”品牌图标。
 
-已实现（第一阶段 MVP）：
+## 界面与品牌
 
-- 首页：收藏 VN 数 / 实体盒数 / 总支出（含运费、手续费、税费、其他），最近购入
-- 收藏列表：封面网格 / 列表两种视图、搜索、8 种排序；区分 Release、同版本多盒独立存在（角标显示 ×N）
-- 添加收藏：搜索 VN → 查看 VN 信息 → 选择具体 Release（展示发行日期 / 平台 / 语言 / 发行商 / JAN(EAN/UPC) / 实体包装图，隐藏非官方版本）→ 分区填写购入信息（单盒价格与数量、品相、购买记录、备注）
-- 手动版本：找不到对应版本时可创建；详情/编辑页可一键绑定到 VNDB Release
-- 收藏详情：VN / Release 信息、买入价格、分摊费用明细、**最终实际成本**、品相、店铺、日期、备注
-- 收藏编辑 / 删除
-- 购买批次：新建批次、批次内多盒、多个费用、保存后的完整成本预览；区分订单支出、已分摊收藏成本和未分摊费用
-- 费用分摊：**EQUAL 平均分摊 / BY_PRICE 按价格比例 / MANUAL 手动指定**；费用编辑器带分摊预览与手动分配差额校验
-- 设置：分组入口与子页面（默认货币、备份与恢复、关于与数据来源）
-- JSON 备份：默认货币、全部收藏/购买批次/费用/手动分摊；追加恢复或二次确认后覆盖恢复
-- 关于：新品牌图标、应用与版本信息、本机隐私说明、VNDB 来源及 MPL-2.0 许可
+新图标的原始 SVG 保存在 [`assets/branding/vnventory.svg`](assets/branding/vnventory.svg)。Android 启动图标、主题单色图标和应用内标记使用从原稿转换的原生矢量，不使用位图或运行时 SVG 库。上一版原稿保存在 [`assets/branding/vnventory-previous.svg`](assets/branding/vnventory-previous.svg)。
 
-界面采用「实体收藏书架」视觉方向：首页以最近入藏封面为主，收藏页以逐盒封面卡为主；
-统一深浅主题、盒号/品相标记和按压/导航/步骤动效。真实金额不做滚动插值，保持成本数字准确。
-作品默认以日语原文为主标题、罗马字为辅助标题；新加载版本也优先使用原文标题，旧收藏快照不强制改写。
-页面导航及添加步骤支持跟随手势进度的预测性返回，取消时回弹，不提前清空当前选择或表单。
-返回使用独立的 180ms 短转场，不叠加缩放；步骤手势松手只补完剩余进度，取消在 140ms 内回到原页面。
-启动图标及应用内品牌标记统一使用用户提供的 SVG，原稿保存在 [`assets/branding/vnventory.svg`](assets/branding/vnventory.svg)；
-Android 原生矢量保留彩色渐变与路径，另提供同源单色主题图标，不再使用旧盒子/心形图标。
-动画兼容系统减少动态效果设置。界面截图及设计约定见 [`docs/ui-polish.md`](docs/ui-polish.md)，
-本地预览截图由测试生成在 `toolchain/review/ui/screenshots/`（不提交）。
-
-暂不包含（按需求搁置）：账号 / 云同步 / VNDB 账号同步 / 社区 / AI / 复杂统计图 / 多平台 / Web。
-
----
-
-## 二、技术栈
-
-| 组件 | 版本 | 说明 |
-| --- | --- | --- |
-| Kotlin | 2.3.21 | AGP 9 内置 Kotlin（不再单独应用 `kotlin-android` 插件） |
-| Android Gradle Plugin | 9.4.1 | 内置 Kotlin；KGP / KSP 版本在根 `build.gradle.kts` buildscript classpath 提升 |
-| Gradle | 9.8.0（wrapper） | |
-| Jetpack Compose | BOM 2026.09.00 | Material 3，无 XML View |
-| Room | 2.8.5（KSP + room 插件） | 本机数据库 |
-| Ktor Client | 3.6.0（OkHttp 引擎） | VNDB API |
-| kotlinx.serialization | 1.11.0 | JSON / typed navigation routes |
-| Coil | 3.6.3 | 封面与包装图加载 |
-| Coroutines / Flow | 1.11.0 | |
-| DataStore Preferences | 1.2.1 | 设置 |
-| minSdk / targetSdk / compileSdk | 26 / 37 / 37 (minor 2) | 单 Activity、纯 Compose |
-
-架构：**单 Activity + Compose + MVVM + Repository**，手写依赖容器（未用 Hilt，MVP 规模足够）。
-金额一律使用 **Long 最小货币单位**（日元=円，人民币=分），杜绝浮点误差；日期用 `java.time`（minSdk 26 原生支持）。
-
-```
-app/src/main/java/com/vnventory/app/
-├── MainActivity.kt / VNventoryApp.kt      # 单 Activity；Application 持有 AppContainer
-├── core/                                  # AppResult、错误映射
-├── di/                                    # AppContainer、AppViewModelProvider（手写 DI）
-├── domain/                                # 纯 Kotlin，可单测，不依赖 Android
-│   ├── model/                             #   Money / 领域模型 / 枚举 / 查询参数
-│   └── cost/CostEngine.kt                 #   成本分摊引擎（纯函数 + 最大余数法）
-├── data/
-│   ├── local/                             #   Room：entity / dao / database / Converters
-│   ├── remote/vndb/                       #   Ktor + DTO（api.vndb.org kana API）
-│   ├── mapper/                            #   DTO/Entity ↔ Domain
-│   └── repository/                        #   VnRepository / CollectionRepository /
-│                                          #   PurchaseRepository / SettingsRepository
-└── ui/
-    ├── theme/                             # Material 3 主题（完整深色支持）
-    ├── components/                        # 通用组件（封面、状态视图、金额、日期、选择器）
-    ├── navigation/                        # typed routes + NavHost
-    ├── home|collection|add|detail|edit|orders|settings/
-    └── VNventoryRoot.kt                   # Scaffold + 底部导航
-```
-
----
-
-## 三、数据库设计（Room v2）
-
-```
-vn_cache 1 ── n release_vn n ── 1 release_cache  （多对多关联，合辑可以属于多个 VN）
-purchase_order 1 ── n owned_copy       （删订单：收藏保留，orderId 置空）
-purchase_order 1 ── n expense          （删订单：费用级联删除）
-expense        1 ── n expense_allocation   （仅 MANUAL 模式存在行）
-owned_copy     1 ── n expense_allocation   （删盒：分摊行级联删除）
-```
-
-关键约定：
-
-- `owned_copy.release_id` 为 NULL ⇒ **手动版本**；绑定 VNDB Release 只是更新这一行；
-- `owned_copy` 冗余保存 `vn_title / release_title / cover_url` 快照，保证 VNDB 缓存丢失后记录依旧完整；
-- **自动分摊结果不落库**：`EQUAL / BY_PRICE` 由 `CostEngine` 实时计算（页面展示的“最终成本”永远是最新值）；
-- `MANUAL` 模式把用户指定的金额存入 `expense_allocation`；
-- 盒子被移出订单、删除，或费用改为自动模式时，陈旧的分摊行会被清理（事务内完成）；
-- 多币种 **不做隐式汇率换算**：每盒最终成本按币种分行展示（如 `8400 JPY + 34 CNY`）。
-
-Schema 导出目录：`app/schemas/`（保留 v1 与 v2，Room 插件生成）。
-`MIGRATION_1_2` 只重构元数据缓存关联，保留已知关联、订单、收藏、费用与手动分摊；不使用破坏性重建。
-
-### 成本分摊规则（CostEngine）
-
-| 模式 | 规则 |
-| --- | --- |
-| EQUAL | 同币种的均摊费用先汇成池，再使用最大余数法分给各盒；有商品时各盒分摊之和等于费用池总额 |
-| BY_PRICE | 同币种商品按价格比例分摊；全部 0 价时退化为均摊。商品币种混合时禁用（未提供汇率）；费用自身可用另一币种 |
-| MANUAL | 每个非空输入必须为有效非负金额；空白按 0；禁止超额分配。未分完的金额显示为“未分摊费用” |
-
-比例乘除使用 `BigInteger`，金额汇总使用检查加法；超出 `Long` 范围时拒绝写入，事务回滚，不静默溢出。
-结果确定（余数相同取排序靠前的盒）。费用编辑器使用与正式保存一致的**完整订单计算**，不再展示与池化不一致的单笔预览。
-订单实际支出 = 商品本体价 + 全部费用 = 已分摊收藏成本 + 未分摊费用（按币种分别成立）。
-旧版本中无效的超额/混币种分摊不会被擅自修成猜测值：界面提示并暂记为未分摊，用户可编辑修正。
-
-### 示例（与需求文档一致）
-
-A=50 / B=60 / C=70，国际支付手续费 2 + 国际运费 100（均摊）：
-
-- 每盒附加费 = 34 → A=84，B=94，C=104
-
-单元测试覆盖该示例及各种边界（`CostEngineTest` / `MoneyTest`）。
-
----
-
-## 四、VNDB 数据来源
-
-- 官方数据库 API：`https://api.vndb.org/kana`（Kana API，POST + JSON）。
-  字段结构以 `https://api.vndb.org/kana/schema` 为准（本项目按 2026-10 的 schema 实测实现）。
-- 使用到的端点与字段：
-  - `POST /vn`：`id,title,alttitle,released,description,image{url,thumbnail},titles{title,lang,main,official}`
-  - `POST /release`：`id,title,alttitle,released,platforms,languages{lang,main},producers{id,name,developer,publisher},gtin,minage,official,patch,images{id,type,url,thumbnail,dims,sexual,violence}`
-    - `gtin` 即 JAN / EAN / UPC；
-    - `images` 中优先取 `type=pkgfront`（实体包装图），无则退回 VN 封面；
-    - 按 VN 过滤 Release 使用嵌套过滤器 `["vn","=",["id","=","v17"]]`。
-- 客户端设置独立 `User-Agent`（`VNventory/0.1.0`），仅按用户操作发起请求，不做批量抓取。
-- 缓存策略：**网络优先、写穿缓存**；网络失败时列表页回退本地缓存并标注「网络不可用：以下为本地缓存结果」。
-- VN 搜索支持“加载更多”，下一页失败保留已有结果并可重试；选择 VN 后 Release 会受控分页取全。
-  仅在所有页成功后，事务替换该 VN 的缓存关联；途中失败或取消不破坏旧缓存。
-- 切换搜索/作品或返回上一层时取消旧请求，并校验请求代次和 VN ID；仓库再次校验 Release 与 VN 关联，避免错绑。
-- 收藏记录不自动上传，应用禁用 Android 系统云备份/数据迁移；卸载或清除数据前请在设置中导出 JSON 备份，并保存在应用之外。
-- 免责声明：数据版权归 VNDB 及权利方所有；本应用与 VNDB 官方无隶属关系。
-
----
-
-## 五、开发与运行
-
-### 本机的自包含工具链（重要）
-
-本仓库的工具链**全部放在项目内 `toolchain/`**（已加入 `.gitignore`，不含在版本库）：
-
-```
-toolchain/
-├── android-sdk/          # Android SDK（platforms/android-37.2、build-tools 37.0.0、platform-tools）
-├── gradle-9.8.0/         # Gradle 发行版（用于生成 wrapper；日常用 ./gradlew）
-├── gradle-home/          # GRADLE_USER_HOME：wrapper 分发包 + 全部依赖缓存
-├── android-user-home/    # ANDROID_USER_HOME
-├── maven-local/          # Robolectric android-all 测试依赖
-└── downloads/            # 引导脚本下载、临时解压与日志
-```
-
-- 引导脚本：`scripts/setup-android-env.sh`（可重复执行；重建工具链时使用）。
-- `gradlew` 内置了“缓存留在项目内”的默认值（可用环境变量覆盖）：
-  未设置 `GRADLE_USER_HOME` 时自动指向 `toolchain/gradle-home`。
-- 引导脚本生成 `local.properties`（`sdk.dir=<项目>/toolchain/android-sdk`），不覆盖已有 SDK 配置。
-  `gradlew`/`gradlew.bat` 在没有外部 `ANDROID_HOME` 时也会自动发现项目内 SDK；不依赖本机曾经手动配置的路径。
-- Gradle/AGP 使用的 JDK：由 `toolchain/gradle-home/gradle.properties` 的 `org.gradle.java.home` 指定
-  （引导脚本自动写入，不进版本库；其他机器用 `JAVA_HOME` 或自行设置即可，信任项目内的 `gradle.properties` 保持可移植）。
-- 内存友好配置：`org.gradle.daemon.idletimeout=60000`（空闲 1 分钟自动退出）、
-  `kotlin.compiler.execution.strategy=in-process`（不产生常驻 Kotlin daemon）。
-
-### 常用命令
+矢量资源可用 Python 标准库重新生成并校验：
 
 ```bash
-cd <项目目录>
-
-# 首次克隆（Linux）：已有 JDK 17–21、python3、curl、unzip、sha256sum 即可。
-# 不安装全局软件；JDK 可以通过 VNVENTORY_JDK 显式指定。
-VNVENTORY_JDK=/path/to/jdk scripts/setup-android-env.sh
-
-./gradlew :app:assembleDebug        # 构建 Debug APK
-./gradlew :app:testDebugUnitTest    # 全部单元测试（成本引擎 / 金额 / DTO 解析）
-./gradlew :app:compileDebugKotlin   # 只编译（快速反馈）
-./gradlew :app:lintDebug            # Android 静态检查
-./gradlew --stop                    # 用完即停（仅本项目缓存下的 Gradle daemon）
-# 本项目 Kotlin 使用 in-process 编译，无需 pkill 全局 Java/Kotlin 进程。
-
-# 一键检查：引导脚本离线回归 + APK + JVM 测试 + Lint，成功/失败均停 daemon。
-scripts/check.sh
+python3 scripts/convert-branding.py --check
+python3 scripts/convert-branding.py --write
 ```
 
-产物：`app/build/outputs/apk/debug/app-debug.apk`
+界面与返回动效约定见 [`docs/ui-polish.md`](docs/ui-polish.md)；本机测试截图位于 `toolchain/review/ui/screenshots/`，不提交到仓库。
 
-Debug 包名为 **`com.vnventory.app.debug`**，Release 保持 **`com.vnventory.app`**，可以同时安装，应用私有数据各自隔离。
-源码 namespace 仍为 `com.vnventory.app`；Debug 预览封面 URI 使用 `BuildConfig.APPLICATION_ID`，不写死正式版包名。
-旧的无 `.debug` 后缀 Debug 版不会自动迁移数据到新包名：如有真实收藏，请先在旧版导出备份，再在新版恢复，不要直接卸载旧版。
+## 技术栈与架构
 
-### Release 优化与签名
+| 组件 | 版本 / 用途 |
+| --- | --- |
+| Kotlin | 2.3.21（AGP 9 内置 Kotlin） |
+| Android Gradle Plugin / Gradle | 9.4.1 / 9.8.0 |
+| Jetpack Compose | Compose BOM 2026.09.00、Material 3 |
+| Room | 2.8.5，本地收藏与购买数据 |
+| DataStore Preferences | 货币和店铺/渠道候选项 |
+| Ktor Client | 3.6.0，VNDB Kana API |
+| Coil | 3.6.3，封面与实体包装图 |
+| Android SDK | minSdk 26 / targetSdk 37 / compileSdk 37.2 |
 
-- Release 开启 **R8 混淆/优化/代码压缩**（`isMinifyEnabled=true`）及**资源压缩**（`isShrinkResources=true`），
-  使用 `proguard-android-optimize.txt` 和 `app/proguard-rules.pro`。
-- 签名配置默认读取 `~/.sign/vnventory-release.properties`；可通过 `VNVENTORY_SIGNING_PROPERTIES` 指定其他私有配置文件。
-  配置字段为 `storeFile`、`storeType`、`keyAlias`、`storePassword`、`keyPassword`；相对的 `storeFile` 以配置文件所在目录为基准。
-  不要把实际密码写进源码、README 或日志。缺少私有配置不影响 Debug 构建，但签名 Release 需要先配齐。
-- 本机私钥为 `/home/ywpc/.sign/vnventory-release.p12`（PKCS12，RSA 4096，别名 `vnventory`），
-  使用 APK v2/v3 签名（minSdk 26 无需 v1，v4 增量安装签名未开启）。
-  私有配置与私钥权限 `600`，所在目录权限 `700`；两者均在仓库外，另有 Git 忽略规则防误提交。
-- **务必在安全位置另外备份私钥及签名配置**。后续发布更新需沿用同一个签名，不要重新生成或覆盖。
-  Release 与 Debug 证书不同；新 Debug 版通过 `.debug` 包名与正式版并存，不互相覆盖。
-  旧的无后缀 Debug 版仍与 Release 同包名且签名不同，换签名或卸载前先导出备份，确认文件已保存在应用之外且可读取。
+应用采用单 Activity、Compose、MVVM 和 Repository，使用轻量手写依赖容器，不依赖 Hilt。源码主要位于 `app/src/main/java/com/vnventory/app/`：
+
+```text
+├── core/              结果与错误类型
+├── domain/            纯 Kotlin 领域模型、国际化消息键、金额与成本分摊
+├── data/local/        Room Entity、DAO、数据库与 Migration
+├── data/remote/       VNDB Kana API、DTO 和客户端
+├── data/backup/       独立于 Room schema 的 JSON 备份格式
+├── data/repository/   收藏、订单、设置和备份仓库
+└── ui/                Compose 页面、ViewModel、组件、导航与主题
+```
+
+用户可见文案位于 `app/src/main/res/values/strings.xml` 和 `messages.xml`。领域层只产生语言无关的消息键，UI 显示时解析资源；新增翻译可放入 `values-<locale>/`，不需要让业务逻辑依赖 Android。细节见 [`docs/localization.md`](docs/localization.md)。
+
+## 金额与成本规则
+
+- 金额使用 `Long` 最小货币单位存储：JPY 以円计，CNY 以分计；输入、格式化统一经过 `domain/model/Money.kt`，不使用浮点金额。
+- 自动分摊按“模式 + 费用币种”池化计算，并以最大余数法保证总额守恒；计算结果不落库。
+- 按价格比例分摊要求本订单商品币种一致，因为应用不做隐式汇率换算；全部商品价格为零时退化为平均分摊。
+- 手动分摊只保存用户指定值：空白代表 0，拒绝非法、负数、超额或不属于当前订单的分配；未分完金额明确显示。
+- 比例运算使用 `BigInteger`，各币种汇总进行溢出检查。超出 `Long` 范围时拒绝保存并回滚事务。
+- 订单支出按币种分别满足：**商品金额 + 全部费用 = 已分摊收藏成本 + 未分摊费用**。
+
+## 本地数据与数据库
+
+Room 当前为 **v2**。VNDB 的 VN 与 Release 缓存通过 `release_vn` 多对多关联，以支持同一 Release 属于多个 VN。v1 → v2 Migration 只调整元数据缓存关联，不重建购买事实表。
+
+每盒收藏保存标题、版本名和封面链接快照。即使 VNDB 缓存变化或清空，用户的购买记录也不受影响。费用自动分摊实时计算；只有手动分摊明细保存到数据库。
+
+常用店铺/渠道和默认货币保存在 DataStore。备份在独立的 `VNventoryBackup` JSON 格式中携带店铺候选项；恢复旧版备份时，如果文件没有店铺列表字段，就保留设备当前列表。候选项改名或删除不会重写收藏及批次中的历史名称。
+
+## 备份、隐私与网络
+
+- 备份通过 Android 系统文件选择器读写，不申请传统存储权限。
+- JSON 备份为**未加密文本**，包含价格、店铺/渠道、备注及收藏快照。请存放在可信位置，并在应用外保留副本。
+- 追加恢复会重新映射本地 ID，不自动去重；覆盖恢复会替换全部购买事实，并要求二次确认。
+- 恢复前验证格式、金额、日期、ID、订单关系和手动分摊；购买事实在单个 Room 事务内提交。备份不包含 VNDB 缓存或图片文件。
+- Android 系统自动备份与数据提取已禁用。卸载应用或清除数据前，请先导出备份。
+- 网络层仅按用户操作请求 `https://api.vndb.org/kana`，不做批量抓取。VNDB 元数据属于缓存，收藏不会自动上传。VNDB 与权利方保留其数据版权；本应用与 VNDB 官方无隶属关系。
+
+## 构建与测试
+
+本仓库的 Android SDK、Gradle 缓存和 Robolectric 依赖放在已忽略的项目内 `toolchain/`，不需要安装到全局目录。构建环境细节见 [`AGENTS.md`](AGENTS.md)。首次配置需本机已有 JDK 17–21、Python 3、curl、unzip 和 sha256sum：
+
+```bash
+VNVENTORY_JDK=/path/to/jdk scripts/setup-android-env.sh
+
+./gradlew :app:assembleDebug
+./gradlew :app:testDebugUnitTest
+./gradlew :app:lintDebug
+./gradlew --stop
+```
+
+一键检查（离线模式要求依赖已缓存；成功或失败都会停止 Gradle daemon）：
+
+```bash
+scripts/check.sh --offline
+```
+
+Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。Debug 包名为 `com.vnventory.app.debug`，正式版为 `com.vnventory.app`，可同时安装且数据相互隔离。迁移旧 Debug 安装中的真实收藏前，请先通过应用内备份导出并在新版本恢复。
+
+测试采用 JUnit、Robolectric、Room 内存数据库和 Compose UI 测试，覆盖金额/分摊、数据库迁移、缓存分页与并发请求、备份兼容、商店候选项、资源消息、页面渲染和返回动效。本机没有 AVD；Robolectric 测试不能代替真机上的系统返回手势、IME 和滚动体验验证。
+
+## Release 构建与签名
+
+Release 开启 R8 优化/混淆和资源压缩，APK 使用 v2/v3 签名。Release 签名从仓库外的 `~/.sign/vnventory-release.properties` 读取；也可以通过 `VNVENTORY_SIGNING_PROPERTIES` 指定私有配置文件。文件包含 `storeFile`、`storeType`、`keyAlias`、`storePassword` 和 `keyPassword`。**不要提交签名私钥或密码**；后续更新必须沿用同一签名。
 
 ```bash
 ./gradlew :app:assembleRelease
 ./gradlew --stop
-# 其他机器 / CI：仅向该进程传入私有配置路径，不通过命令行传密码
-VNVENTORY_SIGNING_PROPERTIES=/private/path/vnventory-release.properties ./gradlew :app:assembleRelease
-./gradlew --stop
 ```
 
-签名 APK：`app/build/outputs/apk/release/app-release.apk`。
-R8 映射：`app/build/outputs/mapping/release/mapping.txt`（应按发布版本安全归档，供崩溃堆栈还原，不提交构建产物）。
+没有本地签名配置时 Debug 构建和测试不受影响；签名 Release 需要事先准备私有配置。Release APK 位于 `app/build/outputs/apk/release/app-release.apk`。
 
-本轮配置修改前备份：`toolchain/backups/20261003-171218-before-release-signing.tar.gz`。
-如需回退构建配置，先保存当前工作区，再逐文件比对该归档中的 `app/build.gradle.kts`、`.gitignore` 和 README；
-不要整仓重置，也不要删除或替换已经用于发布的签名私钥。
+## 当前不包含
 
-未接模拟器（本机未配置 AVD）；真机安装使用项目内 adb：
-`toolchain/android-sdk/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk`。
-
-### 首次使用流程（应用内）
-
-1. 首页 / 收藏页右下角 **＋** → 搜索作品（罗马字 / 日文原名 / 中文译名）→ 选择作品；
-2. 在版本列表选择具体 Release（无对应版本时 → **创建手动版本**）；
-3. 填写购入价格、币种、品相、日期、店铺、数量（>1 会生成多盒，可稍后单独修改价格）、可选加入订单；
-4. 订单页 → 新建批次 → 添加游戏、添加费用（国际运费 / 手续费 / 税费…）→ 每盒最终成本即时可见。
-
-### 备份与恢复
-
-设置 → **备份与恢复**：
-
-- **导出备份**：通过系统文件选择器保存 `VNventory-backup-日期.json`，无需存储权限。
-  包含默认货币、所有收藏快照、购买批次、费用及手动分摊；金额仍为 `Long` 最小货币单位，日期为 ISO 文本。
-  不包含 VNDB 缓存、下载的封面图片或自动分摊结果；封面链接随收藏快照保留。
-- **选择备份文件**：先完整验证文件格式、版本、金额、日期、ID 和订单/分摊关联，再显示备份数量及导出时间。
-  **追加恢复**保留现有记录、重新映射所有本地 ID（重复导入不会去重）；**覆盖恢复**需再次确认，将替换全部购买事实，但不清理 VNDB 缓存。
-  可取消勾选“同时恢复默认货币”以保留当前配置。
-- 购买事实在一个 Room 事务内恢复，非法数据、写入失败或追加后全库金额溢出均回滚。
-  默认货币在购买事实提交后写入 DataStore；如仅配置写入失败，界面明确提示数据已恢复，避免重复追加。
-- 备份格式独立版本 `VNventoryBackup / schemaVersion=1`，拒绝未知版本或超过 **32 MiB** 的文件，不静默丢弃坏记录。
-  JSON 为未加密文本，含购买价格、店铺和备注等私人信息，请妥善保管。
-
----
-
-## 六、测试
-
-JVM 单元测试（`./gradlew :app:testDebugUnitTest`）：
-
-- `CostEngineTest`：均摊 / 池化 / 按比例 / 手动 / 多币种隔离 / 零价 / 大数不溢出 / 用户示例 A=84,B=94,C=104
-- `MoneyTest`：最小单位 ↔ 字符串互转、千分位、超位数拒绝、未知货币回退
-- `VndbDtoParseTest`：VNDB 响应解析与 DTO → 领域映射（样本 JSON，离线）
-- `DataLayerTest`（Robolectric + Room 内存库）：搜索/排序 SQL、订单删除语义（收藏保留、费用级联）、
-  手动分摊清理与校验、错绑阻止、混币种限制、事务回滚、支出守恒、完整订单预览与新增/编辑保存一致
-- `MigrationTest`：从导出的 v1 Schema 建库升级到 v2，验证 Room Schema、购买事实和分摊保留、合辑多 VN 缓存
-- `CatalogRegressionTest`：超过 100 条 Release 的分页去重、失败不覆盖旧缓存、取消传播、合辑关联
-- `ViewModelRegressionTest`：慢网旧请求隔离、搜索分页重试、写入失败保留表单且错误可见、恢复后重试
-- `ExpenseEditorTest`：非法/负数/超额输入阻止保存、空白明确为 0、部分分摊
-- `PurchaseFormTest`：按单盒价格与数量精确计算商品小计，溢出或非法数量禁止保存
-- `ShelfUiTest` / `ReducedMotionUiTest`（Compose + Robolectric Native Graphics）：深浅主题渲染截图、空状态、大字体、封面/网格/列表/排序交互、保存反馈、步骤进度动画和系统减少动态效果
-- `PurchaseFlowUiTest`：购入表单分区与大字体、数量/店铺输入、预测返回的跟手方向、取消回弹、完成返回及页面导航出栈
-- `BackupTest`：JSON 往返、金额精度、损坏/未知版本/超大文件拒绝、关联与分摊校验、追加 ID 映射、覆盖事务回滚、配置部分失败及系统文件读写流程
-- `SettingsAndDateUiTest`：设置分组、大字体深色备份页、覆盖二次确认与错误可见、日期模式切换保留选择和取消语义
-- `BrandingTest` / 关于页 UI 测试：新图标的渐变、V 与金色价签、启动图标背景及单色镂空、深浅主题和大字体下的版本/隐私/来源/许可展示
-- `BackMotionTest` / 返回 UI 回归：180ms 普通返回、手势剩余时长、取消保持页面、减少动态效果时即时完成
-- `DebugPackagingTest`：Debug 独立应用 ID、Application/Activity namespace 解析、预览封面的包名与资源可用性
-
-（本机无 AVD，未做真机/仪器化测试。Robolectric 的 android-all 依赖缓存于 `toolchain/maven-local`；本地界面截图在 `toolchain/review/ui/screenshots/`。）
-
----
-
-## 七、许可
-
-本项目采用 **Mozilla Public License 2.0（MPL-2.0）**，完整文本见 [LICENSE](LICENSE)。
-
-简要说明（非法律意见）：
-
-- 你可以自由使用、修改、分发本项目代码，需保留版权声明与许可证文本；
-- **分发**包含修改的 MPL 覆盖文件时，需要按 MPL-2.0 提供相关源码；仅私人使用的修改不要求公开；
-- 允许把本项目与闭源代码组合成一个更大的作品发布（文件级 copyleft，不是整作品传染）。
-
----
-
-## 八、已知限制与后续方向
-
-- 无云同步 / 账号（刻意不做）；
-- 汇率不做换算（多币种分行展示）；
-- 列表排序中的价格排序是“原始数值”排序，跨币种比较无意义（同币种订单内才有可比性）；
-- 手动版本绑定 UI 目前提供 Release 列表选择（含包装图/日期/平台）；
-- 后续可做：统计图表、批量编辑、VNDB 账号收藏导入等。
+账号、云同步、VNDB 账号收藏同步、汇率换算、社区、AI、统计图表、多平台或 Web 版本。项目使用 Mozilla Public License 2.0，见 [LICENSE](LICENSE)。

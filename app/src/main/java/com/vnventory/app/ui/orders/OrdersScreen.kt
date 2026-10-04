@@ -49,6 +49,10 @@ import com.vnventory.app.ui.components.PageHeader
 import com.vnventory.app.ui.components.ShelfFab
 import com.vnventory.app.ui.components.BrandMark
 import com.vnventory.app.ui.components.PressableSurface
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.components.ShopChannelField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,16 +67,16 @@ fun OrdersScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-        PageHeader("购买批次", "把一次购买的多盒游戏，与运费、手续费放在一起。", Modifier.padding(24.dp), eyebrow = "PURCHASE BATCHES")
+        PageHeader(stringResource(R.string.orders_title), stringResource(R.string.orders_hint), Modifier.padding(24.dp), eyebrow = stringResource(R.string.orders_eyebrow))
         if (!state.createOpen) OperationError(viewModel)
         Box(Modifier.weight(1f)) {
         when {
             state.loading -> LoadingState()
 
             state.orders.isEmpty() -> EmptyState(
-                title = "还没有购买批次",
-                subtitle = "把一次购买或一个转运批次建为订单，国际运费 / 手续费就能整批分摊到每盒",
-                actionLabel = "建立第一个批次",
+                title = stringResource(R.string.orders_empty_title),
+                subtitle = stringResource(R.string.orders_empty_hint),
+                actionLabel = stringResource(R.string.orders_create_first),
                 onAction = viewModel::openCreate,
             )
 
@@ -89,36 +93,36 @@ fun OrdersScreen(
         }
         }
         if (state.orders.isNotEmpty() || state.loading) {
-            ShelfFab(viewModel::openCreate, Modifier.align(Alignment.BottomEnd).padding(20.dp), label = "新建批次", expanded = expandedFab)
+            ShelfFab(viewModel::openCreate, Modifier.align(Alignment.BottomEnd).padding(20.dp), label = stringResource(R.string.order_create), expanded = expandedFab)
         }
     }
 
     if (state.createOpen) {
         AlertDialog(
             onDismissRequest = viewModel::closeCreate,
-            title = { Text("新建购买批次") },
+            title = { Text(stringResource(R.string.order_create_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OperationError(viewModel)
                     OutlinedTextField(
                         value = state.form.title,
                         onValueChange = viewModel::onTitleChange,
-                        label = { Text("名称，如：2026-09 骏河屋一批") },
+                        label = { Text(stringResource(R.string.order_name_hint)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    OutlinedTextField(
+                    ShopChannelField(
                         value = state.form.merchant,
                         onValueChange = viewModel::onMerchantChange,
-                        label = { Text("商家 / 转运（可空）") },
-                        singleLine = true,
+                        options = state.shopChannels,
+                        label = stringResource(R.string.order_merchant_optional),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         DateField(
                             date = state.form.date,
                             onDateChange = viewModel::onDateChange,
-                            placeholder = "下单日期",
+                            placeholder = stringResource(R.string.order_date),
                         )
                         Spacer(Modifier.width(8.dp))
                         CurrencySelector(
@@ -129,7 +133,7 @@ fun OrdersScreen(
                     OutlinedTextField(
                         value = state.form.notes,
                         onValueChange = viewModel::onNotesChange,
-                        label = { Text("备注（可空）") },
+                        label = { Text(stringResource(R.string.notes_optional)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -139,10 +143,10 @@ fun OrdersScreen(
                 TextButton(
                     onClick = { viewModel.createOrder(onOrderCreated) },
                     enabled = state.form.canSave && !state.creating,
-                ) { Text("创建") }
+                ) { Text(stringResource(R.string.action_create)) }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::closeCreate) { Text("取消") }
+                TextButton(onClick = viewModel::closeCreate) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -150,6 +154,8 @@ fun OrdersScreen(
 
 @Composable
 private fun OrderCard(summary: OrderSummary, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val separator = stringResource(R.string.separator_dot)
+    val copyCount = pluralStringResource(R.plurals.order_copy_count, summary.copyCount, summary.copyCount)
     PressableSurface(onClick, modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -162,11 +168,11 @@ private fun OrderCard(summary: OrderSummary, modifier: Modifier = Modifier, onCl
             val subtitle = buildString {
                 summary.order.merchant?.let { append(it) }
                 summary.order.orderDate?.let {
-                    if (isNotEmpty()) append(" · ")
+                    if (isNotEmpty()) append(separator)
                     append(it)
                 }
-                if (isNotEmpty()) append(" · ")
-                append("${summary.copyCount} 盒")
+                if (isNotEmpty()) append(separator)
+                append(copyCount)
             }
             Text(
                 text = subtitle,
@@ -174,16 +180,16 @@ private fun OrderCard(summary: OrderSummary, modifier: Modifier = Modifier, onCl
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
-            Text("本批实际支出", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.order_spending), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             MoneyTotalsInline(
                 totals = summary.grandTotals,
                 style = MaterialTheme.typography.titleMedium,
             )
             if (summary.feeTotals.isNotEmpty()) {
                 Text(
-                    text = "含费用 " + summary.feeTotals.entries.sortedBy { it.key }.joinToString(" + ") {
+                    text = stringResource(R.string.order_fee_included, summary.feeTotals.entries.sortedBy { it.key }.joinToString(stringResource(R.string.separator_plus)) {
                         com.vnventory.app.domain.model.Money.format(it.value, it.key)
-                    },
+                    }),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

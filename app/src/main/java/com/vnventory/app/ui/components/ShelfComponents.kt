@@ -46,9 +46,13 @@ import androidx.compose.ui.unit.dp
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OwnedCopy
 import com.vnventory.app.ui.theme.ShelfMotion
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.text.localized
 
 @Composable
-fun PageHeader(title: String, subtitle: String, modifier: Modifier = Modifier, eyebrow: String = "VNVENTORY") {
+fun PageHeader(title: String, subtitle: String, modifier: Modifier = Modifier, eyebrow: String = stringResource(R.string.brand_eyebrow)) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(eyebrow, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
@@ -85,7 +89,7 @@ fun PressableSurface(onClick: () -> Unit, modifier: Modifier = Modifier, content
 }
 
 @Composable
-fun ShelfFab(onClick: () -> Unit, modifier: Modifier = Modifier, label: String = "添加收藏", expanded: Boolean = true) {
+fun ShelfFab(onClick: () -> Unit, modifier: Modifier = Modifier, label: String = stringResource(R.string.add_collection), expanded: Boolean = true) {
     ExtendedFloatingActionButton(
         onClick = onClick,
         modifier = modifier,
@@ -104,7 +108,7 @@ fun SaveButton(label: String, saving: Boolean, enabled: Boolean, onClick: () -> 
         AnimatedContent(saving, transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) }, label = "saveFeedback") { busy ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(if (busy) "正在保存…" else label)
+                Text(if (busy) stringResource(R.string.saving) else label)
             }
         }
     }
@@ -117,16 +121,17 @@ fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mo
         Box(Modifier.padding(6.dp)) {
             VnCover(copy.coverUrl, copy.vnTitle, Modifier.fillMaxWidth().aspectRatio(.70f), corner = 16.dp)
             Row(Modifier.align(Alignment.BottomStart).padding(8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Tag(copy.condition.label, emphasized = true)
-                if (copy.isManualRelease) Tag("手动")
+                Tag(copy.condition.label.localized(), emphasized = true)
+                if (copy.isManualRelease) Tag(stringResource(R.string.manual_short))
             }
-            if (sameReleaseCount > 1) Tag("同版 ×$sameReleaseCount", Modifier.align(Alignment.TopEnd).padding(8.dp))
+            if (sameReleaseCount > 1) Tag(pluralStringResource(R.plurals.same_release_count, sameReleaseCount, sameReleaseCount), Modifier.align(Alignment.TopEnd).padding(8.dp))
         }
         Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall, maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(copy.displayReleaseName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(Money.formatWithCode(copy.priceMinor, copy.currency), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            Text("盒 #${copy.id}" + (copy.purchaseDate?.let { "  ·  $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val number = stringResource(R.string.copy_number, copy.id)
+            Text(copy.purchaseDate?.let { stringResource(R.string.text_pair, number, it) } ?: number, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -139,11 +144,11 @@ fun OwnedListCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mod
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(copy.displayReleaseName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(Money.formatWithCode(copy.priceMinor, copy.currency), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Tag(copy.condition.label)
-                    Text("盒 #${copy.id}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Tag(copy.condition.label.localized())
+                    Text(stringResource(R.string.copy_number, copy.id), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -159,7 +164,7 @@ fun CostHighlight(totals: Map<String, Long>, label: String, modifier: Modifier =
                 .padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(label, style = MaterialTheme.typography.labelLarge, color = colors.onPrimaryContainer)
-            if (totals.isEmpty()) Text("—", style = MaterialTheme.typography.headlineMedium, color = colors.onPrimaryContainer)
+            if (totals.isEmpty()) Text(stringResource(R.string.empty_value), style = MaterialTheme.typography.headlineMedium, color = colors.onPrimaryContainer)
             totals.entries.sortedBy { it.key }.forEach { (currency, amount) ->
                 // 精确金额直接展示；只动画容器高度，不让数字出现虚假中间值。
                 Text(Money.formatWithCode(amount, currency), style = MaterialTheme.typography.headlineMedium, color = colors.onPrimaryContainer)

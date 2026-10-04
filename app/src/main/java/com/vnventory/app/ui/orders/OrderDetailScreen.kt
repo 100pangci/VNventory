@@ -73,6 +73,10 @@ import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.domain.cost.OrderCostBreakdown
 import com.vnventory.app.ui.components.SectionHeading
 import com.vnventory.app.ui.components.SaveButton
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.text.localized
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,20 +98,20 @@ fun OrderDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = state.detail?.order?.title ?: "订单",
+                        text = state.detail?.order?.title ?: stringResource(R.string.nav_orders),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     if (state.detail != null) {
                         IconButton(onClick = { confirmDeleteOrder = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "删除订单")
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.order_delete))
                         }
                     }
                 },
@@ -119,7 +123,7 @@ fun OrderDetailScreen(
             state.loading -> LoadingState(modifier = Modifier.padding(padding))
 
             state.notFound || detail == null -> EmptyState(
-                title = "订单不存在或已被删除",
+                title = stringResource(R.string.order_not_found),
                 modifier = Modifier.padding(padding),
             )
 
@@ -133,13 +137,13 @@ fun OrderDetailScreen(
                 item { OrderHeaderCard(detail) }
 
                 item {
-                    SectionHeading("本批收藏", "${detail.copies.size} 盒 · 各自独立计算成本", "添加游戏") { onAddCopies(detail.order.id) }
+                    SectionHeading(stringResource(R.string.order_collection), pluralStringResource(R.plurals.order_collection_count, detail.copies.size, detail.copies.size), stringResource(R.string.order_add_copy)) { onAddCopies(detail.order.id) }
                 }
 
                 if (detail.copies.isEmpty()) {
                     item {
                         Text(
-                            text = "批次还没有游戏。添加新收藏，或把已有的单盒收藏加入进来。",
+                            text = stringResource(R.string.order_no_copies),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -157,13 +161,13 @@ fun OrderDetailScreen(
                 }
 
                 item {
-                    SectionHeading("批次费用", "${detail.expenses.size} 笔 · 均摊 / 按价格 / 手动", "添加费用", viewModel::openNewExpense)
+                    SectionHeading(stringResource(R.string.order_expenses), pluralStringResource(R.plurals.order_expense_count, detail.expenses.size, detail.expenses.size), stringResource(R.string.expense_add), viewModel::openNewExpense)
                 }
 
                 if (detail.expenses.isEmpty()) {
                     item {
                         Text(
-                            text = "添加日本国内运费、国际运费、支付手续费或税费；分摊方式可逐笔选择。",
+                            text = stringResource(R.string.expense_empty_hint),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -189,21 +193,20 @@ fun OrderDetailScreen(
     if (confirmDeleteOrder) {
         AlertDialog(
             onDismissRequest = { confirmDeleteOrder = false },
-            title = { Text("删除这个订单？") },
+            title = { Text(stringResource(R.string.order_delete_title)) },
             text = {
                 Text(
-                    "订单里的费用会一起删除；${state.detail?.copies?.size ?: 0} 盒收藏会保留，" +
-                        "只解除批次归属（之后可重新加入其它订单）。",
+                    stringResource(R.string.order_delete_hint, state.detail?.copies?.size ?: 0),
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDeleteOrder = false
                     viewModel.deleteOrder(onDeleted = onBack)
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDeleteOrder = false }) { Text("取消") }
+                TextButton(onClick = { confirmDeleteOrder = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -211,16 +214,16 @@ fun OrderDetailScreen(
     expenseToDelete?.let { expense ->
         AlertDialog(
             onDismissRequest = { expenseToDelete = null },
-            title = { Text("删除费用“${expense.name}”？") },
-            text = { Text("删除后所有盒子的成本会立即重新计算。") },
+            title = { Text(stringResource(R.string.expense_delete_title, expense.name)) },
+            text = { Text(stringResource(R.string.expense_delete_hint)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.deleteExpense(expense.id)
                     expenseToDelete = null
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { expenseToDelete = null }) { Text("取消") }
+                TextButton(onClick = { expenseToDelete = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -228,16 +231,16 @@ fun OrderDetailScreen(
     copyToRemove?.let { copy ->
         AlertDialog(
             onDismissRequest = { copyToRemove = null },
-            title = { Text("把“${copy.vnTitle}”移出本订单？") },
-            text = { Text("收藏本身会保留（变成独立收藏），只是不再分摊这个批次的费用。") },
+            title = { Text(stringResource(R.string.copy_remove_title, copy.vnTitle)) },
+            text = { Text(stringResource(R.string.copy_remove_hint)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.removeCopyFromOrder(copy.id)
                     copyToRemove = null
-                }) { Text("移出") }
+                }) { Text(stringResource(R.string.action_remove)) }
             },
             dismissButton = {
-                TextButton(onClick = { copyToRemove = null }) { Text("取消") }
+                TextButton(onClick = { copyToRemove = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }
@@ -247,16 +250,16 @@ fun OrderDetailScreen(
 private fun OrderHeaderCard(detail: OrderDetail) {
     SectionCard {
         val order = detail.order
-        order.merchant?.let { LabeledRow("商家") { Text(it) } }
-        order.orderDate?.let { LabeledRow("日期") { Text(it.toString()) } }
-        LabeledRow("默认币种") { Text(order.currency) }
-        order.notes?.let { LabeledRow("备注") { Text(it) } }
+        order.merchant?.let { LabeledRow(stringResource(R.string.merchant)) { Text(it) } }
+        order.orderDate?.let { LabeledRow(stringResource(R.string.date)) { Text(it.toString()) } }
+        LabeledRow(stringResource(R.string.default_currency)) { Text(order.currency) }
+        order.notes?.let { LabeledRow(stringResource(R.string.notes)) { Text(it) } }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
             Text(
-                "商品本体",
+                stringResource(R.string.goods_base),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -266,7 +269,7 @@ private fun OrderHeaderCard(detail: OrderDetail) {
         }
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
             Text(
-                "全部费用",
+                stringResource(R.string.fees_all),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
@@ -276,7 +279,7 @@ private fun OrderHeaderCard(detail: OrderDetail) {
         }
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
             Text(
-                "订单实际支出",
+                stringResource(R.string.order_actual_spending),
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
@@ -286,13 +289,13 @@ private fun OrderHeaderCard(detail: OrderDetail) {
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        LabeledRow("已分摊成本") {
+        LabeledRow(stringResource(R.string.allocated_cost)) {
             com.vnventory.app.ui.components.MoneyTotalsInline(detail.breakdown.allocatedTotals)
         }
-        LabeledRow("未分摊费用") {
-            com.vnventory.app.ui.components.MoneyTotalsInline(detail.breakdown.unallocatedTotals, emptyText = "无")
+        LabeledRow(stringResource(R.string.unallocated_fees)) {
+            com.vnventory.app.ui.components.MoneyTotalsInline(detail.breakdown.unallocatedTotals, emptyText = stringResource(R.string.none))
         }
-        detail.breakdown.issues.forEach { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        detail.breakdown.issues.forEach { Text(it.localized(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     }
 }
 
@@ -327,14 +330,14 @@ private fun OrderCopyRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = copy.displayReleaseName,
+                text = copy.displayReleaseName.localized(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "本体 " + Money.formatWithCode(copy.priceMinor, copy.currency),
+                text = stringResource(R.string.copy_base_amount, Money.formatWithCode(copy.priceMinor, copy.currency)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -349,7 +352,7 @@ private fun OrderCopyRow(
                 )
             }
             TextButton(onClick = onRemove) {
-                Text("移出", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.action_remove), style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -372,8 +375,8 @@ private fun ExpenseRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(expense.name, style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Tag(text = expense.category.label)
-                Tag(text = expense.mode.label)
+                Tag(text = expense.category.label.localized())
+                Tag(text = expense.mode.label.localized())
             }
         }
         Column(horizontalAlignment = Alignment.End) {
@@ -382,13 +385,13 @@ private fun ExpenseRow(
                 style = MaterialTheme.typography.titleSmall,
             )
             Text(
-                text = "点击编辑",
+                text = stringResource(R.string.tap_edit),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(onClick = onDelete) {
-            Icon(Icons.Filled.Delete, contentDescription = "删除费用")
+            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.expense_delete))
         }
     }
 }
@@ -416,21 +419,21 @@ private fun ExpenseEditorSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = if (editor.editingId == null) "添加费用" else "编辑费用",
+                text = stringResource(if (editor.editingId == null) R.string.expense_add else R.string.expense_edit),
                 style = MaterialTheme.typography.titleMedium,
             )
 
             OutlinedTextField(
                 value = editor.name,
                 onValueChange = viewModel::onExpenseNameChange,
-                label = { Text("费用名称，如：国际运费") },
+                label = { Text(stringResource(R.string.expense_name_hint)) },
                 singleLine = true,
                 isError = editor.name.isBlank(),
                 modifier = Modifier.fillMaxWidth(),
             )
 
             Column {
-                Text("分类", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.expense_category), style = MaterialTheme.typography.labelMedium)
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -439,7 +442,7 @@ private fun ExpenseEditorSheet(
                         FilterChip(
                             selected = editor.category == category,
                             onClick = { viewModel.onExpenseCategoryChange(category) },
-                            label = { Text(category.label) },
+                            label = { Text(category.label.localized()) },
                         )
                     }
                 }
@@ -449,7 +452,7 @@ private fun ExpenseEditorSheet(
                 OutlinedTextField(
                     value = editor.amountText,
                     onValueChange = viewModel::onExpenseAmountChange,
-                    label = { Text("金额") },
+                    label = { Text(stringResource(R.string.amount)) },
                     isError = editor.amountText.isNotBlank() && editor.parsedAmount == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
@@ -463,7 +466,7 @@ private fun ExpenseEditorSheet(
             }
 
             Column {
-                Text("分摊方式", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.allocation_mode), style = MaterialTheme.typography.labelMedium)
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -473,7 +476,7 @@ private fun ExpenseEditorSheet(
                             selected = editor.mode == mode,
                             enabled = mode != AllocationMode.BY_PRICE || detail.copies.map { it.currency }.distinct().size <= 1,
                             onClick = { viewModel.onExpenseModeChange(mode) },
-                            label = { Text(mode.label) },
+                            label = { Text(mode.label.localized()) },
                         )
                     }
                 }
@@ -482,7 +485,7 @@ private fun ExpenseEditorSheet(
             when (editor.mode) {
                 AllocationMode.EQUAL, AllocationMode.BY_PRICE -> {
                     if (detail.copies.map { it.currency }.distinct().size > 1) {
-                        Text("混币种商品请使用平均分摊或手动指定", style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.allocation_mixed_hint), style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
@@ -495,12 +498,12 @@ private fun ExpenseEditorSheet(
                 }
             }
 
-            state.editorError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.editorError?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
             state.preview?.let { AllocationPreview(detail = detail, preview = it) }
             OperationError(viewModel)
 
             SaveButton(
-                label = "保存费用并更新成本",
+                label = stringResource(R.string.expense_save),
                 saving = state.savingExpense,
                 onClick = viewModel::saveExpense,
                 enabled = state.preview != null && state.editorError == null && !state.savingExpense,
@@ -513,7 +516,7 @@ private fun ExpenseEditorSheet(
 @Composable
 private fun AllocationPreview(detail: OrderDetail, preview: OrderCostBreakdown) {
     Column {
-        Text("保存后每盒最终成本（包含订单全部费用）", style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.allocation_preview), style = MaterialTheme.typography.labelMedium)
         detail.copies.forEach { copy ->
             Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 Text(
@@ -528,8 +531,8 @@ private fun AllocationPreview(detail: OrderDetail, preview: OrderCostBreakdown) 
                     style = MaterialTheme.typography.bodySmall)
             }
         }
-        LabeledRow("订单支出") { com.vnventory.app.ui.components.MoneyTotalsInline(preview.totalsByCurrency) }
-        LabeledRow("未分摊费用") { com.vnventory.app.ui.components.MoneyTotalsInline(preview.unallocatedTotals, emptyText = "无") }
+        LabeledRow(stringResource(R.string.order_total_spending)) { com.vnventory.app.ui.components.MoneyTotalsInline(preview.totalsByCurrency) }
+        LabeledRow(stringResource(R.string.unallocated_fees)) { com.vnventory.app.ui.components.MoneyTotalsInline(preview.unallocatedTotals, emptyText = stringResource(R.string.none)) }
     }
 }
 
@@ -542,7 +545,7 @@ private fun ManualAllocationEditor(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (detail.copies.isEmpty()) {
             Text(
-                text = "订单里还没有游戏，先添加游戏再手动分配",
+                text = stringResource(R.string.allocation_no_copies),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -559,7 +562,7 @@ private fun ManualAllocationEditor(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = copy.displayReleaseName,
+                        text = copy.displayReleaseName.localized(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -580,14 +583,13 @@ private fun ManualAllocationEditor(
 
         val allocated = editor.parsedManual?.values?.let { runCatching { Money.sum(it) }.getOrNull() }
         if (allocated == null) {
-            Text("请修正无效或超出范围的分摊金额", color = MaterialTheme.colorScheme.error)
+            Text(stringResource(R.string.allocation_input_invalid), color = MaterialTheme.colorScheme.error)
             return@Column
         }
         val total = editor.parsedAmount ?: 0L
         val diff = total - allocated
         Text(
-            text = "已分配 ${Money.format(allocated, editor.currency)} / " +
-                "总额 ${Money.format(total, editor.currency)}（差额 ${Money.format(diff, editor.currency)}）",
+            text = stringResource(R.string.allocation_totals, Money.format(allocated, editor.currency), Money.format(total, editor.currency), Money.format(diff, editor.currency)),
             style = MaterialTheme.typography.bodySmall,
             color = if (diff == 0L) {
                 MaterialTheme.colorScheme.onSurfaceVariant
@@ -596,7 +598,7 @@ private fun ManualAllocationEditor(
             },
         )
         Text(
-            text = "留空为 0；未分完的金额会明确显示为未分摊费用，不能超额分配。",
+            text = stringResource(R.string.allocation_blank_hint),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

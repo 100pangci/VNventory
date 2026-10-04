@@ -1,5 +1,9 @@
 package com.vnventory.app.ui
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import com.vnventory.app.ui.text.resolve
+
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -121,7 +125,7 @@ class ShelfUiTest {
         assertEquals(102L, selected)
         capture("collection-list")
         compose.onNodeWithText("排序 · 最近添加").performClick()
-        compose.onNodeWithText(CollectionSort.PRICE_ASC.label).performClick()
+        compose.onNodeWithText(ApplicationProvider.getApplicationContext<Context>().resources.resolve(CollectionSort.PRICE_ASC.label)).performClick()
         assertEquals(CollectionSort.PRICE_ASC, sort)
     }
 

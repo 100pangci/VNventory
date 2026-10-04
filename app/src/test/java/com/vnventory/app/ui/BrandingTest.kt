@@ -36,15 +36,15 @@ class BrandingTest {
         }
     }
 
-    @Test fun `SVG原色前景保留白色V紫色盒面金色价签与透明安全区`() {
+    @Test fun `收集V原生矢量保留浅色V薰衣草盒套与香槟金收藏牌`() {
         val foreground = render(drawable(R.drawable.ic_launcher_foreground))
         assertEquals(0, Color.alpha(foreground.getPixel(100, 100)))
-        val v = foreground.getPixel(448, 420)
-        assertTrue(Color.red(v) >= 230 && Color.green(v) >= 225 && Color.blue(v) >= 240)
-        val cover = foreground.getPixel(560, 680)
-        assertTrue(Color.blue(cover) > Color.red(cover) && Color.red(cover) > Color.green(cover))
-        val tag = foreground.getPixel(704, 710)
-        assertTrue(Color.red(tag) > 180 && Color.green(tag) > 100 && Color.blue(tag) < 180)
+        val ivoryV = foreground.allPixels().count { Color.red(it) > 230 && Color.green(it) > 220 && Color.blue(it) > 225 }
+        val goldTab = foreground.allPixels().count { Color.red(it) > 180 && Color.red(it) > Color.green(it) && Color.green(it) > Color.blue(it) }
+        val lavender = foreground.allPixels().count { Color.blue(it) > Color.red(it) && Color.red(it) > Color.green(it) }
+        assertTrue("The ivory V is retained", ivoryV > 1_000)
+        assertTrue("The champagne-gold collection tab is retained", goldTab > 100)
+        assertTrue("The lavender sleeve palette is retained", lavender > 5_000)
         val logo = render(LayerDrawable(arrayOf(drawable(R.drawable.vnventory_logo_background), drawable(R.drawable.ic_launcher_foreground))))
         assertEquals(0, Color.alpha(logo.getPixel(0, 0)))
         assertEquals(255, Color.alpha(logo.getPixel(512, 100)))
@@ -57,7 +57,13 @@ class BrandingTest {
         val round = drawable(R.mipmap.ic_launcher_round)
         assertTrue(normal is AdaptiveIconDrawable)
         assertTrue(round is AdaptiveIconDrawable)
-        assertNotNull((normal as AdaptiveIconDrawable).monochrome)
+        val icon = normal as AdaptiveIconDrawable
+        assertNotNull(icon.monochrome)
+        val launcherForeground = render(icon.foreground)
+        val sourceForeground = render(drawable(R.drawable.ic_launcher_foreground_safe))
+        val fullForeground = render(drawable(R.drawable.ic_launcher_foreground))
+        assertTrue("Launcher uses the generated safe-zone vector", launcherForeground.sameAs(sourceForeground))
+        assertTrue("Safe-zone art is inset relative to the full wordmark", sourceForeground.alphaBounds().width() < fullForeground.alphaBounds().width())
         val background = render(normal.background)
         assertEquals(255, Color.alpha(background.getPixel(0, 0)))
         assertEquals(255, Color.alpha(background.getPixel(1023, 1023)))
@@ -68,9 +74,28 @@ class BrandingTest {
     @Test fun `单色主题图标V与价签孔镂空不是一整块方形`() {
         val monochrome = render(drawable(R.drawable.ic_launcher_monochrome))
         assertEquals(0, Color.alpha(monochrome.getPixel(100, 100)))
-        assertEquals(0, Color.alpha(monochrome.getPixel(448, 420)))
-        assertEquals(0, Color.alpha(monochrome.getPixel(652, 651)))
-        assertEquals(Color.WHITE, monochrome.getPixel(560, 680))
+        assertEquals("Spine label remains punched out", 0, Color.alpha(monochrome.getPixel(315, 343)))
+        assertEquals("Collection-tab eyelet remains punched out", 0, Color.alpha(monochrome.getPixel(657, 273)))
+        assertEquals("The game sleeve is a foreground silhouette", 255, Color.alpha(monochrome.getPixel(387, 506)))
         capture("brand-monochrome", monochrome)
+    }
+
+    private fun Bitmap.allPixels(): Sequence<Int> = sequence {
+        for (y in 0 until height) for (x in 0 until width) yield(getPixel(x, y))
+    }
+
+    private fun Bitmap.alphaBounds(): android.graphics.Rect {
+        var left = width
+        var top = height
+        var right = -1
+        var bottom = -1
+        for (y in 0 until height) for (x in 0 until width) {
+            if (Color.alpha(getPixel(x, y)) == 0) continue
+            left = minOf(left, x)
+            top = minOf(top, y)
+            right = maxOf(right, x)
+            bottom = maxOf(bottom, y)
+        }
+        return android.graphics.Rect(left, top, right + 1, bottom + 1)
     }
 }

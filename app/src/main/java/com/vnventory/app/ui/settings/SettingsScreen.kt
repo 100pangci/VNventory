@@ -29,16 +29,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.ui.components.PageHeader
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
 
 @Composable
 fun SettingsScreen(
     onPreferences: () -> Unit = {},
     onData: () -> Unit = {},
     onAbout: () -> Unit = {},
+    onShops: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val defaultCurrency by viewModel.defaultCurrency.collectAsStateWithLifecycle()
-    SettingsHomeContent(defaultCurrency, onPreferences, onData, onAbout, error = { OperationError(viewModel) })
+    SettingsHomeContent(defaultCurrency, onPreferences, onData, onAbout, error = { OperationError(viewModel) }, onShops = onShops)
 }
 
 @Composable
@@ -48,6 +51,7 @@ internal fun SettingsHomeContent(
     onData: () -> Unit,
     onAbout: () -> Unit,
     error: @Composable () -> Unit = {},
+    onShops: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -55,20 +59,21 @@ internal fun SettingsHomeContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item { error() }
-        item { PageHeader("设置", "让这座书架更符合你的收藏习惯。", eyebrow = "PREFERENCES") }
-        item { SettingsGroupTitle("收藏偏好") }
+        item { PageHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_hint), eyebrow = stringResource(R.string.settings_eyebrow)) }
+        item { SettingsGroupTitle(stringResource(R.string.settings_collection)) }
         item {
-            SettingsEntry(Icons.Default.Settings, "偏好设置", "默认货币 · $defaultCurrency", onPreferences)
+            SettingsEntry(Icons.Default.Settings, stringResource(R.string.settings_preferences), stringResource(R.string.settings_currency_summary, defaultCurrency), onPreferences)
+        }
+        item { SettingsEntry(Icons.Default.Settings, stringResource(R.string.shops_settings), stringResource(R.string.shops_settings_hint), onShops) }
+        item { SettingsDivider() }
+        item { SettingsGroupTitle(stringResource(R.string.settings_data)) }
+        item {
+            SettingsEntry(Icons.Default.Refresh, stringResource(R.string.settings_backup), stringResource(R.string.settings_backup_hint), onData)
         }
         item { SettingsDivider() }
-        item { SettingsGroupTitle("数据管理") }
+        item { SettingsGroupTitle(stringResource(R.string.settings_app)) }
         item {
-            SettingsEntry(Icons.Default.Refresh, "备份与恢复", "导出配置与收藏，或从 JSON 备份恢复", onData)
-        }
-        item { SettingsDivider() }
-        item { SettingsGroupTitle("应用信息") }
-        item {
-            SettingsEntry(Icons.Default.Info, "关于与数据来源", "版本信息、隐私及 VNDB 数据说明", onAbout)
+            SettingsEntry(Icons.Default.Info, stringResource(R.string.settings_about), stringResource(R.string.settings_about_hint), onAbout)
         }
     }
 }

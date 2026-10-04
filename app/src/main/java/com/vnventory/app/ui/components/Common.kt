@@ -67,6 +67,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import com.vnventory.app.ui.theme.ShelfMotion
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
 
 // ---------------------------------------------------------------------------
 // 封面
@@ -89,7 +92,8 @@ fun VnCover(
             ?.lastPathSegment?.toIntOrNull()
     }
     val motionScale = rememberCoroutineScope().coroutineContext[MotionDurationScale]?.scaleFactor ?: 1f
-    var imageStatus by remember(url) { mutableStateOf(if (url.isNullOrBlank()) "暂无封面" else "封面加载中") }
+    var imageStatus by remember(url) { mutableIntStateOf(if (url.isNullOrBlank()) R.string.cover_none else R.string.cover_loading) }
+    val imageStatusText = stringResource(if (localDrawableId != null) R.string.cover_loaded else imageStatus)
     val image = remember(context, url, motionScale) {
         ImageRequest.Builder(context).data(url)
             .crossfade((ShelfMotion.Standard * motionScale).toInt().coerceAtLeast(0))
@@ -99,13 +103,13 @@ fun VnCover(
         modifier = modifier
             .clip(shape)
             .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.surfaceContainerHigh)))
-            .semantics { stateDescription = if (localDrawableId != null) "封面已加载" else imageStatus },
+            .semantics { stateDescription = imageStatusText },
         contentAlignment = Alignment.Center,
     ) {
         // 占位始终在图像后方；空 URL、加载中和网络失败均不会变成空白矩形。
         Column(Modifier.clearAndSetSemantics {}, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             BrandMark(Modifier.size(38.dp), color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .6f))
-            Text("VN", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .6f))
+            Text(stringResource(R.string.cover_mark), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .6f))
         }
         if (localDrawableId != null) {
             Image(
@@ -120,9 +124,9 @@ fun VnCover(
                 contentDescription = contentDescription,
                 contentScale = contentScale,
                 modifier = Modifier.fillMaxSize(),
-                onLoading = { imageStatus = "封面加载中" },
-                onSuccess = { imageStatus = "封面已加载" },
-                onError = { imageStatus = "封面暂不可用" },
+                onLoading = { imageStatus = R.string.cover_loading },
+                onSuccess = { imageStatus = R.string.cover_loaded },
+                onError = { imageStatus = R.string.cover_unavailable },
             )
         }
     }
@@ -162,11 +166,11 @@ fun ErrorState(
         verticalArrangement = Arrangement.Center,
     ) {
         Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.errorContainer) {
-            Text("!", modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onErrorContainer)
+            Text(stringResource(R.string.error_mark), modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onErrorContainer)
         }
         Spacer(Modifier.height(20.dp))
         Text(
-            text = "出错了",
+            text = stringResource(R.string.error_title),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.error,
         )
@@ -179,7 +183,7 @@ fun ErrorState(
         )
         if (onRetry != null) {
             Spacer(Modifier.height(16.dp))
-            OutlinedButton(onClick = onRetry) { Text("重试") }
+            OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
         }
     }
 }
@@ -279,12 +283,12 @@ fun MoneyTotalsInline(
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.titleMedium,
     color: Color = MaterialTheme.colorScheme.onSurface,
-    emptyText: String = "—",
+    emptyText: String = stringResource(R.string.empty_value),
 ) {
     val text = if (totals.isEmpty()) {
         emptyText
     } else {
-        totals.entries.sortedBy { it.key }.joinToString(" + ") { (currency, amount) ->
+        totals.entries.sortedBy { it.key }.joinToString(stringResource(R.string.separator_plus)) { (currency, amount) ->
             Money.formatWithCode(amount, currency)
         }
     }
@@ -359,7 +363,7 @@ fun CurrencySelector(
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { code ->
                 DropdownMenuItem(
-                    text = { Text("$code（${Money.symbol(code).ifEmpty { code }}）") },
+                    text = { Text(stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code })) },
                     onClick = {
                         expanded = false
                         onSelect(code)
@@ -379,14 +383,14 @@ fun OrderSelector(
     modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val label = orders.firstOrNull { it.order.id == selectedId }?.order?.title ?: "不加入订单"
+    val label = orders.firstOrNull { it.order.id == selectedId }?.order?.title ?: stringResource(R.string.order_unassigned)
     Box(modifier = modifier) {
         OutlinedButton(onClick = { expanded = true }) {
             Text(label, maxLines = 1)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("不加入订单") },
+                text = { Text(stringResource(R.string.order_unassigned)) },
                 onClick = {
                     expanded = false
                     onSelect(null)
@@ -394,7 +398,7 @@ fun OrderSelector(
             )
             orders.forEach { summary ->
                 DropdownMenuItem(
-                    text = { Text("${summary.order.title}（${summary.order.currency}）") },
+                    text = { Text(stringResource(R.string.currency_option, summary.order.title, summary.order.currency)) },
                     onClick = {
                         expanded = false
                         onSelect(summary.order.id)
@@ -432,10 +436,10 @@ fun DatePickerModal(
             TextButton(onClick = {
                 onConfirm(state.selectedDateMillis?.toLocalDateUtc())
                 onDismiss()
-            }) { Text("确定") }
+            }) { Text(stringResource(R.string.action_confirm)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
     ) {
         // 与 DateNote-Weii 1a5d6f4 一致：只重建模式 UI，保留选择状态，
@@ -453,7 +457,7 @@ fun DateField(
     date: LocalDate?,
     onDateChange: (LocalDate?) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "选择日期",
+    placeholder: String = stringResource(R.string.date_select),
 ) {
     var showPicker by remember { mutableStateOf(false) }
     OutlinedButton(onClick = { showPicker = true }, modifier = modifier) {

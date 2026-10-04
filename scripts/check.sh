@@ -5,5 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cleanup() { "$ROOT/gradlew" -p "$ROOT" --stop; }
 trap cleanup EXIT
 python3 "$ROOT/scripts/tests/setup-toolchain-test.py"
+python3 "$ROOT/scripts/tests/string-resources-test.py"
+python3 "$ROOT/scripts/convert-branding.py" --check
 "$ROOT/gradlew" -p "$ROOT" --no-daemon --max-workers=2 \
   :app:assembleDebug :app:testDebugUnitTest :app:lintDebug "$@"

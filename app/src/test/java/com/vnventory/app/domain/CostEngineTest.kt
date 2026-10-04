@@ -9,6 +9,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 
 class CostEngineTest {
 
@@ -77,7 +79,7 @@ class CostEngineTest {
         )
         val breakdown = CostEngine.computeOrderCosts(copies, expenses)
         val share = breakdown.copyCosts[0].feeShares.single()
-        assertEquals("平均分摊（2 笔）", share.label)
+        assertEquals(message(MessageKey.ALLOCATION_POOL, AllocationMode.EQUAL.label, 2), share.label)
         assertEquals(com.vnventory.app.domain.cost.FeeKind.EQUAL_POOL, share.kind)
         assertNull(share.expenseId)
     }

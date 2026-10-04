@@ -49,10 +49,16 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.vnventory.app.R
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.ui.text.localized
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsDetailScaffold(
+internal fun SettingsDetailScaffold(
     title: String,
     onBack: () -> Unit,
     busy: Boolean = false,
@@ -65,7 +71,7 @@ private fun SettingsDetailScaffold(
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack, enabled = !busy) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -80,7 +86,7 @@ fun SettingsPreferencesScreen(
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val currency by viewModel.defaultCurrency.collectAsStateWithLifecycle()
-    SettingsDetailScaffold("偏好设置", onBack) { padding ->
+    SettingsDetailScaffold(stringResource(R.string.settings_preferences), onBack) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(24.dp),
@@ -88,18 +94,18 @@ fun SettingsPreferencesScreen(
         ) {
             item { OperationError(viewModel) }
             item {
-                SectionCard(title = "默认货币") {
-                    InfoLine("添加收藏、新建订单和费用时的默认币种，每笔仍可单独修改。")
+                SectionCard(title = stringResource(R.string.settings_default_currency)) {
+                    InfoLine(stringResource(R.string.settings_default_currency_hint))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Money.commonCurrencies.forEach { code ->
                             FilterChip(
                                 selected = currency == code,
                                 onClick = { viewModel.setDefaultCurrency(code) },
-                                label = { Text("$code（${Money.symbol(code).ifEmpty { code }}）") },
+                                label = { Text(stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code })) },
                             )
                         }
                     }
-                    if (currency !in Money.commonCurrencies) InfoLine("当前默认货币：$currency")
+                    if (currency !in Money.commonCurrencies) InfoLine(stringResource(R.string.settings_currency_current, currency))
                 }
             }
         }
@@ -119,7 +125,7 @@ fun SettingsDataScreen(
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(viewModel::readBackup)
     }
-    SettingsDetailScaffold("备份与恢复", onBack, state.busy) { padding ->
+    SettingsDetailScaffold(stringResource(R.string.settings_backup), onBack, state.busy) { padding ->
         SettingsDataContent(
             state = state,
             modifier = Modifier.padding(padding),
@@ -133,6 +139,7 @@ fun SettingsDataScreen(
         { viewModel.restoreBackup(false) }, viewModel::requestReplace,
         viewModel::cancelReplace, { viewModel.restoreBackup(true) },
         error = actionError,
+        onRestoreShops = viewModel::setRestoreShops,
     )
 }
 
@@ -153,33 +160,33 @@ internal fun SettingsDataContent(
         if (state.busy) item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
-                Text(state.progress, style = MaterialTheme.typography.bodyMedium)
+                Text(state.progress.localized(), style = MaterialTheme.typography.bodyMedium)
             }
         }
-        state.feedback?.let { feedback -> item { Text(feedback, color = MaterialTheme.colorScheme.primary) } }
+        state.feedback?.let { feedback -> item { Text(feedback.localized(), color = MaterialTheme.colorScheme.primary) } }
         item {
-            SectionCard(title = "导出备份") {
-                InfoLine("将默认货币、所有收藏、购买批次、费用和手动分摊保存为 JSON 文件。")
-                InfoLine("保留标题、版本、封面链接及购买记录，不包含 VNDB 缓存或图片文件。")
+            SectionCard(title = stringResource(R.string.backup_export)) {
+                InfoLine(stringResource(R.string.backup_export_hint))
+                InfoLine(stringResource(R.string.backup_snapshot_hint))
                 Button(onClick = onExport, enabled = !state.busy && state.pendingImport == null, modifier = Modifier.fillMaxWidth()) {
-                    Text("导出备份")
+                    Text(stringResource(R.string.backup_export))
                 }
             }
         }
         item {
-            SectionCard(title = "恢复备份") {
-                InfoLine("先选择并检查备份，再决定追加还是覆盖。追加保留现有记录，但重复导入会增加重复收藏。")
-                InfoLine("覆盖将替换全部收藏、订单和费用，请先导出当前数据。")
+            SectionCard(title = stringResource(R.string.backup_restore)) {
+                InfoLine(stringResource(R.string.backup_restore_hint))
+                InfoLine(stringResource(R.string.backup_replace_hint))
                 OutlinedButton(onClick = onImport, enabled = !state.busy && state.pendingImport == null, modifier = Modifier.fillMaxWidth()) {
-                    Text("选择备份文件")
+                    Text(stringResource(R.string.backup_select_file))
                 }
             }
         }
         item {
-            SectionCard(title = "备份须知") {
-                InfoLine("备份为未加密文本，含价格、店铺和备注等私人信息，请保存到可信位置。")
-                InfoLine("系统自动备份仍然禁用；卸载或清除数据前，请将备份保存在应用之外。")
-                InfoLine("应用只读写你通过系统文件选择器选定的文档，不自动上传。文件上限为 32 MiB。")
+            SectionCard(title = stringResource(R.string.backup_notice)) {
+                InfoLine(stringResource(R.string.backup_private_hint))
+                InfoLine(stringResource(R.string.backup_uninstall_hint))
+                InfoLine(stringResource(R.string.backup_file_access_hint))
             }
         }
     }
@@ -194,57 +201,69 @@ internal fun BackupImportDialogs(
     onRequestReplace: () -> Unit,
     onCancelReplace: () -> Unit,
     onReplace: () -> Unit,
-    error: String? = null,
+    error: Message? = null,
+    onRestoreShops: (Boolean) -> Unit = {},
 ) {
     val backup = state.pendingImport ?: return
     if (!state.replaceConfirmation) {
         AlertDialog(
             onDismissRequest = { if (!state.busy) onDismiss() },
-            title = { Text("检查备份") },
+            title = { Text(stringResource(R.string.backup_check)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("${backup.copies.size} 盒收藏 · ${backup.orders.size} 个购买批次 · ${backup.expenses.size} 笔费用")
+                    Text(stringResource(R.string.backup_contents,
+                        pluralStringResource(R.plurals.backup_copy_count, backup.copies.size, backup.copies.size),
+                        pluralStringResource(R.plurals.backup_order_count, backup.orders.size, backup.orders.size),
+                        pluralStringResource(R.plurals.backup_expense_count, backup.expenses.size, backup.expenses.size)))
                     val exported = runCatching {
-                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(Instant.ofEpochMilli(backup.exportedAt).atZone(ZoneId.systemDefault()))
-                    }.getOrDefault("未知")
-                    InfoLine("导出时间：$exported")
-                    InfoLine("追加保留现有数据，重复导入不会自动去重。覆盖会替换现有收藏、订单和费用。")
+                        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(Instant.ofEpochMilli(backup.exportedAt).atZone(ZoneId.systemDefault()))
+                    }.getOrDefault(stringResource(R.string.unknown))
+                    InfoLine(stringResource(R.string.backup_exported_at, exported))
+                    InfoLine(stringResource(R.string.backup_import_modes_hint))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = state.restoreCurrency, onCheckedChange = onRestoreCurrency, enabled = !state.busy)
-                        Text("同时恢复默认货币（${backup.defaultCurrency}）", style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.backup_restore_currency, backup.defaultCurrency), style = MaterialTheme.typography.bodyMedium)
                     }
-                    if (state.busy) Text(state.progress)
-                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    backup.shopChannels?.let { shops ->
+                        InfoLine(pluralStringResource(R.plurals.shops_count, shops.size, shops.size))
+                        InfoLine(stringResource(R.string.backup_restore_shops_hint))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = state.restoreShops, onCheckedChange = onRestoreShops, enabled = !state.busy)
+                            Text(stringResource(R.string.backup_restore_shops), style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    if (state.busy) Text(state.progress.localized())
+                    error?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
                 }
             },
-            dismissButton = { TextButton(onClick = onDismiss, enabled = !state.busy) { Text("取消") } },
+            dismissButton = { TextButton(onClick = onDismiss, enabled = !state.busy) { Text(stringResource(R.string.action_cancel)) } },
             confirmButton = {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = onAppend, enabled = !state.busy) { Text("追加恢复") }
-                    TextButton(onClick = onRequestReplace, enabled = !state.busy) { Text("覆盖恢复", color = MaterialTheme.colorScheme.error) }
+                    TextButton(onClick = onAppend, enabled = !state.busy) { Text(stringResource(R.string.backup_append)) }
+                    TextButton(onClick = onRequestReplace, enabled = !state.busy) { Text(stringResource(R.string.backup_replace), color = MaterialTheme.colorScheme.error) }
                 }
             },
         )
     } else {
         AlertDialog(
             onDismissRequest = { if (!state.busy) onCancelReplace() },
-            title = { Text("覆盖现有数据？") },
+            title = { Text(stringResource(R.string.backup_replace_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("当前所有收藏、购买批次、费用和手动分摊都将被此备份替换，无法撤销。请确认已经导出当前数据。")
-                    if (state.busy) Text(state.progress)
-                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    Text(stringResource(R.string.backup_replace_warning))
+                    if (state.busy) Text(state.progress.localized())
+                    error?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
                 }
             },
-            dismissButton = { TextButton(onClick = onCancelReplace, enabled = !state.busy) { Text("返回") } },
-            confirmButton = { TextButton(onClick = onReplace, enabled = !state.busy) { Text("确认覆盖", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = onCancelReplace, enabled = !state.busy) { Text(stringResource(R.string.action_back)) } },
+            confirmButton = { TextButton(onClick = onReplace, enabled = !state.busy) { Text(stringResource(R.string.backup_confirm_replace), color = MaterialTheme.colorScheme.error) } },
         )
     }
 }
 
 @Composable
 fun SettingsAboutScreen(onBack: () -> Unit) {
-    SettingsDetailScaffold("关于 VNventory", onBack) { padding ->
+    SettingsDetailScaffold(stringResource(R.string.about_title), onBack) { padding ->
         SettingsAboutContent(Modifier.padding(padding))
     }
 }
@@ -263,22 +282,22 @@ internal fun SettingsAboutContent(modifier: Modifier = Modifier) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 AppLogo(Modifier.size(132.dp))
-                Text("VNventory", style = MaterialTheme.typography.headlineLarge)
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
                 Text(
-                    "Galgame / Visual Novel 实体收藏管理",
+                    stringResource(R.string.about_description),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer) {
                     Text(
-                        "版本 ${BuildConfig.VERSION_NAME}",
+                        stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
                 Text(
-                    "每一盒收藏，每一笔真实成本。",
+                    stringResource(R.string.about_tagline),
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -286,17 +305,17 @@ internal fun SettingsAboutContent(modifier: Modifier = Modifier) {
             }
         }
         item {
-            SectionCard(title = "数据与隐私") {
-                InfoLine("收藏数据和配置保存在本机，不登录、不自动上传。")
-                InfoLine("支持手动导出和恢复备份；卸载或清除数据前，请将备份保存在应用之外。")
-                InfoLine("多币种金额不做汇率换算，按币种分开统计。")
+            SectionCard(title = stringResource(R.string.about_privacy)) {
+                InfoLine(stringResource(R.string.about_local_data))
+                InfoLine(stringResource(R.string.about_backup))
+                InfoLine(stringResource(R.string.about_currencies))
             }
         }
         item {
-            SectionCard(title = "VNDB 数据来源") {
-                InfoLine("作品 / 版本元数据来自 VNDB 公共 API（api.vndb.org），仅作缓存使用。")
-                InfoLine("收藏保留标题与封面链接快照，VNDB 缓存变化或清理不会改写你的购买记录。")
-                InfoLine("本应用与 VNDB 官方无隶属关系，数据版权归 VNDB 及各版权方所有。")
+            SectionCard(title = stringResource(R.string.about_vndb)) {
+                InfoLine(stringResource(R.string.about_vndb_api))
+                InfoLine(stringResource(R.string.about_snapshots))
+                InfoLine(stringResource(R.string.about_disclaimer))
             }
         }
         item {
@@ -305,8 +324,8 @@ internal fun SettingsAboutContent(modifier: Modifier = Modifier) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text("开源许可 · MPL-2.0", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text("为热爱留一格书架。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.about_license), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text(stringResource(R.string.about_footer), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

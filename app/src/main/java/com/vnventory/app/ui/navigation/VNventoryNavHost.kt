@@ -25,8 +25,11 @@ import com.vnventory.app.ui.settings.SettingsScreen
 import com.vnventory.app.ui.settings.SettingsPreferencesScreen
 import com.vnventory.app.ui.settings.SettingsDataScreen
 import com.vnventory.app.ui.settings.SettingsAboutScreen
+import com.vnventory.app.ui.settings.SettingsShopsScreen
 import com.vnventory.app.ui.navigation.navigateToTopLevel
 import com.vnventory.app.ui.theme.ShelfMotion
+import androidx.compose.ui.platform.LocalResources
+import com.vnventory.app.R
 
 @Composable
 fun VNventoryNavHost(
@@ -35,6 +38,7 @@ fun VNventoryNavHost(
     onNotice: (String) -> Unit = {},
 ) {
     val direction = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
+    val resources = LocalResources.current
     NavHost(
         navController = navController,
         startDestination = HomeRoute,
@@ -67,7 +71,7 @@ fun VNventoryNavHost(
         composable<OrdersRoute> {
             OrdersScreen(
                 onOrderClick = { navController.navigate(OrderDetailRoute(it)) },
-                onOrderCreated = { onNotice("购买批次已创建"); navController.navigate(OrderDetailRoute(it)) },
+                onOrderCreated = { onNotice(resources.getString(R.string.notice_order_created)); navController.navigate(OrderDetailRoute(it)) },
             )
         }
 
@@ -76,11 +80,16 @@ fun VNventoryNavHost(
                 onPreferences = { navController.navigate(SettingsPreferencesRoute) },
                 onData = { navController.navigate(SettingsDataRoute) },
                 onAbout = { navController.navigate(SettingsAboutRoute) },
+                onShops = { navController.navigate(SettingsShopsRoute) },
             )
         }
 
         composable<SettingsPreferencesRoute> {
             SettingsPreferencesScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable<SettingsShopsRoute> {
+            SettingsShopsScreen(onBack = { navController.popBackStack() })
         }
 
         composable<SettingsDataRoute> {
@@ -94,7 +103,7 @@ fun VNventoryNavHost(
         composable<AddRoute> {
             AddFlowScreen(
                 onBack = { navController.popBackStack() },
-                onSaved = { count -> navController.popBackStack(); onNotice("已将 $count 盒收藏放入书架") },
+                onSaved = { count -> navController.popBackStack(); onNotice(resources.getQuantityString(R.plurals.copies_saved, count, count)) },
             )
         }
 
@@ -110,7 +119,7 @@ fun VNventoryNavHost(
         composable<CopyEditRoute> {
             CopyEditScreen(
                 onBack = { navController.popBackStack() },
-                onSaved = { navController.popBackStack(); onNotice("收藏信息已更新") },
+                onSaved = { navController.popBackStack(); onNotice(resources.getString(R.string.notice_copy_updated)) },
             )
         }
 

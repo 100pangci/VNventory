@@ -29,6 +29,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import com.vnventory.app.core.toAppError
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 
 // ---------------------------------------------------------------------------
 // UI 状态
@@ -38,7 +42,7 @@ data class VnSearchUiState(
     val query: String = "",
     val results: List<VnInfo> = emptyList(),
     val loading: Boolean = false,
-    val error: String? = null,
+    val error: Message? = null,
     val offline: Boolean = false,
     val hasSearched: Boolean = false,
     val page: Int = 0,
@@ -48,7 +52,7 @@ data class VnSearchUiState(
 
 data class ReleasesUiState(
     val loading: Boolean = false,
-    val error: String? = null,
+    val error: Message? = null,
     val releases: List<ReleaseInfo> = emptyList(),
 )
 
@@ -95,11 +99,12 @@ data class AddFlowUiState(
     val releases: ReleasesUiState = ReleasesUiState(),
     val form: PurchaseFormState = PurchaseFormState(),
     val saving: Boolean = false,
+    val shopChannels: List<String> = emptyList(),
 )
 
 sealed interface AddFlowEvent {
     data class Saved(val copyIds: List<Long>) : AddFlowEvent
-    data class Failed(val message: String) : AddFlowEvent
+    data class Failed(val message: Message) : AddFlowEvent
 }
 
 // ---------------------------------------------------------------------------
@@ -136,8 +141,15 @@ class AddFlowViewModel(
             Triple(search, vn, releases)
         },
         combine(formState, savingState) { form, saving -> form to saving },
-        purchaseRepository.observeOrders(),
-    ) { (search, vn, releases), (form, saving), orders ->
+        combine(
+            purchaseRepository.observeOrders(),
+            settingsRepository.shopChannels.catch {
+                if (it is CancellationException) throw it
+                eventsChannel.send(AddFlowEvent.Failed(it.toAppError().message))
+                emit(emptyList())
+            },
+        ) { orders, shops -> orders to shops },
+    ) { (search, vn, releases), (form, saving), (orders, shops) ->
         AddFlowUiState(
             orderContextId = orderIdArg,
             orders = orders,
@@ -146,10 +158,11 @@ class AddFlowViewModel(
             releases = releases,
             form = form,
             saving = saving,
+            shopChannels = shops,
         )
     }.catch {
         if (it is CancellationException) throw it
-        eventsChannel.send(AddFlowEvent.Failed(it.message ?: "读取本地订单失败"))
+        eventsChannel.send(AddFlowEvent.Failed(it.toAppError().message))
         emit(AddFlowUiState())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AddFlowUiState())
 
@@ -161,7 +174,7 @@ class AddFlowViewModel(
                 val orderCurrency = orderIdArg?.let { purchaseRepository.getOrder(it)?.currency }
                 if (!formTouched) formState.update { it.copy(currency = orderCurrency ?: defaultCurrency, orderId = orderIdArg) }
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
-                eventsChannel.send(AddFlowEvent.Failed(e.message ?: "加载默认购买信息失败"))
+                eventsChannel.send(AddFlowEvent.Failed(e.toAppError().message))
             }
         }
     }
@@ -242,7 +255,7 @@ class AddFlowViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (generation == releaseGeneration) releasesState.update { it.copy(loading = false, error = e.message ?: "加载版本失败") }
+                if (generation == releaseGeneration) releasesState.update { it.copy(loading = false, error = e.toAppError().message) }
             }
         }
     }
@@ -336,7 +349,7 @@ class AddFlowViewModel(
         val form = formState.value
         if (!form.canSave || savingState.value) return
         if (!form.manualVersion && (form.releaseId == null || releasesState.value.releases.none { it.id == form.releaseId && it.vnId == vn.id })) {
-            eventsChannel.trySend(AddFlowEvent.Failed("所选版本与当前作品不匹配，请重新选择"))
+            eventsChannel.trySend(AddFlowEvent.Failed(message(MessageKey.RELEASE_SELECTION_MISMATCH)))
             return
         }
 
@@ -360,7 +373,7 @@ class AddFlowViewModel(
                         condition = form.condition,
                         conditionNote = form.conditionNote.takeIf { it.isNotBlank() },
                         purchaseDate = form.purchaseDate,
-                        shop = form.shop.takeIf { it.isNotBlank() },
+                        shop = form.shop.trim().takeIf { it.isNotBlank() },
                         orderId = form.orderId,
                         notes = form.notes.takeIf { it.isNotBlank() },
                         createdAt = now + index,
@@ -372,7 +385,7 @@ class AddFlowViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                eventsChannel.send(AddFlowEvent.Failed(e.message ?: "保存失败"))
+                eventsChannel.send(AddFlowEvent.Failed(e.toAppError().message))
             } finally {
                 savingState.value = false
             }

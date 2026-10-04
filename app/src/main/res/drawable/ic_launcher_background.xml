@@ -1,18 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 自适应启动图标由系统裁切轮廓，背景满铺，避免外圈透明或双重圆角。 -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
+<!-- Generated from assets/branding/vnventory.svg; see scripts/convert-branding.py. -->
+<vector xmlns:aapt="http://schemas.android.com/aapt" xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
     <group android:scaleX="0.10546875" android:scaleY="0.10546875">
-        <path android:pathData="M0,0H1024V1024H0Z">
-            <aapt:attr name="android:fillColor">
-                <gradient android:type="linear" android:startX="160" android:startY="64" android:endX="832" android:endY="960">
-                    <item android:offset="0" android:color="#302B53" />
-                    <item android:offset="0.55" android:color="#201F3E" />
-                    <item android:offset="1" android:color="#13192F" />
-                </gradient>
-            </aapt:attr>
-        </path>
+        <group android:name="background-tile">
+            <path android:pathData="M0,0H1024V1024H0Z">
+                <aapt:attr name="android:fillColor">
+                    <gradient android:type="linear" android:startX="178" android:startY="44" android:endX="834" android:endY="997">
+                        <item android:offset="0" android:color="#FF8963D3" />
+                        <item android:offset="0.38" android:color="#FF6744AD" />
+                        <item android:offset="0.72" android:color="#FF49317D" />
+                        <item android:offset="1" android:color="#FF35265D" />
+                    </gradient>
+                </aapt:attr>
+            </path>
+            <group>
+                <clip-path android:pathData="M0,0H1024V1024H0Z" />
+                <group android:translateX="209" android:translateY="88">
+                    <group android:rotation="48" android:pivotX="0" android:pivotY="0">
+                        <group android:scaleX="861" android:scaleY="684">
+                            <path android:pathData="M1,0A1,1 0,1 0,-1,0A1,1 0,1 0,1,0Z">
+                                <aapt:attr name="android:fillColor">
+                                    <gradient android:type="radial" android:centerX="0" android:centerY="0" android:gradientRadius="1">
+                                        <item android:offset="0" android:color="#47E9CAFF" />
+                                        <item android:offset="0.53" android:color="#12C29DEC" />
+                                        <item android:offset="1" android:color="#00C29DEC" />
+                                    </gradient>
+                                </aapt:attr>
+                            </path>
+                        </group>
+                    </group>
+                </group>
+            </group>
+            <group>
+                <clip-path android:pathData="M0,0H1024V1024H0Z" />
+                <group android:translateX="780" android:translateY="906">
+                    <group android:rotation="-29" android:pivotX="0" android:pivotY="0">
+                        <group android:scaleX="515" android:scaleY="288">
+                            <path android:pathData="M1,0A1,1 0,1 0,-1,0A1,1 0,1 0,1,0Z">
+                                <aapt:attr name="android:fillColor">
+                                    <gradient android:type="radial" android:centerX="0" android:centerY="0" android:gradientRadius="1">
+                                        <item android:offset="0" android:color="#1FA58ADF" />
+                                        <item android:offset="1" android:color="#00A58ADF" />
+                                    </gradient>
+                                </aapt:attr>
+                            </path>
+                        </group>
+                    </group>
+                </group>
+            </group>
+        </group>
     </group>
 </vector>

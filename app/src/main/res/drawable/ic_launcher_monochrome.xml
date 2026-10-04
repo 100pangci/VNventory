@@ -1,23 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 同源单色轮廓用于 Android 主题图标；V 和价签孔镂空，不能直接对整张彩色图染色。 -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
+<!-- Generated from assets/branding/vnventory.svg; see scripts/convert-branding.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
     <group android:scaleX="0.10546875" android:scaleY="0.10546875">
-        <!-- 内部轮廓反向绕行；不依赖部分系统忽略的 clip-path fillType。 -->
-        <clip-path
-            android:pathData="M0,0H1024V1024H0Z M407,380L509,613Q515,628 529,628H550Q567,628 573,612L676,362H624Q613,362 609,372L539,551L470,388Q467,380 459,380Z M659,651A7,7 0,1 0,645,651A7,7 0,1 0,659,651Z" />
-        <group android:rotation="-11" android:pivotX="322" android:pivotY="528">
-            <path android:fillColor="#FFFFFF"
-                android:pathData="M298,354H346A18,18 0,0 1,364,372V684A18,18 0,0 1,346,702H298A18,18 0,0 1,280,684V372A18,18 0,0 1,298,354Z" />
+        <group android:scaleX="0.84" android:scaleY="0.84" android:pivotX="512" android:pivotY="512">
+            <group android:translateX="-74" android:translateY="-55">
+                <group android:scaleX="1.12" android:scaleY="1.12">
+                    <clip-path android:pathData="M0,0H1024V1024H0Z M268,302Q263,304 265,311L291,371Q293,377 299,375L363,349Q370,346 367,340L342,280Q339,274 334,276Z M678,247L673,251L676,257L682,254Z" />
+                    <path android:fillColor="#FFFFFF" android:pathData="M237 282Q229 264 247 256L322 226Q339 219 351 234L370 259 557 706Q565 725 548 733L475 765Q451 775 435 751Z" />
+                    <path android:fillColor="#FFFFFF" android:pathData="M667 220 802 277Q820 285 812 304L621 767Q613 788 589 788H511Q490 788 480 766L465 733 644 233Q650 216 667 220Z" />
+                    <path android:fillColor="#FFFFFF" android:pathData="M670 219 716 238 687 310Q686 314 683 310L671 292 647 298Q643 299 645 295Z" />
+                </group>
+            </group>
         </group>
-        <group android:rotation="-5" android:pivotX="364" android:pivotY="510">
-            <path android:fillColor="#FFFFFF"
-                android:pathData="M336,306H392A20,20 0,0 1,412,326V696A20,20 0,0 1,392,716H336A20,20 0,0 1,316,696V326A20,20 0,0 1,336,306Z" />
-        </group>
-        <path android:fillColor="#FFFFFF"
-            android:pathData="M372,258H655Q678,258 689,279L704,307V706Q704,731 679,736L378,759Q344,762 344,728V296Q344,270 372,258Z" />
-        <path android:fillColor="#FFFFFF"
-            android:pathData="M638,632H674Q682,632 688,638L733,683Q741,691 733,699L709,723Q701,731 693,723L638,668Q632,662 632,654V638Q632,632 638,632Z" />
     </group>
 </vector>

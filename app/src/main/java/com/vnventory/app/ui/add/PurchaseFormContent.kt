@@ -41,6 +41,10 @@ import com.vnventory.app.ui.components.DateField
 import com.vnventory.app.ui.components.OrderSelector
 import com.vnventory.app.ui.components.SectionCard
 import com.vnventory.app.ui.components.VnCover
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.components.ShopChannelField
+import com.vnventory.app.ui.text.localized
 
 /** 按填写目的分区，不把必填、选填和解释文字挤在同一层级。 */
 @Composable
@@ -52,18 +56,19 @@ internal fun PurchaseFormContent(
     val vn = state.selectedVn ?: return
     val form = state.form
     val release = state.releases.releases.firstOrNull { it.id == form.releaseId }
+    val decreaseDescription = stringResource(R.string.quantity_decrease)
 
     Column(
         modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        PurchaseSection("所选版本") {
+        PurchaseSection(stringResource(R.string.purchase_selected_release)) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 VnCover(release?.displayImage() ?: vn.imageUrl, vn.displayTitle, Modifier.width(56.dp).height(80.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(vn.displayTitle, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(
-                        release?.title ?: "手动版本",
+                        release?.title ?: stringResource(R.string.message_manual_release),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
@@ -77,62 +82,62 @@ internal fun PurchaseFormContent(
                 OutlinedTextField(
                     value = form.releaseTitle,
                     onValueChange = { onFormChange(form.copy(releaseTitle = it)) },
-                    label = { Text("版本名称") },
-                    supportingText = { Text("例如：初回限定版、某店特典") },
+                    label = { Text(stringResource(R.string.release_name)) },
+                    supportingText = { Text(stringResource(R.string.release_name_hint)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
         }
 
-        PurchaseSection("价格与数量", "填写单盒价格，不包含运费、手续费等批次费用。") {
+        PurchaseSection(stringResource(R.string.purchase_price_quantity), stringResource(R.string.purchase_price_quantity_hint)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
                 OutlinedTextField(
                     value = form.priceText,
                     onValueChange = { onFormChange(form.copy(priceText = it)) },
-                    label = { Text("单盒价格") },
-                    supportingText = { Text(if (!form.priceValid) "金额格式不正确" else "留空按 0 计算") },
+                    label = { Text(stringResource(R.string.purchase_unit_price)) },
+                    supportingText = { Text(stringResource(if (!form.priceValid) R.string.amount_invalid else R.string.amount_blank_zero)) },
                     isError = !form.priceValid,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
                 Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("币种", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.currency), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     CurrencySelector(form.currency, { onFormChange(form.copy(currency = it)) })
                 }
             }
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("数量（盒）", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.purchase_quantity), style = MaterialTheme.typography.bodyMedium)
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
                             onClick = { onFormChange(form.copy(quantity = form.quantity - 1)) },
                             enabled = form.quantity > 1,
-                            modifier = Modifier.semantics { contentDescription = "减少数量" },
+                            modifier = Modifier.semantics { contentDescription = decreaseDescription },
                         ) {
-                            Text("−", style = MaterialTheme.typography.titleLarge)
+                            Text(stringResource(R.string.quantity_minus), style = MaterialTheme.typography.titleLarge)
                         }
                         Text(form.quantity.toString(), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 8.dp))
                         IconButton(onClick = { onFormChange(form.copy(quantity = form.quantity + 1)) }, enabled = form.quantity < 99) {
-                            Icon(Icons.Filled.Add, contentDescription = "增加数量")
+                            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.quantity_increase))
                         }
                     }
                 }
             }
-            Text("多盒会分别保存，之后可逐盒修改价格与品相。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.purchase_multiple_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("商品小计 · 不含批次费用", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.purchase_subtotal), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val subtotal = form.subtotalMinor
                 Text(
                     text = when {
                         subtotal != null -> Money.formatWithCode(subtotal, form.currency)
-                        !form.priceValid -> "请检查单盒价格"
-                        else -> "商品小计超出可支持的范围"
+                        !form.priceValid -> stringResource(R.string.purchase_price_check)
+                        else -> stringResource(R.string.purchase_subtotal_overflow)
                     },
                     style = MaterialTheme.typography.titleLarge,
                     color = if (subtotal == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
@@ -140,13 +145,13 @@ internal fun PurchaseFormContent(
             }
         }
 
-        PurchaseSection("品相", "本次添加统一填写，保存后仍可逐盒调整。") {
+        PurchaseSection(stringResource(R.string.condition), stringResource(R.string.purchase_condition_hint)) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 CopyCondition.entries.forEach { condition ->
                     FilterChip(
                         selected = form.condition == condition,
                         onClick = { onFormChange(form.copy(condition = condition)) },
-                        label = { Text(condition.label) },
+                        label = { Text(condition.label.localized()) },
                     )
                 }
             }
@@ -154,32 +159,30 @@ internal fun PurchaseFormContent(
                 OutlinedTextField(
                     value = form.conditionNote,
                     onValueChange = { onFormChange(form.copy(conditionNote = it)) },
-                    label = { Text("自定义品相说明") },
+                    label = { Text(stringResource(R.string.condition_note)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 )
             }
         }
 
-        PurchaseSection("购买记录", "选填 · 用于日后回溯这次购入。") {
+        PurchaseSection(stringResource(R.string.purchase_records), stringResource(R.string.purchase_records_hint)) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("购买日期", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    DateField(form.purchaseDate, { onFormChange(form.copy(purchaseDate = it)) }, modifier = Modifier.fillMaxWidth(), placeholder = "选择购买日期（选填）")
+                    Text(stringResource(R.string.purchase_date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DateField(form.purchaseDate, { onFormChange(form.copy(purchaseDate = it)) }, modifier = Modifier.fillMaxWidth(), placeholder = stringResource(R.string.purchase_date_optional))
                 }
-                OutlinedTextField(
+                ShopChannelField(
                     value = form.shop,
                     onValueChange = { onFormChange(form.copy(shop = it)) },
-                    label = { Text("店铺 / 渠道") },
-                    placeholder = { Text("例如：駿河屋、メルカリ") },
-                    singleLine = true,
+                    options = state.shopChannels,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("所属购买批次", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.purchase_order), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OrderSelector(state.orders, form.orderId, { onFormChange(form.copy(orderId = it)) })
                     Text(
-                        if (form.orderId == null) "不加入批次时，这盒作为独立收藏保存。" else "运费、手续费等请在该批次中记录并分摊。",
+                        stringResource(if (form.orderId == null) R.string.purchase_standalone_hint else R.string.purchase_order_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -187,11 +190,11 @@ internal fun PurchaseFormContent(
             }
         }
 
-        PurchaseSection("备注", "选填 · 特典、缺件或其他想记下的细节。") {
+        PurchaseSection(stringResource(R.string.notes), stringResource(R.string.purchase_notes_hint)) {
             OutlinedTextField(
                 value = form.notes,
                 onValueChange = { onFormChange(form.copy(notes = it)) },
-                placeholder = { Text("写下一点关于这盒的记录…") },
+                placeholder = { Text(stringResource(R.string.purchase_notes_placeholder)) },
                 minLines = 3,
                 modifier = Modifier.fillMaxWidth(),
             )

@@ -44,19 +44,22 @@ import com.vnventory.app.ui.navigation.OrdersRoute
 import com.vnventory.app.ui.navigation.SettingsRoute
 import com.vnventory.app.ui.navigation.VNventoryNavHost
 import com.vnventory.app.ui.navigation.navigateToTopLevel
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
 
 private data class TopLevelItem(
     val route: Any,
-    val label: String,
+    @get:StringRes val label: Int,
     val icon: ImageVector,
     val isSelected: (NavDestination) -> Boolean,
 )
 
 private val topLevelItems = listOf(
-    TopLevelItem(HomeRoute, "首页", Icons.Filled.Home) { it.hasRoute<HomeRoute>() },
-    TopLevelItem(CollectionRoute, "收藏", Icons.Filled.Favorite) { it.hasRoute<CollectionRoute>() },
-    TopLevelItem(OrdersRoute, "订单", Icons.Filled.ShoppingCart) { it.hasRoute<OrdersRoute>() },
-    TopLevelItem(SettingsRoute, "设置", Icons.Filled.Settings) { it.hasRoute<SettingsRoute>() },
+    TopLevelItem(HomeRoute, R.string.nav_home, Icons.Filled.Home) { it.hasRoute<HomeRoute>() },
+    TopLevelItem(CollectionRoute, R.string.nav_collection, Icons.Filled.Favorite) { it.hasRoute<CollectionRoute>() },
+    TopLevelItem(OrdersRoute, R.string.nav_orders, Icons.Filled.ShoppingCart) { it.hasRoute<OrdersRoute>() },
+    TopLevelItem(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings) { it.hasRoute<SettingsRoute>() },
 )
 
 /** 底部栏切换（保留各自滚动位置/状态） */
@@ -88,7 +91,7 @@ fun VNventoryRoot() {
                             selected = selected,
                             onClick = { if (!selected) navController.navigateToTopLevel(item.route) },
                             icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value }) },
-                            label = { Text(item.label) },
+                            label = { Text(stringResource(item.label)) },
                         )
                     }
                 }

@@ -35,6 +35,9 @@ import com.vnventory.app.ui.settings.SettingsDataContent
 import com.vnventory.app.ui.settings.SettingsHomeContent
 import com.vnventory.app.ui.settings.SettingsAboutScreen
 import com.vnventory.app.ui.theme.VNventoryTheme
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -96,7 +99,7 @@ class SettingsAndDateUiTest {
         assertEquals(1, imports)
         compose.onNodeWithText("备份为未加密文本", substring = true).performScrollTo().assertIsDisplayed()
         capture("settings-backup-large-dark")
-        compose.runOnIdle { state.value = BackupUiState(busy = true, progress = "正在导出备份…") }
+        compose.runOnIdle { state.value = BackupUiState(busy = true, progress = message(MessageKey.BACKUP_PROGRESS_EXPORT)) }
         compose.onNodeWithText("选择备份文件").performScrollTo().assertIsNotEnabled()
         compose.onNode(androidx.compose.ui.test.hasText("导出备份") and androidx.compose.ui.test.hasClickAction()).performScrollTo().assertIsNotEnabled()
     }
@@ -130,8 +133,9 @@ class SettingsAndDateUiTest {
 
     private fun assertLogoPixels() {
         val logo = compose.onNodeWithContentDescription("VNventory 应用图标").captureToImage().asAndroidBitmap()
-        val v = logo.getPixel(logo.width * 448 / 1024, logo.height * 420 / 1024)
-        assertTrue("V 字应实际绘制而非空背景：${Integer.toHexString(v)}", Color.red(v) >= 230 && Color.green(v) >= 225 && Color.blue(v) >= 240)
+        val sleeve = logo.getPixel(logo.width * 650 / 1024, logo.height * 500 / 1024)
+        assertTrue("收集 V 的浅色盒套应实际绘制：${Integer.toHexString(sleeve)}",
+            Color.red(sleeve) >= 225 && Color.green(sleeve) >= 215 && Color.blue(sleeve) >= 220)
     }
 
     @Test fun `覆盖先预览再二次确认且失败可见`() {
@@ -144,7 +148,7 @@ class SettingsAndDateUiTest {
                 { state.value = state.value.copy(pendingImport = null) }, {},
                 { state.value = state.value.copy(replaceConfirmation = true) },
                 { state.value = state.value.copy(replaceConfirmation = false) }, { replaced++ },
-                error = "测试恢复失败",
+                error = Message.Literal("测试恢复失败"),
             )
         }
         compose.onNodeWithText("检查备份").assertIsDisplayed()

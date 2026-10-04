@@ -33,6 +33,7 @@ data class OrdersUiState(
     val createOpen: Boolean = false,
     val creating: Boolean = false,
     val form: OrderFormState = OrderFormState(),
+    val shopChannels: List<String> = emptyList(),
 )
 
 class OrdersViewModel(container: AppContainer) : ActionViewModel() {
@@ -49,13 +50,15 @@ class OrdersViewModel(container: AppContainer) : ActionViewModel() {
         createOpen,
         creating,
         formState,
-    ) { orders, open, isCreating, form ->
+        settingsRepository.shopChannels.catch { reportError(it); emit(emptyList()) },
+    ) { orders, open, isCreating, form, shops ->
         OrdersUiState(
             loading = false,
             orders = orders,
             createOpen = open,
             creating = isCreating,
             form = form,
+            shopChannels = shops,
         )
     }.catch { reportError(it); emit(OrdersUiState(loading = false)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OrdersUiState())
@@ -93,7 +96,7 @@ class OrdersViewModel(container: AppContainer) : ActionViewModel() {
                     PurchaseOrder(
                         id = 0,
                         title = form.title.trim(),
-                        merchant = form.merchant.takeIf { it.isNotBlank() },
+                        merchant = form.merchant.trim().takeIf { it.isNotBlank() },
                         orderDate = form.date,
                         currency = Money.normalize(form.currency),
                         notes = form.notes.takeIf { it.isNotBlank() },

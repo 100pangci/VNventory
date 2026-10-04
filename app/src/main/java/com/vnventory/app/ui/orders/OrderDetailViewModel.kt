@@ -8,6 +8,13 @@ import com.vnventory.app.domain.model.*
 import com.vnventory.app.ui.ActionViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
+import com.vnventory.app.core.toAppError
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.domain.text.MessageException
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
+import com.vnventory.app.domain.text.requireMessage
+import com.vnventory.app.domain.text.requireNotNullMessage
 
 data class ExpenseEditorState(
     val open: Boolean = false,
@@ -27,32 +34,32 @@ data class ExpenseEditorState(
             manualInputs.forEach { (id, text) -> result[id] = if (text.isBlank()) 0L else Money.parse(text, currency) ?: return null }
             return result
         }
-    val inputError: String?
+    val inputError: Message?
         get() {
-            if (name.isBlank()) return "请填写费用名称"
-            val amount = parsedAmount ?: return "请填写有效的非负金额"
+            if (name.isBlank()) return message(MessageKey.INPUT_EXPENSE_NAME)
+            val amount = parsedAmount ?: return message(MessageKey.INPUT_NONNEGATIVE_AMOUNT)
             if (mode == AllocationMode.MANUAL) {
-                val allocations = parsedManual ?: return "手动分摊中有无效金额，请逐项修正"
-                val sum = try { Money.sum(allocations.values) } catch (_: IllegalArgumentException) { return "分摊合计超出可支持的范围" }
-                if (sum > amount) return "手动分摊合计不能超过费用总额"
+                val allocations = parsedManual ?: return message(MessageKey.INPUT_MANUAL_INVALID)
+                val sum = try { Money.sum(allocations.values) } catch (_: IllegalArgumentException) { return message(MessageKey.ALLOCATION_TOTAL_OVERFLOW) }
+                if (sum > amount) return message(MessageKey.ALLOCATION_EXCESS)
             }
             return null
         }
     val canSave: Boolean get() = inputError == null
 
     fun candidate(detail: OrderDetail): Expense {
-        require(inputError == null) { inputError!! }
-        val old = editingId?.let { id -> requireNotNull(detail.expenses.find { it.id == id }) { "费用已不存在" } }
+        requireMessage(inputError == null) { inputError!! }
+        val old = editingId?.let { id -> requireNotNullMessage(detail.expenses.find { it.id == id }) { message(MessageKey.EXPENSE_MISSING) } }
         return Expense(editingId ?: 0, detail.order.id, name.trim(), category, parsedAmount!!,
             Money.normalize(currency), mode, old?.notes, old?.createdAt ?: System.currentTimeMillis(),
             if (mode == AllocationMode.MANUAL) parsedManual!! else emptyMap())
     }
 
-    fun validationError(detail: OrderDetail): String? {
+    fun validationError(detail: OrderDetail): Message? {
         inputError?.let { return it }
         return try {
             CostEngine.expenseProblem(candidate(detail).costInput(), detail.copies.map { it.costInput() })
-        } catch (e: IllegalArgumentException) { e.message }
+        } catch (e: IllegalArgumentException) { e.toAppError().message }
     }
 }
 
@@ -62,7 +69,7 @@ data class OrderDetailUiState(
     val detail: OrderDetail? = null,
     val editor: ExpenseEditorState = ExpenseEditorState(),
     val savingExpense: Boolean = false,
-    val editorError: String? = null,
+    val editorError: Message? = null,
     val preview: OrderCostBreakdown? = null,
 )
 
@@ -79,7 +86,7 @@ class OrderDetailViewModel(
     val uiState: StateFlow<OrderDetailUiState> = combine(detailState, editorState, savingState, loaded) { detail, editor, saving, ready ->
         var error = if (editor.open && detail != null) editor.validationError(detail) else null
         val preview = if (editor.open && detail != null && error == null) {
-            try { detail.previewExpense(editor.candidate(detail)) } catch (e: IllegalArgumentException) { error = e.message; null }
+            try { detail.previewExpense(editor.candidate(detail)) } catch (e: IllegalArgumentException) { error = e.toAppError().message; null }
         } else null
         OrderDetailUiState(!ready, ready && detail == null, detail, editor, saving, error, preview)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OrderDetailUiState())
@@ -122,7 +129,7 @@ class OrderDetailViewModel(
         val editor = editorState.value
         if (savingState.value) return
         val error = editor.validationError(detail)
-        if (error != null) { reportError(IllegalArgumentException(error)); return }
+        if (error != null) { reportError(MessageException(error)); return }
         savingState.value = true
         launchAction {
             try {

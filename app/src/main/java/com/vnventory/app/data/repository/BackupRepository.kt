@@ -9,7 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
-data class BackupRestoreResult(val currencyRestored: Boolean)
+data class BackupRestoreResult(val currencyRestored: Boolean, val shopsRestored: Boolean = false)
 
 class BackupRepository(
     private val database: VNventoryDatabase,
@@ -17,20 +17,21 @@ class BackupRepository(
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
     suspend fun snapshot(): BackupData = withContext(io) {
-        val currency = settings.getDefaultCurrency()
+        val preferences = settings.snapshot()
         database.withTransaction {
             BackupData(
                 exportedAt = System.currentTimeMillis(),
-                defaultCurrency = currency,
+                defaultCurrency = preferences.defaultCurrency,
                 orders = database.backupDao().getOrders(),
                 copies = database.ownedCopyDao().getAll().sortedBy { it.id },
                 expenses = database.expenseDao().getAll().sortedBy { it.id },
                 allocations = database.backupDao().getAllocations(),
+                shopChannels = preferences.shopChannels,
             )
         }
     }
 
-    suspend fun restore(data: BackupData, replace: Boolean, restoreCurrency: Boolean): BackupRestoreResult = withContext(io) {
+    suspend fun restore(data: BackupData, replace: Boolean, restoreCurrency: Boolean, restoreShops: Boolean = true): BackupRestoreResult = withContext(io) {
         database.withTransaction {
             data.validate()
             if (replace) {
@@ -54,15 +55,16 @@ class BackupRepository(
         // Room 与 DataStore 不能组成一个事务。数据已提交后，配置失败必须明确反馈，
         // 不能报成“全部失败”导致用户重试追加并生成重复记录。
         withContext(NonCancellable) {
-            val currencyRestored = if (!restoreCurrency) false else try {
-                settings.setDefaultCurrency(data.defaultCurrency)
+            val shops = data.shopChannels.takeIf { restoreShops }
+            val success = try {
+                settings.restorePreferences(data.defaultCurrency.takeIf { restoreCurrency }, shops)
                 true
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 false
             }
-            BackupRestoreResult(currencyRestored)
+            BackupRestoreResult(success && restoreCurrency, success && shops != null)
         }
     }
 }

@@ -7,10 +7,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.vnventory.app.domain.text.Message
 
 /** 写入失败保留表单，显示可关闭错误；协程取消始终继续传播。 */
 abstract class ActionViewModel : ViewModel() {
-    private val _actionError = MutableStateFlow<String?>(null)
+    private val _actionError = MutableStateFlow<Message?>(null)
     val actionError = _actionError.asStateFlow()
 
     fun clearError() {

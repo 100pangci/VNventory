@@ -20,6 +20,9 @@ object SettingsRoute
 object SettingsPreferencesRoute
 
 @Serializable
+object SettingsShopsRoute
+
+@Serializable
 object SettingsDataRoute
 
 @Serializable

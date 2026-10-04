@@ -1,5 +1,6 @@
 package com.vnventory.app.ui.components
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,7 +17,7 @@ import com.vnventory.app.R
 
 /** 应用内展示完整 SVG；与自适应启动图标共用同一彩色前景，不添加主题染色。 */
 @Composable
-fun AppLogo(modifier: Modifier = Modifier, contentDescription: String? = "VNventory 应用图标") {
+fun AppLogo(modifier: Modifier = Modifier, contentDescription: String? = stringResource(R.string.app_logo_description)) {
     Box(modifier.size(128.dp)) {
         Image(painterResource(R.drawable.vnventory_logo_background), contentDescription = null, modifier = Modifier.fillMaxSize())
         Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = contentDescription, modifier = Modifier.fillMaxSize())
@@ -27,7 +28,7 @@ fun AppLogo(modifier: Modifier = Modifier, contentDescription: String? = "VNvent
 @Composable
 fun BrandMark(modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.primary) {
     Image(
-        painter = painterResource(R.drawable.ic_launcher_monochrome),
+        painter = painterResource(R.drawable.vnventory_mark),
         contentDescription = null,
         colorFilter = ColorFilter.tint(color),
         modifier = modifier.size(32.dp).graphicsLayer { scaleX = 1.5f; scaleY = 1.5f },

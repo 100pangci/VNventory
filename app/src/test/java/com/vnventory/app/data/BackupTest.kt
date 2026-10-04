@@ -47,6 +47,13 @@ import java.io.IOException
 import java.io.InputStream
 import java.time.LocalDate
 import java.util.UUID
+import com.vnventory.app.domain.text.MessageFailure
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
+import com.vnventory.app.ui.text.resolve
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -139,7 +146,7 @@ class BackupTest {
             }
         }
         val error = assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(input) }
-        assertTrue(error.message!!.contains("32 MiB"))
+        assertEquals(message(MessageKey.BACKUP_IMPORT_TOO_LARGE), (error as MessageFailure).userMessage)
     }
 
     @Test fun `负数重复ID悬空关联超额分摊和混币种比例分摊拒绝`() {
@@ -249,7 +256,7 @@ class BackupTest {
         try {
             file.writeText("existing document")
             try { files.export(Uri.fromFile(file)); fail("应拒绝无法读取的配置") } catch (e: IllegalStateException) {
-                assertTrue(e.message!!.contains("备份导出失败"))
+                assertEquals(message(MessageKey.BACKUP_EXPORT_FAILED), (e as MessageFailure).userMessage)
             }
             assertEquals("existing document", file.readText())
         } finally {
@@ -285,7 +292,7 @@ class BackupTest {
             vm.restoreBackup(false)
             vm.backupState.first { !it.busy && it.pendingImport == null && it.feedback != null }
             assertEquals(6, db.ownedCopyDao().getAll().size)
-            assertTrue(vm.backupState.value.feedback!!.contains("保持不变"))
+            assertTrue(context.resources.resolve(vm.backupState.value.feedback!!).contains("保持不变"))
         } finally {
             file.delete()
         }
@@ -301,12 +308,58 @@ class BackupTest {
         try {
             file.writeText("{\"broken\": true}")
             vm.readBackup(Uri.fromFile(file))
-            assertTrue(vm.actionError.first { it != null }!!.contains("备份文件"))
+            assertEquals(message(MessageKey.BACKUP_INVALID_FILE), vm.actionError.first { it != null })
             vm.backupState.first { !it.busy }
             assertNull(vm.backupState.value.pendingImport)
             assertEquals(3, db.ownedCopyDao().getAll().size)
         } finally {
             file.delete()
         }
+    }
+
+    @Test fun `新备份保留店铺候选且老备份不清空本机列表`() = runTest {
+        val settings = settings()
+        val repo = repository(settings)
+        settings.addShopChannel("駿河屋")
+        val withShops = sample().copy(shopChannels = listOf("メルカリ", "Sofmap"))
+        assertEquals(withShops, decode(BackupCodec.encode(withShops)))
+        val root = Json.parseToJsonElement(BackupCodec.encode(sample()).decodeToString()).jsonObject
+        val legacy = JsonObject(root + ("settings" to JsonObject(root.getValue("settings").jsonObject - "shopChannels")))
+        val old = decode(legacy.toString().encodeToByteArray())
+        assertNull(old.shopChannels)
+        repo.restore(old, replace = true, restoreCurrency = false)
+        assertEquals(listOf("駿河屋"), settings.shopChannels.first())
+        repo.restore(withShops, replace = true, restoreCurrency = false, restoreShops = false)
+        assertEquals(listOf("駿河屋"), settings.shopChannels.first())
+        val restored = repo.restore(withShops, replace = true, restoreCurrency = false, restoreShops = true)
+        assertTrue(restored.shopsRestored)
+        assertEquals(listOf("メルカリ", "Sofmap"), repo.snapshot().shopChannels)
+        assertEquals("店铺", repo.snapshot().copies.first { it.shop != null }.shop)
+        repo.restore(withShops.copy(shopChannels = emptyList()), true, false, true)
+        assertTrue(settings.shopChannels.first().isEmpty())
+    }
+
+    @Test fun `非法店铺候选恢复回滚全部购买事实和配置`() = runTest {
+        val settings = settings()
+        val repo = repository(settings)
+        repo.restore(sample(), false, false)
+        settings.addShopChannel("Original")
+        val before = repo.snapshot().copy(exportedAt = 0)
+        for (names in listOf(listOf(""), listOf(" duplicate "), listOf("Sofmap", "sofmap"))) {
+            try { repo.restore(sample().copy(shopChannels = names), true, true); fail("Expected invalid shop list") }
+            catch (_: IllegalArgumentException) { }
+            assertEquals(before, repo.snapshot().copy(exportedAt = 0))
+        }
+    }
+
+    @Test fun `店铺配置写入失败返回部分成功不重复导入收藏`() = runTest {
+        val failingStore = object : DataStore<Preferences> {
+            override val data: Flow<Preferences> = flow { throw IOException("test failure") }
+            override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences = throw IOException("test failure")
+        }
+        val result = repository(SettingsRepository(failingStore)).restore(sample().copy(shopChannels = listOf("駿河屋")), false, true, true)
+        assertFalse(result.currencyRestored)
+        assertFalse(result.shopsRestored)
+        assertEquals(3, db.ownedCopyDao().getAll().size)
     }
 }

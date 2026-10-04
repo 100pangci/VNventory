@@ -1,5 +1,9 @@
 package com.vnventory.app.ui
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import com.vnventory.app.ui.text.resolve
+
 import android.graphics.Bitmap
 import androidx.activity.BackEventCompat
 import androidx.activity.OnBackPressedDispatcher
@@ -107,7 +111,7 @@ class PurchaseFlowUiTest {
     @Test fun `大字体下品相换行自定义说明和购买记录可达`() {
         val state = mutableStateOf(sample)
         show(fontScale = 1.5f) { PurchaseFormContent(state.value, { state.value = state.value.copy(form = it) }) }
-        compose.onNodeWithText(CopyCondition.CUSTOM.label).performScrollTo().performClick()
+        compose.onNodeWithText(ApplicationProvider.getApplicationContext<Context>().resources.resolve(CopyCondition.CUSTOM.label)).performScrollTo().performClick()
         compose.onNodeWithText("自定义品相说明").performScrollTo().performTextReplacement("缺少说明书")
         assertEquals("缺少说明书", state.value.form.conditionNote)
         capture("purchase-form-large-type")

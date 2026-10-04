@@ -13,12 +13,17 @@ import com.vnventory.app.domain.model.AllocationMode
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.ExpenseCategory
 import com.vnventory.app.domain.model.Money
+import com.vnventory.app.domain.model.ShopChannels
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.time.LocalDate
+import com.vnventory.app.domain.text.MessageException
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
+import com.vnventory.app.domain.text.requireMessage
 
 /** 独立于 Room schema 的可移植格式；只备份购买事实和配置，不包含 VNDB 缓存。 */
 @Serializable
@@ -34,7 +39,7 @@ data class BackupDocument(
 )
 
 @Serializable
-data class BackupSettings(val defaultCurrency: String)
+data class BackupSettings(val defaultCurrency: String, val shopChannels: List<String>? = null)
 
 @Serializable
 data class BackupOrder(
@@ -91,12 +96,15 @@ data class BackupData(
     val copies: List<OwnedCopyEntity>,
     val expenses: List<ExpenseEntity>,
     val allocations: List<ExpenseAllocationEntity>,
+    /** Null means an older backup has no such preference; restoring it must not erase local candidates. */
+    val shopChannels: List<String>? = null,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
         LocalRules.currency(defaultCurrency)
+        shopChannels?.let(ShopChannels::validate)
         fun ids(values: List<Long>) {
-            require(values.all { it > 0 } && values.distinct().size == values.size) { "备份中的记录 ID 无效或重复" }
+            requireMessage(values.all { it > 0 } && values.distinct().size == values.size) { message(MessageKey.BACKUP_IDS_INVALID) }
         }
         ids(orders.map { it.id })
         ids(copies.map { it.id })
@@ -105,27 +113,27 @@ data class BackupData(
         val expensesById = expenses.associateBy { it.id }
         val copiesById = copies.associateBy { it.id }
         orders.forEach {
-            require(it.title.isNotBlank()) { "备份中的订单名称为空" }
+            requireMessage(it.title.isNotBlank()) { message(MessageKey.BACKUP_ORDER_TITLE_EMPTY) }
             LocalRules.currency(it.currency)
         }
         copies.forEach {
             LocalRules.copy(it.toDomain())
-            require(it.releaseId == null || it.releaseId.matches(Regex("r[1-9][0-9]*"))) { "备份中的版本 ID 无效" }
-            require(it.orderId == null || it.orderId in orderIds) { "备份中的收藏关联了不存在的订单" }
+            requireMessage(it.releaseId == null || it.releaseId.matches(Regex("r[1-9][0-9]*"))) { message(MessageKey.BACKUP_RELEASE_ID_INVALID) }
+            requireMessage(it.orderId == null || it.orderId in orderIds) { message(MessageKey.BACKUP_COPY_ORDER_MISSING) }
         }
-        require(allocations.map { it.expenseId to it.ownedCopyId }.distinct().size == allocations.size) { "备份中的手动分摊重复" }
+        requireMessage(allocations.map { it.expenseId to it.ownedCopyId }.distinct().size == allocations.size) { message(MessageKey.BACKUP_ALLOCATION_DUPLICATE) }
         allocations.forEach {
             val expense = expensesById[it.expenseId]
-            require(expense != null && expense.mode == AllocationMode.MANUAL) { "备份中的分摊未关联手动费用" }
+            requireMessage(expense != null && expense.mode == AllocationMode.MANUAL) { message(MessageKey.BACKUP_ALLOCATION_NOT_MANUAL) }
             val copy = copiesById[it.ownedCopyId]
-            require(copy != null && copy.orderId == expense.orderId) { "备份中的分摊包含不属于该订单的收藏" }
-            require(it.amountMinor >= 0) { "备份中的分摊金额不能为负数" }
+            requireMessage(copy != null && copy.orderId == expense.orderId) { message(MessageKey.BACKUP_ALLOCATION_COPY_MISMATCH) }
+            requireMessage(it.amountMinor >= 0) { message(MessageKey.BACKUP_ALLOCATION_NEGATIVE) }
         }
         val copiesByOrder = copies.groupBy { it.orderId }
         val allocationsByExpense = allocations.groupBy { it.expenseId }
         expenses.forEach {
-            require(it.orderId in orderIds) { "备份中的费用关联了不存在的订单" }
-            require(it.name.isNotBlank()) { "备份中的费用名称为空" }
+            requireMessage(it.orderId in orderIds) { message(MessageKey.BACKUP_EXPENSE_ORDER_MISSING) }
+            requireMessage(it.name.isNotBlank()) { message(MessageKey.BACKUP_EXPENSE_NAME_EMPTY) }
             LocalRules.currency(it.currency)
             val problem = CostEngine.expenseProblem(
                 CostExpenseInput(
@@ -139,7 +147,7 @@ data class BackupData(
                 ),
                 copiesByOrder[it.orderId].orEmpty().map { copy -> CostCopyInput(copy.id, copy.priceMinor, copy.currency) },
             )
-            require(problem == null) { problem!! }
+            requireMessage(problem == null) { problem!! }
         }
         Money.totals(copies.map { it.currency to it.priceMinor } + expenses.map { it.currency to it.amountMinor })
     }
@@ -160,14 +168,14 @@ object BackupCodec {
             format = FORMAT,
             schemaVersion = VERSION,
             exportedAt = data.exportedAt,
-            settings = BackupSettings(data.defaultCurrency),
+            settings = BackupSettings(data.defaultCurrency, data.shopChannels),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
             expenses = data.expenses.map { it.toBackup() },
             allocations = data.allocations.map { BackupAllocation(it.expenseId, it.ownedCopyId, it.amountMinor) },
         )
         return json.encodeToString(document).encodeToByteArray().also {
-            require(it.size <= MAX_BYTES) { "备份超过 32 MiB，无法导出" }
+            requireMessage(it.size <= MAX_BYTES) { message(MessageKey.BACKUP_EXPORT_TOO_LARGE) }
         }
     }
 
@@ -177,18 +185,18 @@ object BackupCodec {
         while (true) {
             val count = input.read(buffer)
             if (count == -1) break
-            require(bytes.size().toLong() + count <= MAX_BYTES) { "备份文件超过 32 MiB，无法读取" }
+            requireMessage(bytes.size().toLong() + count <= MAX_BYTES) { message(MessageKey.BACKUP_IMPORT_TOO_LARGE) }
             bytes.write(buffer, 0, count)
         }
         val document = try {
             json.decodeFromString<BackupDocument>(bytes.toByteArray().decodeToString(throwOnInvalidSequence = true).removePrefix("\uFEFF"))
         } catch (e: SerializationException) {
-            throw IllegalArgumentException("不是有效的 VNventory 备份文件，文件可能已损坏", e)
+            throw MessageException(message(MessageKey.BACKUP_INVALID_FILE), e)
         } catch (e: java.nio.charset.CharacterCodingException) {
-            throw IllegalArgumentException("备份文件不是有效的 UTF-8 文本", e)
+            throw MessageException(message(MessageKey.BACKUP_INVALID_UTF8), e)
         }
-        require(document.format == FORMAT) { "请选择 VNventory 导出的备份文件" }
-        require(document.schemaVersion == VERSION) { "不支持此备份版本，请使用兼容的 VNventory 版本恢复" }
+        requireMessage(document.format == FORMAT) { message(MessageKey.BACKUP_WRONG_FORMAT) }
+        requireMessage(document.schemaVersion == VERSION) { message(MessageKey.BACKUP_UNSUPPORTED_VERSION) }
         val data = try {
             BackupData(
                 exportedAt = document.exportedAt,
@@ -197,11 +205,12 @@ object BackupCodec {
                 copies = document.copies.map { it.toEntity() },
                 expenses = document.expenses.map { it.toEntity() },
                 allocations = document.allocations.map { ExpenseAllocationEntity(it.expenseId, it.ownedCopyId, it.amountMinor) },
+                shopChannels = document.settings.shopChannels,
             )
         } catch (e: java.time.DateTimeException) {
-            throw IllegalArgumentException("备份中的日期无效", e)
+            throw MessageException(message(MessageKey.BACKUP_INVALID_DATE), e)
         } catch (e: IllegalArgumentException) {
-            throw IllegalArgumentException("备份中的品相、费用分类或分摊方式无效", e)
+            throw MessageException(message(MessageKey.BACKUP_INVALID_ENUM), e)
         }
         return data.also { it.validate() }
     }

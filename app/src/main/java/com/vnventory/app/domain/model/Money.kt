@@ -4,6 +4,9 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
+import com.vnventory.app.domain.text.MessageException
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 import java.util.Currency as JavaCurrency
 
 /**
@@ -29,7 +32,7 @@ object Money {
     fun add(a: Long, b: Long): Long = try {
         Math.addExact(a, b)
     } catch (_: ArithmeticException) {
-        throw IllegalArgumentException("金额合计超出可支持的范围")
+        throw MessageException(message(MessageKey.AMOUNT_TOTAL_OVERFLOW))
     }
 
     fun sum(values: Iterable<Long>): Long = values.fold(0L, ::add)

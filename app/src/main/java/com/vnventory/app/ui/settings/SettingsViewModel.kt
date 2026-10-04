@@ -14,15 +14,22 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.catch
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 
 data class BackupUiState(
     val busy: Boolean = false,
-    val progress: String = "",
-    val feedback: String? = null,
+    val progress: Message = Message.Literal(""),
+    val feedback: Message? = null,
     val pendingImport: BackupData? = null,
     val replaceConfirmation: Boolean = false,
     val restoreCurrency: Boolean = true,
+    val restoreShops: Boolean = true,
 )
+
+data class ShopEditorState(val open: Boolean = false, val original: String? = null, val name: String = "")
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
@@ -33,6 +40,49 @@ class SettingsViewModel(
 
     private val _backupState = MutableStateFlow(BackupUiState())
     val backupState = _backupState.asStateFlow()
+    private val _shopEditor = MutableStateFlow(ShopEditorState())
+    val shopEditor = _shopEditor.asStateFlow()
+    private val _shopsBusy = MutableStateFlow(false)
+    val shopsBusy = _shopsBusy.asStateFlow()
+    val shopChannels = settingsRepository.shopChannels
+        .catch { reportError(it); emit(emptyList()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun openShopEditor(original: String? = null) {
+        if (_shopsBusy.value) return
+        clearError()
+        _shopEditor.value = ShopEditorState(open = true, original = original, name = original.orEmpty())
+    }
+
+    fun onShopNameChange(value: String) {
+        if (!_shopsBusy.value) _shopEditor.update { it.copy(name = value) }
+    }
+
+    fun dismissShopEditor() {
+        if (!_shopsBusy.value) { clearError(); _shopEditor.value = ShopEditorState() }
+    }
+
+    fun saveShop() {
+        val editor = _shopEditor.value
+        if (!editor.open || _shopsBusy.value) return
+        _shopsBusy.value = true
+        launchAction {
+            try {
+                if (editor.original == null) settingsRepository.addShopChannel(editor.name)
+                else settingsRepository.renameShopChannel(editor.original, editor.name)
+                _shopEditor.value = ShopEditorState()
+            } finally { _shopsBusy.value = false }
+        }
+    }
+
+    fun deleteShop(name: String, onDeleted: () -> Unit) {
+        if (_shopsBusy.value) return
+        _shopsBusy.value = true
+        launchAction {
+            try { settingsRepository.removeShopChannel(name); onDeleted() }
+            finally { _shopsBusy.value = false }
+        }
+    }
 
     val defaultCurrency: StateFlow<String> = settingsRepository.defaultCurrency
         .stateIn(
@@ -45,18 +95,22 @@ class SettingsViewModel(
         launchAction { settingsRepository.setDefaultCurrency(code) }
     }
 
-    fun exportBackup(uri: Uri) = backupAction("正在导出备份…") {
+    fun exportBackup(uri: Uri) = backupAction(message(MessageKey.BACKUP_PROGRESS_EXPORT)) {
         backupFiles.export(uri)
-        _backupState.update { it.copy(feedback = "备份已保存") }
+        _backupState.update { it.copy(feedback = message(MessageKey.BACKUP_FEEDBACK_SAVED)) }
     }
 
-    fun readBackup(uri: Uri) = backupAction("正在检查备份…") {
+    fun readBackup(uri: Uri) = backupAction(message(MessageKey.BACKUP_PROGRESS_CHECK)) {
         val backup = backupFiles.read(uri)
-        _backupState.update { it.copy(pendingImport = backup, replaceConfirmation = false, restoreCurrency = true) }
+        _backupState.update { it.copy(pendingImport = backup, replaceConfirmation = false, restoreCurrency = true, restoreShops = true) }
     }
 
     fun setRestoreCurrency(value: Boolean) {
         if (!_backupState.value.busy) _backupState.update { it.copy(restoreCurrency = value) }
+    }
+
+    fun setRestoreShops(value: Boolean) {
+        if (!_backupState.value.busy) _backupState.update { it.copy(restoreShops = value) }
     }
 
     fun dismissImport() {
@@ -77,27 +131,35 @@ class SettingsViewModel(
         val state = _backupState.value
         val backup = state.pendingImport ?: return
         if (replace && !state.replaceConfirmation) return
-        backupAction("正在恢复备份…") {
-            val result = backupRepository.restore(backup, replace, state.restoreCurrency)
-            val feedback = if (state.restoreCurrency && !result.currencyRestored) {
-                "收藏和订单已恢复，但默认货币恢复失败；请在偏好设置中手动调整，不要重复追加导入。"
+        backupAction(message(MessageKey.BACKUP_PROGRESS_RESTORE)) {
+            val result = backupRepository.restore(backup, replace, state.restoreCurrency, state.restoreShops)
+            val currencyFeedback = if (state.restoreCurrency && !result.currencyRestored) {
+                message(MessageKey.BACKUP_FEEDBACK_CURRENCY_FAILED)
             } else if (state.restoreCurrency) {
-                "备份已恢复，默认货币已设为 ${backup.defaultCurrency}"
+                message(MessageKey.BACKUP_FEEDBACK_CURRENCY_RESTORED, backup.defaultCurrency)
             } else {
-                "备份已恢复，默认货币保持不变"
+                message(MessageKey.BACKUP_FEEDBACK_CURRENCY_UNCHANGED)
             }
+            val feedback = if (backup.shopChannels == null) currencyFeedback else message(
+                MessageKey.BACKUP_FEEDBACK_RESULT, currencyFeedback,
+                message(when {
+                    !state.restoreShops -> MessageKey.BACKUP_FEEDBACK_SHOPS_UNCHANGED
+                    result.shopsRestored -> MessageKey.BACKUP_FEEDBACK_SHOPS_RESTORED
+                    else -> MessageKey.BACKUP_FEEDBACK_SHOPS_FAILED
+                }),
+            )
             _backupState.update { it.copy(pendingImport = null, replaceConfirmation = false, feedback = feedback) }
         }
     }
 
-    private fun backupAction(progress: String, block: suspend () -> Unit) {
+    private fun backupAction(progress: Message, block: suspend () -> Unit) {
         if (_backupState.value.busy) return
         _backupState.update { it.copy(busy = true, progress = progress, feedback = null) }
         launchAction {
             try {
                 block()
             } finally {
-                _backupState.update { it.copy(busy = false, progress = "") }
+                _backupState.update { it.copy(busy = false, progress = Message.Literal("")) }
             }
         }
     }

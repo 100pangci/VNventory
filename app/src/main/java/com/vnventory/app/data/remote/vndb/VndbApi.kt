@@ -9,9 +9,16 @@ import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.domain.text.MessageFailure
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 
 /** VNDB 返回非 2xx 时抛出，仓库层会转成友好错误 */
-class VndbApiException(message: String, cause: Throwable? = null) : Exception(message, cause)
+class VndbApiException(override val userMessage: Message, cause: Throwable? = null) :
+    Exception(userMessage.toString(), cause), MessageFailure {
+    constructor(details: String, cause: Throwable? = null) : this(Message.Literal(details), cause)
+}
 
 /**
  * VNDB Kana API 客户端。
@@ -87,7 +94,7 @@ class VndbApi(private val client: HttpClient) : VndbService {
         val response = client.post(path) { setBody(body) }
         if (!response.status.isSuccess()) {
             val snippet = runCatching { response.bodyAsText().take(300) }.getOrDefault("")
-            throw VndbApiException("VNDB 返回 HTTP ${response.status.value}：$snippet")
+            throw VndbApiException(message(MessageKey.VN_HTTP_ERROR, response.status.value, snippet))
         }
         return response.body()
     }

@@ -1,0 +1,65 @@
+package com.vnventory.app.domain.text
+
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
+
+/** Language-independent messages. Literal values are user-entered or remote content, not app copy. */
+sealed interface Message {
+    data class Literal(val value: String) : Message
+    data class Template(val key: MessageKey, val arguments: List<Any> = emptyList()) : Message
+}
+
+fun message(key: MessageKey, vararg arguments: Any): Message = Message.Template(key, arguments.toList())
+
+enum class MessageKey {
+    AMOUNT_TOTAL_OVERFLOW, EXPENSE_NEGATIVE, MIXED_CURRENCY_ALLOCATION,
+    ALLOCATION_COPY_MISMATCH, ALLOCATION_NEGATIVE, ALLOCATION_TOTAL_OVERFLOW, ALLOCATION_EXCESS,
+    COPY_IDS_DUPLICATE, COPY_PRICE_NEGATIVE, AMOUNT_NEGATIVE, WEIGHT_NEGATIVE,
+    CURRENCY_INVALID, VN_ID_INVALID, TITLES_REQUIRED, CONDITION_NOTE_REQUIRED,
+    ORDER_SELECTED_MISSING, ORDER_MIXED_PRICE_ALLOCATION, ORDER_TITLE_REQUIRED,
+    EXPENSE_MISSING, EXPENSE_ORDER_TRANSFER, EXPENSE_NOT_MANUAL, ORDER_MISSING, EXPENSE_NAME_REQUIRED,
+    RELEASE_VN_MISMATCH, COPY_MISSING, RELEASE_BIND_REQUIRED, RELEASE_COPY_MISMATCH,
+    BACKUP_IDS_INVALID, BACKUP_ORDER_TITLE_EMPTY, BACKUP_RELEASE_ID_INVALID, BACKUP_COPY_ORDER_MISSING,
+    BACKUP_ALLOCATION_DUPLICATE, BACKUP_ALLOCATION_NOT_MANUAL, BACKUP_ALLOCATION_COPY_MISMATCH,
+    BACKUP_ALLOCATION_NEGATIVE, BACKUP_EXPENSE_ORDER_MISSING, BACKUP_EXPENSE_NAME_EMPTY,
+    BACKUP_EXPORT_TOO_LARGE, BACKUP_IMPORT_TOO_LARGE, BACKUP_INVALID_FILE, BACKUP_INVALID_UTF8,
+    BACKUP_WRONG_FORMAT, BACKUP_UNSUPPORTED_VERSION, BACKUP_INVALID_DATE, BACKUP_INVALID_ENUM,
+    BACKUP_EXPORT_FAILED, BACKUP_EXPORT_DENIED, BACKUP_READ_FAILED, BACKUP_READ_DENIED,
+    VN_NOT_FOUND, VN_PAGINATION_STALLED, VN_HTTP_ERROR,
+    ERROR_HTTP, ERROR_PARSE, ERROR_NETWORK, ERROR_IO, ERROR_UNKNOWN, NAV_ARG_MISSING,
+    INPUT_EXPENSE_NAME, INPUT_NONNEGATIVE_AMOUNT, INPUT_MANUAL_INVALID, RELEASE_SELECTION_MISMATCH,
+    BACKUP_PROGRESS_EXPORT, BACKUP_FEEDBACK_SAVED, BACKUP_PROGRESS_CHECK, BACKUP_PROGRESS_RESTORE,
+    BACKUP_FEEDBACK_CURRENCY_FAILED, BACKUP_FEEDBACK_CURRENCY_RESTORED, BACKUP_FEEDBACK_CURRENCY_UNCHANGED,
+    BACKUP_FEEDBACK_SHOPS_FAILED, BACKUP_FEEDBACK_SHOPS_RESTORED, BACKUP_FEEDBACK_SHOPS_UNCHANGED,
+    BACKUP_FEEDBACK_RESULT,
+    CONDITION_NEW, CONDITION_USED, CONDITION_UNOPENED, CONDITION_INCOMPLETE, CONDITION_CUSTOM,
+    ALLOCATION_EQUAL, ALLOCATION_BY_PRICE, ALLOCATION_MANUAL,
+    CATEGORY_SHIPPING, CATEGORY_FEE, CATEGORY_TAX, CATEGORY_OTHER,
+    SORT_ADDED_DESC, SORT_ADDED_ASC, SORT_TITLE_ASC, SORT_TITLE_DESC,
+    SORT_PURCHASE_DESC, SORT_PURCHASE_ASC, SORT_PRICE_DESC, SORT_PRICE_ASC,
+    MANUAL_RELEASE, UNKNOWN_RELEASE, ALLOCATION_POOL, ALLOCATION_ISSUE,
+    SHOP_NAME_REQUIRED, SHOP_DUPLICATE, SHOP_MISSING, SHOP_DATA_INVALID,
+}
+
+interface MessageFailure {
+    val userMessage: Message
+}
+
+class MessageException(override val userMessage: Message, cause: Throwable? = null) :
+    IllegalArgumentException(userMessage.toString(), cause), MessageFailure
+
+class MessageStateException(override val userMessage: Message, cause: Throwable? = null) :
+    IllegalStateException(userMessage.toString(), cause), MessageFailure
+
+@OptIn(ExperimentalContracts::class)
+inline fun requireMessage(value: Boolean, lazyMessage: () -> Message) {
+    contract { returns() implies value }
+    if (!value) throw MessageException(lazyMessage())
+}
+
+@OptIn(ExperimentalContracts::class)
+inline fun <T : Any> requireNotNullMessage(value: T?, lazyMessage: () -> Message): T {
+    contract { returns() implies (value != null) }
+    if (value == null) throw MessageException(lazyMessage())
+    return value
+}

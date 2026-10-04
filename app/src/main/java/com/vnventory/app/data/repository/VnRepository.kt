@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 
 /**
  * VNDB 数据仓库：网络优先、写穿本地缓存、失败可回退缓存（标注 offline）。
@@ -82,7 +84,7 @@ class VnRepository(
     /** 拉取单个 VN 并写入缓存 */
     suspend fun fetchVn(vnId: String): AppResult<VnInfo> = appResultOf {
         withContext(io) {
-            val dto = api.getVn(vnId) ?: throw VndbApiException("VNDB 未找到 VN：$vnId")
+            val dto = api.getVn(vnId) ?: throw VndbApiException(message(MessageKey.VN_NOT_FOUND, vnId))
             val info = dto.toDomain()
             vnCacheDao.upsertVn(info.toEntity(System.currentTimeMillis()))
             info
@@ -93,14 +95,14 @@ class VnRepository(
     suspend fun fetchReleases(vnId: String): AppResult<List<ReleaseInfo>> = appResultOf {
         withContext(io) {
             val vn = vnCacheDao.getVn(vnId) ?: api.getVn(vnId)?.toDomain()?.toEntity(System.currentTimeMillis())
-                ?: throw VndbApiException("VNDB 未找到 VN：$vnId")
+                ?: throw VndbApiException(message(MessageKey.VN_NOT_FOUND, vnId))
             val found = linkedMapOf<String, ReleaseInfo>()
             var page = 1
             do {
                 val response = api.getReleases(vnId, page = page)
                 val previousSize = found.size
                 response.results.forEach { found[it.id] = it.toDomain(vnId, vn.imageUrl) }
-                if (response.more && found.size == previousSize) throw VndbApiException("VNDB 分页未前进，请重试")
+                if (response.more && found.size == previousSize) throw VndbApiException(message(MessageKey.VN_PAGINATION_STALLED))
                 page++
                 if (response.more) delay(400) // 仅加载当前选择 VN，避免连续密集请求。
             } while (response.more)

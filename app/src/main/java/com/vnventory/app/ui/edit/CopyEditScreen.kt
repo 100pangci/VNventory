@@ -59,6 +59,10 @@ import com.vnventory.app.ui.components.OrderSelector
 import com.vnventory.app.ui.components.VnCover
 import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.ui.components.SaveButton
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.components.ShopChannelField
+import com.vnventory.app.ui.text.localized
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,10 +78,10 @@ fun CopyEditScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text("编辑收藏") },
+                title = { Text(stringResource(R.string.edit_copy)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
             )
@@ -88,7 +92,7 @@ fun CopyEditScreen(
             if (state.copy != null) {
                 Surface(tonalElevation = 3.dp) {
                     SaveButton(
-                        label = "保存这盒的修改",
+                        label = stringResource(R.string.edit_copy_save),
                         saving = state.saving,
                         onClick = { viewModel.save(onSaved) },
                         enabled = state.form.canSave,
@@ -105,7 +109,7 @@ fun CopyEditScreen(
             state.loading -> LoadingState(modifier = Modifier.padding(padding))
 
             state.notFound -> EmptyState(
-                title = "收藏不存在或已被删除",
+                title = stringResource(R.string.copy_not_found),
                 modifier = Modifier.padding(padding),
             )
 
@@ -133,14 +137,14 @@ fun CopyEditScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall)
                             Text(
-                                text = copy.displayReleaseName,
+                                text = copy.displayReleaseName.localized(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(Modifier.height(8.dp))
                             if (copy.isManualRelease) {
                                 OutlinedButton(onClick = { viewModel.openBindSheet() }) {
-                                    Text("绑定到 VNDB 版本")
+                                    Text(stringResource(R.string.release_bind))
                                 }
                             }
                         }
@@ -150,7 +154,7 @@ fun CopyEditScreen(
                         OutlinedTextField(
                             value = form.releaseTitle,
                             onValueChange = viewModel::onReleaseTitleChange,
-                            label = { Text("手动版本名称") },
+                            label = { Text(stringResource(R.string.release_manual_name)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -160,15 +164,15 @@ fun CopyEditScreen(
                         OutlinedTextField(
                             value = form.priceText,
                             onValueChange = viewModel::onPriceChange,
-                            label = { Text("购入价格") },
+                            label = { Text(stringResource(R.string.purchase_price)) },
                             isError = !form.priceValid,
                             supportingText = {
                                 val parsed = form.parsedPrice
                                 Text(
                                     when {
-                                        form.priceText.isBlank() -> "留空按 0 计算"
-                                        parsed != null -> "= ${Money.format(parsed, form.currency)}"
-                                        else -> "金额格式不正确"
+                                        form.priceText.isBlank() -> stringResource(R.string.amount_blank_zero)
+                                        parsed != null -> stringResource(R.string.amount_equivalent, Money.format(parsed, form.currency))
+                                        else -> stringResource(R.string.amount_invalid)
                                     }
                                 )
                             },
@@ -184,7 +188,7 @@ fun CopyEditScreen(
                     }
 
                     Column {
-                        Text("品相", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.condition), style = MaterialTheme.typography.labelMedium)
                         Row(
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -193,7 +197,7 @@ fun CopyEditScreen(
                                 FilterChip(
                                     selected = form.condition == condition,
                                     onClick = { viewModel.onConditionChange(condition) },
-                                    label = { Text(condition.label) },
+                                    label = { Text(condition.label.localized()) },
                                 )
                             }
                         }
@@ -203,29 +207,28 @@ fun CopyEditScreen(
                         OutlinedTextField(
                             value = form.conditionNote,
                             onValueChange = viewModel::onConditionNoteChange,
-                            label = { Text("自定义品相说明") },
+                            label = { Text(stringResource(R.string.condition_note)) },
                             isError = !form.conditionValid,
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
 
-                    LabeledRow("购买日期") {
+                    LabeledRow(stringResource(R.string.purchase_date)) {
                         DateField(
                             date = form.purchaseDate,
                             onDateChange = viewModel::onPurchaseDateChange,
                         )
                     }
 
-                    OutlinedTextField(
+                    ShopChannelField(
                         value = form.shop,
                         onValueChange = viewModel::onShopChange,
-                        label = { Text("店铺 / 渠道（可空）") },
-                        singleLine = true,
+                        options = state.shopChannels,
                         modifier = Modifier.fillMaxWidth(),
                     )
 
-                    LabeledRow("所属订单") {
+                    LabeledRow(stringResource(R.string.owned_order)) {
                         OrderSelector(
                             orders = state.orders,
                             selectedId = form.orderId,
@@ -236,7 +239,7 @@ fun CopyEditScreen(
                     OutlinedTextField(
                         value = form.notes,
                         onValueChange = viewModel::onNotesChange,
-                        label = { Text("备注（可空）") },
+                        label = { Text(stringResource(R.string.notes_optional)) },
                         minLines = 3,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -256,7 +259,7 @@ fun CopyEditScreen(
             Column(modifier = Modifier.fillMaxWidth()) {
                 OperationError(viewModel)
                 Text(
-                    text = "选择要绑定的 VNDB 版本",
+                    text = stringResource(R.string.release_bind_select),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
@@ -268,13 +271,13 @@ fun CopyEditScreen(
 
                     bindError != null && state.bindSheet.releases.isEmpty() ->
                         ErrorState(
-                            message = bindError,
+                            message = bindError.localized(),
                             modifier = Modifier.height(200.dp),
                         )
 
                     state.bindSheet.releases.isEmpty() -> EmptyState(
-                        title = "没有可绑定的版本",
-                        subtitle = "VNDB 上还没有该作品的版本记录",
+                        title = stringResource(R.string.release_bind_empty),
+                        subtitle = stringResource(R.string.release_bind_empty_hint),
                         modifier = Modifier.height(200.dp),
                     )
 
@@ -307,9 +310,9 @@ fun CopyEditScreen(
                                     )
                                     Text(
                                         text = buildString {
-                                            append(release.released ?: "发售日未知")
+                                            append(release.released ?: stringResource(R.string.release_date_unknown))
                                             if (release.platforms.isNotEmpty()) {
-                                                append(" · ")
+                                                append(stringResource(R.string.separator_dot))
                                                 append(release.platforms.joinToString("/"))
                                             }
                                         },

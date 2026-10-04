@@ -24,6 +24,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
+import com.vnventory.app.domain.text.requireMessage
+import com.vnventory.app.domain.text.requireNotNullMessage
 
 /**
  * 购买批次（订单）与费用仓库。
@@ -82,13 +86,13 @@ class PurchaseRepository(
     // ---- 订单 ----
 
     suspend fun createOrder(order: PurchaseOrder): Long = withContext(io) {
-        require(order.title.isNotBlank()) { "订单名称不能为空" }
+        requireMessage(order.title.isNotBlank()) { message(MessageKey.ORDER_TITLE_REQUIRED) }
         LocalRules.currency(order.currency)
         orderDao.insert(order.copy(id = 0).toEntity())
     }
 
     suspend fun updateOrder(order: PurchaseOrder) = withContext(io) {
-        require(order.title.isNotBlank()) { "订单名称不能为空" }
+        requireMessage(order.title.isNotBlank()) { message(MessageKey.ORDER_TITLE_REQUIRED) }
         LocalRules.currency(order.currency)
         orderDao.update(order.toEntity())
     }
@@ -120,8 +124,8 @@ class PurchaseRepository(
 
     suspend fun updateExpense(expense: Expense) = withContext(io) {
         database.withTransaction {
-            val old = requireNotNull(expenseDao.getById(expense.id)) { "费用已不存在" }
-            require(old.orderId == expense.orderId) { "不能将费用直接转移到其他订单" }
+            val old = requireNotNullMessage(expenseDao.getById(expense.id)) { message(MessageKey.EXPENSE_MISSING) }
+            requireMessage(old.orderId == expense.orderId) { message(MessageKey.EXPENSE_ORDER_TRANSFER) }
             validateExpense(expense)
             expenseDao.update(expense.toEntity())
             expenseDao.clearAllocations(expense.id)
@@ -147,8 +151,8 @@ class PurchaseRepository(
     /** 手动分摊：整体替换某费用的明细 */
     suspend fun setManualAllocations(expenseId: Long, allocations: Map<Long, Long>) = withContext(io) {
         database.withTransaction {
-            val entity = requireNotNull(expenseDao.getById(expenseId)) { "费用已不存在" }
-            require(entity.mode == AllocationMode.MANUAL) { "该费用不是手动分摊模式" }
+            val entity = requireNotNullMessage(expenseDao.getById(expenseId)) { message(MessageKey.EXPENSE_MISSING) }
+            requireMessage(entity.mode == AllocationMode.MANUAL) { message(MessageKey.EXPENSE_NOT_MANUAL) }
             validateExpense(entity.toDomain(allocations))
             expenseDao.clearAllocations(expenseId)
             expenseDao.upsertAllocations(allocations.toEntities(expenseId))
@@ -168,12 +172,12 @@ class PurchaseRepository(
     }
 
     private suspend fun validateExpense(expense: Expense) {
-        require(orderDao.getById(expense.orderId) != null) { "订单已不存在" }
-        require(expense.name.isNotBlank()) { "费用名称不能为空" }
+        requireMessage(orderDao.getById(expense.orderId) != null) { message(MessageKey.ORDER_MISSING) }
+        requireMessage(expense.name.isNotBlank()) { message(MessageKey.EXPENSE_NAME_REQUIRED) }
         LocalRules.currency(expense.currency)
         val copies = ownedCopyDao.getByOrder(expense.orderId).map { CostCopyInput(it.id, it.priceMinor, it.currency) }
         val problem = CostEngine.expenseProblem(expense.costInput(), copies)
-        require(problem == null) { problem!! }
+        requireMessage(problem == null) { problem!! }
     }
 
     private fun Map<Long, Long>.toEntities(expenseId: Long): List<ExpenseAllocationEntity> =

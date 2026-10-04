@@ -20,11 +20,11 @@
 
 ## 品牌图标
 
-- 原稿：`assets/branding/vnventory.svg`，逐字节保留用户提供的 SVG，不修改桌面上的源文件。
-- `ic_launcher_foreground.xml` 保留盒套、V 字、金色价签的路径、旋转、线帽和渐变；108 viewport 中统一缩放原始 1024 坐标，不栅格化，也不新增 SVG 加载依赖。
-- 自适应启动图标使用满铺渐变 `ic_launcher_background.xml`，由系统裁切圆形/方圆等轮廓；普通与 round 入口共用同一实现。
-- 关于页的 `AppLogo` 使用原稿圆角及描边背景 `vnventory_logo_background.xml`，叠加相同前景，深浅主题都保持原图颜色。
-- `ic_launcher_monochrome.xml` 为同源单色轮廓，V 与价签孔镂空；系统主题图标、封面占位和加载/空状态的 `BrandMark` 均使用它。旧启动图标及旧 `ShelfMark` 绘制已经移除。
+- 原稿：`assets/branding/vnventory.svg`，保留完整收集 V 图稿、渐变、椭圆阴影、裁切和无障碍描述；旧稿归档为 `vnventory-previous.svg`。
+- `scripts/convert-branding.py` 用 Python 标准库把图稿转换为 Android 原生矢量：椭圆径向渐变变成仿射单位圆，线性渐变保留原始坐标，裁切仍是 vector clip-path；不栅格化，也不引入 SVG 运行时依赖。
+- `ic_launcher_foreground.xml` 保留软倒角、双层实体盒套、内嵌盒脊标签、象牙/薰衣草色 V、香槟金收藏牌与投影；`ic_launcher_foreground_safe.xml` 将完整图稿缩进 Android 自适应图标安全区。
+- 启动背景与关于页图标分别使用同源圆角 tile 和满版底色；普通及 round 启动图标都使用安全区前景和镂空单色主题图标。
+- 关于页 `AppLogo`、启动图标及占位/加载/空状态 `BrandMark` 均使用新稿的对应原生矢量；主彩色标志保持原色，单色标志只将游戏盒与收藏牌作为轮廓，标签和金牌孔洞透明。
 
 ## 动效约定
 
@@ -80,7 +80,7 @@ Coil 的请求使用 remember，图片以 240ms 交叉淡入；不对每个列�
 - `DebugPackagingTest`：`.debug` 独立包名不改变源码 namespace；预览海报 URI 跟随当前应用 ID，不会因包名分离而丢失。
 - `SettingsAndDateUiTest`：设置分组入口、大字体深色备份页、覆盖二次确认、错误提示与日期模式切换；截图 `settings-home.png`、`settings-backup-large-dark.png`。
 - 关于页截图：`settings-about-light.png`、`settings-about-large-dark.png`、`settings-about-large-dark-footer.png`；验证图标、版本、来源及许可在大字体下均可达，并验证返回。
-- `BrandingTest`：原图颜色及透明安全区、普通/round 启动图标一致性、满铺背景、单色镂空；截图 `brand-logo.png`、`brand-launcher.png`、`brand-monochrome.png`。
+- `BrandingTest`：原图颜色、象牙 V / 薰衣草盒套 / 香槟金收藏牌、启动安全区、普通/round 启动图标一致性、满铺背景和标签镂空；截图 `brand-logo.png`、`brand-launcher.png`、`brand-monochrome.png`。
 - 截图输出目录：`toolchain/review/ui/screenshots/`（不提交，运行测试生成）。
 - 界面预览中的记录是纯展示样本；三张海报是原创矢量资源，仅位于 `app/src/debug/res/`，不进入 Release APK；
   不下载 VNDB 图片，也不写入 Room。
@@ -103,8 +103,8 @@ scripts/check.sh                       # 构建、全部测试、Lint，结束�
 回滚时同样先解到独立目录、逐文件比对；本轮新增备份实现和测试单独处理，不恢复或覆盖其他用户改动。
 配置严格读取接口的修改前文件另存于 `toolchain/backups/20261003-213328-SettingsRepository.kt`。
 
-关于页和图标替换前的相关文件及权限备份：`toolchain/backups/20261004-000032-before-branding-about.tar.gz`。
-需要回滚时先解到单独目录、逐文件比对，恢复该轮涉及的文件；新增的品牌资源、原稿和测试单独处理，不整仓重置。
+关于页和旧图标替换前的文件及权限备份：`toolchain/backups/20261004-000032-before-branding-about.tar.gz`。
+当前收集 V 的 SVG 与原生矢量转换器为 `assets/branding/vnventory.svg`、`scripts/convert-branding.py`；运行 `--check` 可验证输出，`--write` 可从原稿重建。需要回滚时先解档到单独目录并逐文件比对；保留旧图稿 `assets/branding/vnventory-previous.svg`，不要整仓重置。
 
 返回动画和 Debug 包名分离前的相关文件及权限备份：`toolchain/backups/20261004-002918-before-back-debug-fixes.tar.gz`。
 回滚时同样先解到独立目录并逐文件比对；新增测试单独处理，保留其他用户改动。源码回滚不会合并两个包名下的真实应用数据。

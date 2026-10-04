@@ -8,8 +8,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,6 +65,10 @@ import com.vnventory.app.ui.components.OwnedListCard
 import com.vnventory.app.ui.components.PageHeader
 import com.vnventory.app.ui.components.ShelfFab
 import com.vnventory.app.ui.theme.ShelfMotion
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.text.localized
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,7 +106,7 @@ fun CollectionContent(
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp)) {
-                PageHeader("我的书架", if (state.isSearching) "找到 ${state.copies.size} 盒匹配的收藏" else "${state.copies.size} 盒实体 · 按版本与每盒独立记录", eyebrow = "COLLECTION")
+                PageHeader(stringResource(R.string.collection_title), pluralStringResource(if (state.isSearching) R.plurals.collection_search_count else R.plurals.collection_total_count, state.copies.size, state.copies.size), eyebrow = stringResource(R.string.collection_eyebrow))
                 Spacer(Modifier.height(16.dp))
                 androidx.compose.material3.SearchBar(
                     inputField = {
@@ -114,10 +116,10 @@ fun CollectionContent(
                             onSearch = { focus.clearFocus() },
                             expanded = false,
                             onExpandedChange = {},
-                            placeholder = { Text("搜作品、版本或店铺") },
+                            placeholder = { Text(stringResource(R.string.collection_search_hint)) },
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                             trailingIcon = if (state.query.search.isNotEmpty()) ({
-                                IconButton(onClick = { onSearchChange(""); focus.clearFocus() }) { Icon(Icons.Default.Clear, "清除搜索") }
+                                IconButton(onClick = { onSearchChange(""); focus.clearFocus() }) { Icon(Icons.Default.Clear, stringResource(R.string.search_clear)) }
                             }) else null,
                         )
                     },
@@ -132,16 +134,16 @@ fun CollectionContent(
                 // 排序和视图切换分两行，避免窄屏/大字体互相挤压。
                 SortMenu(state.query.sort, onSortChange)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    SegmentedButton(isGrid, { focus.clearFocus(); isGrid = true }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("封面书架") }
-                    SegmentedButton(!isGrid, { focus.clearFocus(); isGrid = false }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("详细列表") }
+                    SegmentedButton(isGrid, { focus.clearFocus(); isGrid = true }, SegmentedButtonDefaults.itemShape(0, 2)) { Text(stringResource(R.string.collection_grid)) }
+                    SegmentedButton(!isGrid, { focus.clearFocus(); isGrid = false }, SegmentedButtonDefaults.itemShape(1, 2)) { Text(stringResource(R.string.collection_list)) }
                 }
                 error()
             }
             Box(Modifier.weight(1f)) {
                 when {
-                    state.loading -> LoadingState(message = "整理书架…")
-                    state.isEmpty && state.isSearching -> EmptyState("没有匹配的收藏", subtitle = "试试作品原名、版本名称或购买店铺。", actionLabel = "清除搜索", onAction = { onSearchChange("") })
-                    state.isEmpty -> EmptyState("给喜欢的作品留一个位置", subtitle = "选择具体发行版本，把第一盒收藏放上书架。", actionLabel = "添加第一盒", onAction = onAddClick)
+                    state.loading -> LoadingState(message = stringResource(R.string.collection_loading))
+                    state.isEmpty && state.isSearching -> EmptyState(stringResource(R.string.collection_no_matches), subtitle = stringResource(R.string.collection_no_matches_hint), actionLabel = stringResource(R.string.search_clear), onAction = { onSearchChange("") })
+                    state.isEmpty -> EmptyState(stringResource(R.string.collection_empty_title), subtitle = stringResource(R.string.collection_empty_hint), actionLabel = stringResource(R.string.add_first_copy), onAction = onAddClick)
                     else -> AnimatedContent(
                         targetState = isGrid,
                         modifier = Modifier.fillMaxSize(),
@@ -159,7 +161,7 @@ fun CollectionContent(
                                 OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), counts[copy.releaseId] ?: 1)
                             }
                             if (state.isSearching) item(key = "searchSummary") {
-                                Text("已显示 ${state.copies.size} 盒匹配的收藏", Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(pluralStringResource(R.plurals.collection_shown_count, state.copies.size, state.copies.size), Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         } else LazyColumn(
                             state = listState,
@@ -170,7 +172,7 @@ fun CollectionContent(
                                 OwnedListCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem())
                             }
                             if (state.isSearching) item(key = "searchSummary") {
-                                Text("已显示 ${state.copies.size} 盒匹配的收藏", Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(pluralStringResource(R.plurals.collection_shown_count, state.copies.size, state.copies.size), Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -186,13 +188,13 @@ private fun SortMenu(current: CollectionSort, onSelect: (CollectionSort) -> Unit
     var expanded by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { expanded = true }) {
-            Text("排序 · ${current.label}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(stringResource(R.string.collection_sort, current.label.localized()), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         DropdownMenu(expanded, { expanded = false }) {
             CollectionSort.entries.forEach { sort ->
                 DropdownMenuItem(
-                    text = { Text(sort.label) },
-                    leadingIcon = { if (sort == current) Icon(Icons.Default.Check, contentDescription = "当前排序") },
+                    text = { Text(sort.label.localized()) },
+                    leadingIcon = { if (sort == current) Icon(Icons.Default.Check, contentDescription = stringResource(R.string.collection_sort_current)) },
                     onClick = { expanded = false; onSelect(sort) },
                 )
             }

@@ -1,6 +1,9 @@
 package com.vnventory.app.domain.model
 
 import java.time.LocalDate
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 
 /**
  * 用户实际拥有的一盒（事实来源，UI 主模型）。
@@ -31,8 +34,9 @@ data class OwnedCopy(
     val isManualRelease: Boolean get() = releaseId == null
 
     /** 列表展示用版本名：Release 名 > 手动版本名 > “手动版本” */
-    val displayReleaseName: String
-        get() = releaseTitle?.takeIf { it.isNotBlank() } ?: if (isManualRelease) "手动版本" else "（未知版本）"
+    val displayReleaseName: Message
+        get() = releaseTitle?.takeIf { it.isNotBlank() }?.let(Message::Literal)
+            ?: message(if (isManualRelease) MessageKey.MANUAL_RELEASE else MessageKey.UNKNOWN_RELEASE)
 }
 
 /**

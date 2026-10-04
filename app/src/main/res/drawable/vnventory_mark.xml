@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from assets/branding/vnventory.svg; see scripts/convert-branding.py. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.10546875" android:scaleY="0.10546875">
+        <group android:translateX="-74" android:translateY="-55">
+            <group android:scaleX="1.12" android:scaleY="1.12">
+                <clip-path android:pathData="M0,0H1024V1024H0Z M268,302Q263,304 265,311L291,371Q293,377 299,375L363,349Q370,346 367,340L342,280Q339,274 334,276Z M678,247L673,251L676,257L682,254Z" />
+                <path android:fillColor="#FFFFFF" android:pathData="M237 282Q229 264 247 256L322 226Q339 219 351 234L370 259 557 706Q565 725 548 733L475 765Q451 775 435 751Z" />
+                <path android:fillColor="#FFFFFF" android:pathData="M667 220 802 277Q820 285 812 304L621 767Q613 788 589 788H511Q490 788 480 766L465 733 644 233Q650 216 667 220Z" />
+                <path android:fillColor="#FFFFFF" android:pathData="M670 219 716 238 687 310Q686 314 683 310L671 292 647 298Q643 299 645 295Z" />
+            </group>
+        </group>
+    </group>
+</vector>

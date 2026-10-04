@@ -5,27 +5,30 @@ import com.vnventory.app.domain.model.AllocationMode
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OwnedCopy
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
+import com.vnventory.app.domain.text.requireMessage
 
 /** 必须在写事务内调用，所有写入入口共享这些约束。 */
 internal object LocalRules {
     fun currency(value: String) {
-        require(value == Money.normalize(value) && value.matches(Regex("[A-Z]{3}"))) { "币种须使用三位大写代码" }
+        requireMessage(value == Money.normalize(value) && value.matches(Regex("[A-Z]{3}"))) { message(MessageKey.CURRENCY_INVALID) }
     }
 
     fun copy(copy: OwnedCopy) {
-        require(copy.priceMinor >= 0) { "购入价格不能为负数" }
-        require(copy.vnId.matches(Regex("v[1-9][0-9]*"))) { "VN ID 不正确" }
-        require(copy.vnTitle.isNotBlank() && !copy.releaseTitle.isNullOrBlank()) { "作品名和版本名不能为空" }
-        require(copy.condition != CopyCondition.CUSTOM || !copy.conditionNote.isNullOrBlank()) { "请填写自定义品相说明" }
+        requireMessage(copy.priceMinor >= 0) { message(MessageKey.COPY_PRICE_NEGATIVE) }
+        requireMessage(copy.vnId.matches(Regex("v[1-9][0-9]*"))) { message(MessageKey.VN_ID_INVALID) }
+        requireMessage(copy.vnTitle.isNotBlank() && !copy.releaseTitle.isNullOrBlank()) { message(MessageKey.TITLES_REQUIRED) }
+        requireMessage(copy.condition != CopyCondition.CUSTOM || !copy.conditionNote.isNullOrBlank()) { message(MessageKey.CONDITION_NOTE_REQUIRED) }
         currency(copy.currency)
     }
 
     suspend fun order(db: VNventoryDatabase, id: Long?) {
         if (id == null) return
-        require(db.purchaseOrderDao().getById(id) != null) { "所选订单已不存在，请重新选择" }
+        requireMessage(db.purchaseOrderDao().getById(id) != null) { message(MessageKey.ORDER_SELECTED_MISSING) }
         val mixed = db.ownedCopyDao().getByOrder(id).map { it.currency }.distinct().size > 1
-        require(!mixed || db.expenseDao().getByOrder(id).none { it.mode == AllocationMode.BY_PRICE }) {
-            "本订单有按价格比例分摊的费用，请先改为平均分摊或手动指定，再加入不同币种的商品"
+        requireMessage(!mixed || db.expenseDao().getByOrder(id).none { it.mode == AllocationMode.BY_PRICE }) {
+            message(MessageKey.ORDER_MIXED_PRICE_ALLOCATION)
         }
     }
 

@@ -14,6 +14,9 @@ import com.vnventory.app.ui.home.HomeViewModel
 import com.vnventory.app.ui.orders.OrderDetailViewModel
 import com.vnventory.app.ui.orders.OrdersViewModel
 import com.vnventory.app.ui.settings.SettingsViewModel
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
+import com.vnventory.app.domain.text.requireNotNullMessage
 
 /**
  * ViewModel 工厂：手动注入 AppContainer。
@@ -42,8 +45,8 @@ object AppViewModelProvider {
         initializer {
             CopyDetailViewModel(
                 container = appContainer(),
-                copyId = checkNotNull(createSavedStateHandle().get<Long>("copyId")) {
-                    "缺少导航参数 copyId"
+                copyId = requireNotNullMessage(createSavedStateHandle().get<Long>("copyId")) {
+                    message(MessageKey.NAV_ARG_MISSING, "copyId")
                 },
             )
         }
@@ -51,8 +54,8 @@ object AppViewModelProvider {
         initializer {
             CopyEditViewModel(
                 container = appContainer(),
-                copyId = checkNotNull(createSavedStateHandle().get<Long>("copyId")) {
-                    "缺少导航参数 copyId"
+                copyId = requireNotNullMessage(createSavedStateHandle().get<Long>("copyId")) {
+                    message(MessageKey.NAV_ARG_MISSING, "copyId")
                 },
             )
         }
@@ -60,8 +63,8 @@ object AppViewModelProvider {
         initializer {
             OrderDetailViewModel(
                 container = appContainer(),
-                orderId = checkNotNull(createSavedStateHandle().get<Long>("orderId")) {
-                    "缺少导航参数 orderId"
+                orderId = requireNotNullMessage(createSavedStateHandle().get<Long>("orderId")) {
+                    message(MessageKey.NAV_ARG_MISSING, "orderId")
                 },
             )
         }

@@ -55,6 +55,9 @@ import com.vnventory.app.ui.components.SectionCard
 import com.vnventory.app.ui.components.Tag
 import com.vnventory.app.ui.components.VnCover
 import com.vnventory.app.ui.theme.ShelfMotion
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.text.localized
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,12 +74,12 @@ fun CopyDetailScreen(
         bottomBar = { OperationError(viewModel) },
         topBar = {
             TopAppBar(
-                title = { Text("收藏档案") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } },
+                title = { Text(stringResource(R.string.detail_title)) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) } },
                 actions = {
                     state.copy?.let { copy ->
-                        IconButton(onClick = { onEdit(copy.id) }) { Icon(Icons.Default.Edit, "编辑这盒收藏") }
-                        IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, "删除这盒收藏", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        IconButton(onClick = { onEdit(copy.id) }) { Icon(Icons.Default.Edit, stringResource(R.string.detail_edit)) }
+                        IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, stringResource(R.string.detail_delete), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 },
             )
@@ -85,10 +88,10 @@ fun CopyDetailScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("删除这盒收藏？") },
-            text = { Text("只删除盒 #${state.copy?.id} 的记录，包括价格与备注。相同版本的其他盒子不受影响。此操作不可撤销。") },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; viewModel.delete(onBack) }) { Text("删除记录", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("保留收藏") } },
+            title = { Text(stringResource(R.string.detail_delete_title)) },
+            text = { Text(stringResource(R.string.detail_delete_hint, state.copy?.id ?: 0L)) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; viewModel.delete(onBack) }) { Text(stringResource(R.string.detail_delete_record), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.detail_keep)) } },
         )
     }
 }
@@ -96,8 +99,8 @@ fun CopyDetailScreen(
 @Composable
 fun CopyDetailContent(state: CopyDetailUiState, onOrderClick: (Long) -> Unit, modifier: Modifier = Modifier) {
     when {
-        state.loading -> LoadingState(modifier, "打开收藏档案…")
-        state.notFound -> EmptyState("这盒收藏已不在书架上", modifier, "记录可能已被删除。")
+        state.loading -> LoadingState(modifier, stringResource(R.string.detail_loading))
+        state.notFound -> EmptyState(stringResource(R.string.detail_missing_title), modifier, stringResource(R.string.detail_missing_hint))
         else -> {
             val copy = state.copy ?: return
             LazyColumn(
@@ -109,32 +112,35 @@ fun CopyDetailContent(state: CopyDetailUiState, onOrderClick: (Long) -> Unit, mo
                 item(key = "cost") {
                     CostHighlight(
                         totals = state.cost?.totalsByCurrency ?: mapOf(copy.currency to copy.priceMinor),
-                        label = "这盒的最终实际成本",
-                        supporting = if (copy.orderId == null) "当前为独立收藏，成本等于购入价格。" else "购入价格与批次费用分摊实时计算，不重复存储结果。",
+                        label = stringResource(R.string.detail_final_cost),
+                        supporting = stringResource(if (copy.orderId == null) R.string.detail_standalone_hint else R.string.detail_order_cost_hint),
                     )
                 }
                 item(key = "costBreakdown") {
-                    SectionCard(title = "成本明细") {
-                        LabeledRow("本体价格") { Text(Money.formatWithCode(copy.priceMinor, copy.currency)) }
+                    SectionCard(title = stringResource(R.string.detail_cost_breakdown)) {
+                        LabeledRow(stringResource(R.string.base_price)) { Text(Money.formatWithCode(copy.priceMinor, copy.currency)) }
                         state.cost?.feeShares?.forEach { share ->
                             Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                                Text(share.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(share.label.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(Money.formatWithCode(share.amountMinor, share.currency), style = MaterialTheme.typography.bodyLarge)
                             }
                         }
-                        state.orderDetail?.breakdown?.issues?.forEach { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        state.orderDetail?.breakdown?.issues?.forEach { Text(it.localized(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                         state.orderDetail?.order?.let { order ->
-                            TextButton(onClick = { onOrderClick(order.id) }) { Text("查看购买批次：${order.title}") }
+                            TextButton(onClick = { onOrderClick(order.id) }) { Text(stringResource(R.string.detail_view_order, order.title)) }
                         }
-                        if (copy.orderId == null) Text("编辑收藏并加入购买批次，就可以分摊运费和手续费。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (copy.orderId == null) Text(stringResource(R.string.detail_join_order_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 item(key = "purchase") {
-                    SectionCard(title = "这一盒的购买记录") {
-                        LabeledRow("品相") { Text(copy.condition.label + (copy.conditionNote?.let { " · $it" } ?: "")) }
-                        LabeledRow("购买日期") { Text(copy.purchaseDate?.toString() ?: "未记录") }
-                        LabeledRow("店铺 / 渠道") { Text(copy.shop ?: "未记录") }
-                        LabeledRow("备注") { Text(copy.notes ?: "还没有备注") }
+                    SectionCard(title = stringResource(R.string.detail_purchase_record)) {
+                        LabeledRow(stringResource(R.string.condition)) {
+                            val label = copy.condition.label.localized()
+                            Text(copy.conditionNote?.let { stringResource(R.string.text_pair, label, it) } ?: label)
+                        }
+                        LabeledRow(stringResource(R.string.purchase_date)) { Text(copy.purchaseDate?.toString() ?: stringResource(R.string.not_recorded)) }
+                        LabeledRow(stringResource(R.string.shop_channel)) { Text(copy.shop ?: stringResource(R.string.not_recorded)) }
+                        LabeledRow(stringResource(R.string.notes)) { Text(copy.notes ?: stringResource(R.string.no_notes)) }
                     }
                 }
                 item(key = "metadata") { VndbInfoCard(state) }
@@ -163,12 +169,12 @@ private fun DetailPoster(state: CopyDetailUiState) {
         Spacer(Modifier.height(16.dp))
         Text(copy.vnTitle, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
-        Text(state.release?.title ?: copy.displayReleaseName, style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant)
+        Text(state.release?.title ?: copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant)
         Spacer(Modifier.height(12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Tag(copy.condition.label, emphasized = true)
-            Tag("盒 #${copy.id}")
-            if (copy.isManualRelease) Tag("手动版本")
+            Tag(copy.condition.label.localized(), emphasized = true)
+            Tag(stringResource(R.string.copy_number, copy.id))
+            if (copy.isManualRelease) Tag(stringResource(R.string.message_manual_release))
             state.release?.platforms?.forEach { Tag(it) }
         }
     }
@@ -181,25 +187,25 @@ private fun VndbInfoCard(state: CopyDetailUiState) {
     if (release == null && vn == null) return
     var expanded by rememberSaveable { mutableStateOf(false) }
     val description = remember(vn?.description) { vn?.description?.replace(Regex("\\[/?url[^\\]]*\\]"), "")?.trim() }
-    SectionCard(title = "版本资料 · VNDB") {
+    SectionCard(title = stringResource(R.string.detail_release_metadata)) {
         release?.let {
-            LabeledRow("版本 ID") { Text(it.id) }
-            LabeledRow("发行日期") { Text(it.released ?: "未知") }
-            if (it.languages.isNotEmpty()) LabeledRow("语言") { Text(it.languages.joinToString(" / ")) }
-            if (it.publishers.isNotEmpty()) LabeledRow("发行商") { Text(it.publishers.joinToString("、")) }
-            it.jan?.let { code -> LabeledRow("JAN / EAN") { Text(code) } }
+            LabeledRow(stringResource(R.string.release_id)) { Text(it.id) }
+            LabeledRow(stringResource(R.string.release_date)) { Text(it.released ?: stringResource(R.string.unknown)) }
+            if (it.languages.isNotEmpty()) LabeledRow(stringResource(R.string.language)) { Text(it.languages.joinToString(stringResource(R.string.separator_slash))) }
+            if (it.publishers.isNotEmpty()) LabeledRow(stringResource(R.string.publisher)) { Text(it.publishers.joinToString(stringResource(R.string.separator_names))) }
+            it.jan?.let { code -> LabeledRow(stringResource(R.string.barcode_label)) { Text(code) } }
         }
         vn?.let {
-            LabeledRow("作品 ID") { Text(it.id) }
+            LabeledRow(stringResource(R.string.vn_id)) { Text(it.id) }
             if (release == null) {
-                LabeledRow("发售日期") { Text(it.released ?: "未知") }
-                it.altTitle?.let { title -> LabeledRow("原题") { Text(title) } }
+                LabeledRow(stringResource(R.string.vn_release_date)) { Text(it.released ?: stringResource(R.string.unknown)) }
+                it.altTitle?.let { title -> LabeledRow(stringResource(R.string.vn_original_title)) { Text(title) } }
             }
         }
         description?.let {
             Spacer(Modifier.height(10.dp))
             Text(it, Modifier.animateContentSize(tween(ShelfMotion.Standard)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (expanded) Int.MAX_VALUE else 4)
-            TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "收起作品简介" else "展开作品简介") }
+            TextButton(onClick = { expanded = !expanded }) { Text(stringResource(if (expanded) R.string.description_collapse else R.string.description_expand)) }
         }
     }
 }

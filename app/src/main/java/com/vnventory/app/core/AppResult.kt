@@ -7,13 +7,17 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.domain.text.MessageFailure
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
 
 /** 统一的失败类型（UI 用来展示友好文案） */
 enum class AppErrorKind { NETWORK, HTTP, PARSE, UNKNOWN }
 
 data class AppError(
     val kind: AppErrorKind,
-    val message: String,
+    val message: Message,
     val cause: Throwable? = null,
 )
 
@@ -47,11 +51,12 @@ suspend fun <T> appResultOf(block: suspend () -> T): AppResult<T> = try {
 }
 
 fun Throwable.toAppError(): AppError = when (this) {
-    is VndbApiException -> AppError(AppErrorKind.HTTP, message ?: "VNDB 请求失败", this)
-    is SerializationException -> AppError(AppErrorKind.PARSE, "数据解析失败：${message ?: "格式不符"}", this)
+    is VndbApiException -> AppError(AppErrorKind.HTTP, userMessage, this)
+    is MessageFailure -> AppError(AppErrorKind.UNKNOWN, userMessage, this)
+    is SerializationException -> AppError(AppErrorKind.PARSE, message(MessageKey.ERROR_PARSE), this)
     is UnknownHostException, is ConnectException, is SocketTimeoutException ->
-        AppError(AppErrorKind.NETWORK, "网络连接失败，请检查网络后重试", this)
+        AppError(AppErrorKind.NETWORK, message(MessageKey.ERROR_NETWORK), this)
 
-    is IOException -> AppError(AppErrorKind.NETWORK, "网络请求失败：${message ?: "IO 错误"}", this)
-    else -> AppError(AppErrorKind.UNKNOWN, message ?: "未知错误", this)
+    is IOException -> AppError(AppErrorKind.NETWORK, message(MessageKey.ERROR_IO), this)
+    else -> AppError(AppErrorKind.UNKNOWN, this.message?.let(Message::Literal) ?: message(MessageKey.ERROR_UNKNOWN), this)
 }

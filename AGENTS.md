@@ -38,5 +38,10 @@ Android 原生应用：Galgame/VN 实体收藏管理（Kotlin + Compose + Materi
 - **VNDB 是缓存、本地是事实来源**：`owned_copy` 保存标题/封面快照，VNDB 缓存被清理不影响收藏。
 - Room 当前 v2，VN/Release 通过 `release_vn` 多对多；v1→v2 非破坏性迁移已有回归测试。
 - 改 Room schema：升 `version` + 写 `Migration`（schema 导出目录 `app/schemas/`，勿手改）。
-- UI 文案直接写在 Compose 代码里（中文）；没有 XML 布局。
+- 用户可见文案统一放在 `app/src/main/res/values/strings.xml` / `messages.xml`；Compose 使用
+  `stringResource` / `pluralStringResource`，不得重新硬编码。默认中文，后续通过 `values-<locale>/` 添加翻译；没有 XML 布局。
+- domain 保持纯 Kotlin：校验、枚举标签和成本提示使用 `domain/text/Message.kt` 的消息键，
+  UI 在显示时解析资源；不得把翻译结果存进数据库、ViewModel 或备份。用户输入及 VNDB 快照不翻译。
+- 常用店铺/渠道是 DataStore 候选列表；收藏和订单继续保存原始名称快照，候选项改名/删除不能改历史记录。
+  备份中的候选列表为可选字段，旧备份没有该字段时不得清空本机列表。
 - 网络层只用 `api.vndb.org/kana`（字段以 schema 为准）；不要引入批量抓取或未授权的 API 用法。

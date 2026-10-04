@@ -7,6 +7,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.MessageStateException
+import com.vnventory.app.domain.text.message
 
 /** 只通过系统文档选择器授予的 URI 读写，无需存储权限或持久 URI 授权。 */
 class BackupFileStore(
@@ -20,9 +23,9 @@ class BackupFileStore(
             val bytes = BackupCodec.encode(repository.snapshot())
             (resolver.openOutputStream(uri, "wt") ?: throw IOException()).use { it.write(bytes) }
         } catch (e: IOException) {
-            throw IllegalStateException("备份导出失败，请检查存储空间和文件权限", e)
+            throw MessageStateException(message(MessageKey.BACKUP_EXPORT_FAILED), e)
         } catch (e: SecurityException) {
-            throw IllegalStateException("无法写入此位置，请重新选择备份保存位置", e)
+            throw MessageStateException(message(MessageKey.BACKUP_EXPORT_DENIED), e)
         }
     }
 
@@ -30,9 +33,9 @@ class BackupFileStore(
         try {
             (resolver.openInputStream(uri) ?: throw IOException()).use { BackupCodec.decode(it) }
         } catch (e: IOException) {
-            throw IllegalStateException("备份文件读取失败，请检查文件是否可用", e)
+            throw MessageStateException(message(MessageKey.BACKUP_READ_FAILED), e)
         } catch (e: SecurityException) {
-            throw IllegalStateException("无法读取此文件，请重新选择备份文件", e)
+            throw MessageStateException(message(MessageKey.BACKUP_READ_DENIED), e)
         }
     }
 }

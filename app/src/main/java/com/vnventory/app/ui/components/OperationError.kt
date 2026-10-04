@@ -13,6 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vnventory.app.ui.ActionViewModel
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
+import com.vnventory.app.ui.text.localized
 
 @Composable
 fun OperationError(viewModel: ActionViewModel) {
@@ -21,11 +24,11 @@ fun OperationError(viewModel: ActionViewModel) {
         Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(12.dp)) {
                 Text(
-                    text = it,
+                    text = it.localized(),
                     modifier = Modifier.weight(1f),
                     color = MaterialTheme.colorScheme.onErrorContainer,
                 )
-                TextButton(onClick = viewModel::clearError) { Text("关闭") }
+                TextButton(onClick = viewModel::clearError) { Text(stringResource(R.string.action_close)) }
             }
         }
     }

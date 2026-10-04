@@ -17,19 +17,22 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.vnventory.app.ui.theme.ShelfMotion
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
 
 @Composable
 fun AddStepIndicator(step: Int, modifier: Modifier = Modifier) {
-    val labels = listOf("寻找作品", "选择版本", "记录购入")
+    val labels = listOf(stringResource(R.string.add_step_search), stringResource(R.string.add_step_release), stringResource(R.string.add_step_purchase))
+    val description = stringResource(R.string.add_step_progress, step + 1, labels.size)
     val progress = animateFloatAsState((step + 1) / 3f, tween(ShelfMotion.Standard), label = "addProgress")
-    Column(modifier.semantics { stateDescription = "第 ${step + 1} 步，共 3 步" }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier.semantics { stateDescription = description }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             labels.forEachIndexed { index, label ->
                 val color = animateColorAsState(
                     if (index <= step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     tween(ShelfMotion.Quick), label = "stepColor",
                 )
-                Text("${if (index < step) "✓" else index + 1}  $label", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = color.value)
+                Text(stringResource(R.string.add_step_label, if (index < step) stringResource(R.string.step_complete_mark) else index + 1, label), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, color = color.value)
             }
         }
         LinearProgressIndicator(progress = { progress.value }, modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp))

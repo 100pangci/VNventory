@@ -21,6 +21,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
+import com.vnventory.app.domain.text.requireMessage
+import com.vnventory.app.domain.text.requireNotNullMessage
 
 /**
  * 收藏仓库：OwnedCopy 的增删改查。这是用户数据的事实来源。
@@ -64,7 +68,7 @@ class CollectionRepository(
         database.withTransaction {
             copies.forEach { copy ->
                 LocalRules.copy(copy)
-                copy.releaseId?.let { require(vnCacheDao.isLinked(copy.vnId, it)) { "所选版本不属于当前 VN，请重新选择版本" } }
+                copy.releaseId?.let { requireMessage(vnCacheDao.isLinked(copy.vnId, it)) { message(MessageKey.RELEASE_VN_MISMATCH) } }
             }
             val ids = ownedCopyDao.insertAll(copies.map { it.copy(id = 0).toEntity() })
             copies.map { it.orderId }.distinct().forEach { LocalRules.order(database, it) }
@@ -76,8 +80,8 @@ class CollectionRepository(
     suspend fun update(copy: OwnedCopy) = withContext(io) {
         database.withTransaction {
             LocalRules.copy(copy)
-            val old = requireNotNull(ownedCopyDao.getById(copy.id)) { "收藏已不存在" }
-            require(copy.vnId == old.vnId && copy.releaseId == old.releaseId) { "修改版本请使用绑定功能" }
+            val old = requireNotNullMessage(ownedCopyDao.getById(copy.id)) { message(MessageKey.COPY_MISSING) }
+            requireMessage(copy.vnId == old.vnId && copy.releaseId == old.releaseId) { message(MessageKey.RELEASE_BIND_REQUIRED) }
             ownedCopyDao.update(copy.toEntity())
             LocalRules.order(database, copy.orderId)
             LocalRules.totals(database)
@@ -93,9 +97,9 @@ class CollectionRepository(
     /** 将“手动版本”重新绑定到某个 VNDB Release（数据结构预留能力的落地） */
     suspend fun bindRelease(copyId: Long, release: ReleaseInfo, coverUrl: String?) = withContext(io) {
         database.withTransaction {
-            val existing = requireNotNull(ownedCopyDao.getById(copyId)) { "收藏已不存在" }
-            require(release.vnId == existing.vnId && vnCacheDao.isLinked(existing.vnId, release.id)) {
-                "该 Release 不属于这盒收藏的 VN"
+            val existing = requireNotNullMessage(ownedCopyDao.getById(copyId)) { message(MessageKey.COPY_MISSING) }
+            requireMessage(release.vnId == existing.vnId && vnCacheDao.isLinked(existing.vnId, release.id)) {
+                message(MessageKey.RELEASE_COPY_MISMATCH)
             }
             ownedCopyDao.update(
                 existing.copy(

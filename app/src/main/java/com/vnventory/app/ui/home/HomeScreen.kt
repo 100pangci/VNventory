@@ -45,6 +45,8 @@ import com.vnventory.app.ui.components.OwnedCoverCard
 import com.vnventory.app.ui.components.PageHeader
 import com.vnventory.app.ui.components.SectionCard
 import com.vnventory.app.ui.components.SectionHeading
+import androidx.compose.ui.res.stringResource
+import com.vnventory.app.R
 
 @Composable
 fun HomeScreen(
@@ -78,30 +80,30 @@ fun HomeContent(
         ) {
             item(key = "heading") {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    PageHeader("故事，收进书架", "每一个版本，每一盒，都有自己的收藏记录。")
+                    PageHeader(stringResource(R.string.home_title), stringResource(R.string.home_subtitle))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        CollectionCount("作品", stats.vnCount, Modifier.weight(1f))
-                        CollectionCount("实体盒", stats.copyCount, Modifier.weight(1f))
+                        CollectionCount(stringResource(R.string.works), stats.vnCount, Modifier.weight(1f))
+                        CollectionCount(stringResource(R.string.physical_copies), stats.copyCount, Modifier.weight(1f))
                     }
                     error()
                 }
             }
             item(key = "recentTitle") {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    SectionHeading("最近入藏", "让刚到手的版本先登上书架")
+                    SectionHeading(stringResource(R.string.recent_collection), stringResource(R.string.recent_collection_hint))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onAddClick, modifier = Modifier.weight(1f)) { Text("＋ 添加收藏") }
-                        TextButton(onClick = onSeeAllClick, modifier = Modifier.weight(1f)) { Text("浏览全部 →") }
+                        TextButton(onClick = onAddClick, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.add_collection_shortcut)) }
+                        TextButton(onClick = onSeeAllClick, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.browse_all)) }
                     }
                 }
             }
             item(key = "shelf") {
                 if (recent.isEmpty()) {
                     EmptyState(
-                        title = "书架正等待第一个故事",
-                        subtitle = "从 VNDB 找到作品，选择你拥有的具体版本。",
+                        title = stringResource(R.string.home_empty_title),
+                        subtitle = stringResource(R.string.home_empty_hint),
                         modifier = Modifier.fillMaxWidth(),
-                        actionLabel = "添加第一盒",
+                        actionLabel = stringResource(R.string.add_first_copy),
                         onAction = onAddClick,
                     )
                 } else {
@@ -117,22 +119,22 @@ fun HomeContent(
             }
             item(key = "costs") {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SectionHeading("收藏投入", "比预算更重要的，是每盒真实的成本")
+                    SectionHeading(stringResource(R.string.collection_spending), stringResource(R.string.collection_spending_hint))
                     CostHighlight(
                         stats.grandTotals,
-                        "已记录的全部支出",
-                        supporting = "含商品、运费与其他费用。不同币种分别统计。",
+                        stringResource(R.string.all_spending),
+                        supporting = stringResource(R.string.all_spending_hint),
                     )
                     TextButton(onClick = { showCosts = !showCosts }, modifier = Modifier.align(Alignment.End)) {
-                        Text(if (showCosts) "收起支出构成" else "查看支出构成")
+                        Text(stringResource(if (showCosts) R.string.spending_collapse else R.string.spending_expand))
                     }
                     AnimatedVisibility(showCosts, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                         SectionCard {
-                            CostRow("商品购入", stats.priceTotals)
-                            CostRow("运费", stats.shippingTotals)
-                            CostRow("手续费", stats.feeTotals)
-                            CostRow("税费", stats.taxTotals)
-                            CostRow("其他", stats.otherTotals)
+                            CostRow(stringResource(R.string.goods_purchase), stats.priceTotals)
+                            CostRow(stringResource(R.string.message_category_shipping), stats.shippingTotals)
+                            CostRow(stringResource(R.string.message_category_fee), stats.feeTotals)
+                            CostRow(stringResource(R.string.message_category_tax), stats.taxTotals)
+                            CostRow(stringResource(R.string.message_category_other), stats.otherTotals)
                         }
                     }
                 }

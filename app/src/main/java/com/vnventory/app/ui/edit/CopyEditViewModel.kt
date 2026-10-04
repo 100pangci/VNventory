@@ -9,6 +9,7 @@ import com.vnventory.app.di.AppContainer
 import com.vnventory.app.data.repository.CollectionRepository
 import com.vnventory.app.data.repository.PurchaseRepository
 import com.vnventory.app.data.repository.VnRepository
+import com.vnventory.app.data.repository.SettingsRepository
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OrderSummary
@@ -24,6 +25,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import com.vnventory.app.domain.text.Message
+import com.vnventory.app.domain.text.MessageKey
+import com.vnventory.app.domain.text.message
+import com.vnventory.app.domain.text.requireMessage
 
 data class EditFormState(
     val releaseTitle: String = "",
@@ -46,7 +51,7 @@ data class BindSheetState(
     val open: Boolean = false,
     val loading: Boolean = false,
     val releases: List<ReleaseInfo> = emptyList(),
-    val error: String? = null,
+    val error: Message? = null,
 )
 
 data class CopyEditUiState(
@@ -57,6 +62,7 @@ data class CopyEditUiState(
     val orders: List<OrderSummary> = emptyList(),
     val saving: Boolean = false,
     val bindSheet: BindSheetState = BindSheetState(),
+    val shopChannels: List<String> = emptyList(),
 )
 
 class CopyEditViewModel(
@@ -64,9 +70,10 @@ class CopyEditViewModel(
     private val vnRepository: VnRepository,
     private val purchaseRepository: PurchaseRepository,
     private val copyId: Long,
+    private val settingsRepository: SettingsRepository,
 ) : ActionViewModel() {
     constructor(container: AppContainer, copyId: Long) : this(
-        container.collectionRepository, container.vnRepository, container.purchaseRepository, copyId,
+        container.collectionRepository, container.vnRepository, container.purchaseRepository, copyId, container.settingsRepository,
     )
     private var bindJob: Job? = null
     private var bindGeneration = 0
@@ -82,8 +89,8 @@ class CopyEditViewModel(
         loadedState,
         formState,
         combine(savingState, bindSheetState) { saving, bind -> saving to bind },
-        purchaseRepository.observeOrders(),
-    ) { copy, loaded, form, (saving, bind), orders ->
+        combine(purchaseRepository.observeOrders(), settingsRepository.shopChannels.catch { reportError(it); emit(emptyList()) }) { orders, shops -> orders to shops },
+    ) { copy, loaded, form, (saving, bind), (orders, shops) ->
         CopyEditUiState(
             loading = !loaded,
             notFound = loaded && copy == null,
@@ -92,6 +99,7 @@ class CopyEditViewModel(
             orders = orders,
             saving = saving,
             bindSheet = bind,
+            shopChannels = shops,
         )
     }.catch { reportError(it); emit(CopyEditUiState(loading = false)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CopyEditUiState())
@@ -152,7 +160,7 @@ class CopyEditViewModel(
                         condition = form.condition,
                         conditionNote = form.conditionNote.takeIf { it.isNotBlank() },
                         purchaseDate = form.purchaseDate,
-                        shop = form.shop.takeIf { it.isNotBlank() },
+                        shop = form.shop.trim().takeIf { it.isNotBlank() },
                         notes = form.notes.takeIf { it.isNotBlank() },
                         orderId = form.orderId,
                         updatedAt = System.currentTimeMillis(),
@@ -215,7 +223,7 @@ class CopyEditViewModel(
     fun bindTo(release: ReleaseInfo) {
         val copy = copyState.value ?: return
         launchAction {
-            require(release.vnId == copy.vnId) { "所选版本不属于当前作品" }
+            requireMessage(release.vnId == copy.vnId) { message(MessageKey.RELEASE_VN_MISMATCH) }
             collectionRepository.bindRelease(copy.id, release, coverUrl = release.displayImage())
             copyState.value = collectionRepository.getById(copy.id)
             formState.update { it.copy(releaseTitle = release.title) }
