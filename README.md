@@ -112,14 +112,16 @@ Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。Debug 包名�
 
 ## Release 构建与签名
 
-Release 开启 R8 优化/混淆和资源压缩，APK 使用 v2/v3 签名。Release 签名从仓库外的 `~/.sign/vnventory-release.properties` 读取；也可以通过 `VNVENTORY_SIGNING_PROPERTIES` 指定私有配置文件。文件包含 `storeFile`、`storeType`、`keyAlias`、`storePassword` 和 `keyPassword`。**不要提交签名私钥或密码**；后续更新必须沿用同一签名。
+Release 开启 R8 优化/混淆和资源压缩；配置签名后 APK 使用 v2/v3 签名。Release 签名从仓库外的 `~/.sign/vnventory-release.properties` 读取；也可以通过 `VNVENTORY_SIGNING_PROPERTIES` 指定私有配置文件。文件包含 `storeFile`、`storeType`、`keyAlias`、`storePassword` 和 `keyPassword`。**不要提交签名私钥或密码**；后续更新必须沿用同一签名。
 
 ```bash
 ./gradlew :app:assembleRelease
 ./gradlew --stop
 ```
 
-没有本地签名配置时 Debug 构建和测试不受影响；签名 Release 需要事先准备私有配置。Release APK 位于 `app/build/outputs/apk/release/app-release.apk`。
+没有本地签名配置时 Debug 构建和测试不受影响，Release 也可构建为未签名 APK；签名 Release 需要事先准备私有配置。Release APK 位于 `app/build/outputs/apk/release/app-release.apk`。
+
+GitHub Actions 会在推送 `vMAJOR.MINOR.PATCH` 标签时创建 GitHub Release，并按标签设置 `versionName`。Android `versionCode` 根据 `MAJOR.MINOR.PATCH` 计算（`MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`；`MINOR` 和 `PATCH` 均须小于 1000），本地默认版本也使用同一规则。需要签名发布时，在仓库 Actions secrets 中配置 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。未配置签名密钥时仍会发布未签名 APK，该 APK 不能作为已有签名安装的更新包。
 
 ## 当前不包含
 

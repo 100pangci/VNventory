@@ -16,6 +16,28 @@ val releaseSigningFile = providers.environmentVariable("VNVENTORY_SIGNING_PROPER
 val releaseSigningProperties = Properties().apply {
     if (releaseSigningFile.isFile) releaseSigningFile.inputStream().use { load(it) }
 }
+val configuredVersionName = providers.gradleProperty("vnventoryVersionName").getOrElse("0.1.0")
+val configuredVersionCode = versionCodeFor(configuredVersionName)
+
+private fun versionCodeFor(versionName: String): Int {
+    val match = Regex("""(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)""")
+        .matchEntire(versionName)
+        ?: error("VNventory versionName must use MAJOR.MINOR.PATCH: $versionName")
+    val major = match.groupValues[1].toLong()
+    val minor = match.groupValues[2].toLong()
+    val patch = match.groupValues[3].toLong()
+    require(minor < 1000 && patch < 1000) {
+        "VNventory versionName requires MINOR and PATCH below 1000: $versionName"
+    }
+    require(major <= Int.MAX_VALUE.toLong() / 1_000_000) {
+        "VNventory versionName produces an Android versionCode that is too large: $versionName"
+    }
+    val code = major * 1_000_000 + minor * 1_000 + patch
+    require(code in 1..Int.MAX_VALUE.toLong()) {
+        "VNventory versionName produces an invalid Android versionCode: $versionName"
+    }
+    return code.toInt()
+}
 
 android {
     namespace = "com.vnventory.app"
@@ -27,8 +49,8 @@ android {
         applicationId = "com.vnventory.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = configuredVersionCode
+        versionName = configuredVersionName
     }
 
     signingConfigs {
@@ -61,7 +83,8 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
+            // 没有私有签名配置时仍可构建未签名 APK；CI tag 发布可通过私有配置签名。
+            signingConfig = if (releaseSigningFile.isFile) signingConfigs.getByName("release") else null
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test, lint and debug build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GRADLE_USER_HOME: ${{ github.workspace }}/toolchain/gradle-home
+      ANDROID_HOME: ${{ github.workspace }}/toolchain/android-sdk
+      ANDROID_USER_HOME: ${{ github.workspace }}/toolchain/android-user-home
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache project Android SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            toolchain/android-sdk
+            toolchain/android-user-home
+            toolchain/downloads
+          key: ${{ runner.os }}-android-37.2-${{ hashFiles('scripts/setup-android-env.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-android-37.2-
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Prepare project-local Android toolchain
+        id: toolchain
+        run: VNVENTORY_JDK="$JAVA_HOME" scripts/setup-android-env.sh
+
+      - name: Run project checks
+        run: scripts/check.sh
+
+      - name: Stop Gradle daemons
+        if: always() && steps.toolchain.outcome == 'success'
+        run: ./gradlew --stop
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vnventory-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
