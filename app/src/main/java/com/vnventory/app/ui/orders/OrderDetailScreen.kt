@@ -1,10 +1,10 @@
 package com.vnventory.app.ui.orders
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,6 +45,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,7 +66,6 @@ import com.vnventory.app.domain.model.OrderDetail
 import com.vnventory.app.domain.model.OwnedCopy
 import com.vnventory.app.domain.model.knownPriceTotals
 import com.vnventory.app.domain.model.copyOrdinal
-import com.vnventory.app.ui.components.CurrencySelector
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.LabeledRow
 import com.vnventory.app.ui.components.LoadingState
@@ -74,7 +75,9 @@ import com.vnventory.app.ui.components.VnCover
 import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.domain.cost.OrderCostBreakdown
 import com.vnventory.app.ui.components.SectionHeading
-import com.vnventory.app.ui.components.SaveButton
+import com.vnventory.app.ui.components.FormSaveBar
+import com.vnventory.app.ui.components.FormSection
+import com.vnventory.app.ui.components.MoneyInputField
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import com.vnventory.app.R
@@ -409,106 +412,61 @@ private fun ExpenseEditorSheet(
 ) {
     val detail = state.detail ?: return
     val editor = state.editor
+    val focus = LocalFocusManager.current
 
     ModalBottomSheet(
         onDismissRequest = viewModel::closeExpenseEditor,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 640.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = stringResource(if (editor.editingId == null) R.string.expense_add else R.string.expense_edit),
-                style = MaterialTheme.typography.titleMedium,
-            )
-
-            if (editor.editingId != null && editor.name != editor.category.name) {
-                Text(editor.name, style = MaterialTheme.typography.bodySmall)
-            }
-
-            Column {
-                Text(stringResource(R.string.expense_category), style = MaterialTheme.typography.labelMedium)
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    (ExpenseCategory.fixedCategories + listOfNotNull(editor.category.takeIf { editor.editingId != null && !it.isFixed })).forEach { category ->
-                        FilterChip(
-                            selected = editor.category == category,
-                            onClick = { viewModel.onExpenseCategoryChange(category) },
-                            label = { Text(category.label.localized()) },
-                        )
-                    }
-                }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = editor.amountText,
-                    onValueChange = viewModel::onExpenseAmountChange,
-                    label = { Text(stringResource(R.string.amount)) },
-                    isError = editor.amountText.isNotBlank() && editor.parsedAmount == null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                CurrencySelector(
-                    selected = editor.currency,
-                    onSelect = viewModel::onExpenseCurrencyChange,
-                )
-            }
-
-            Column {
-                Text(stringResource(R.string.allocation_mode), style = MaterialTheme.typography.labelMedium)
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    AllocationMode.entries.forEach { mode ->
-                        FilterChip(
-                            selected = editor.mode == mode,
-                            enabled = mode != AllocationMode.BY_PRICE || (detail.copies.all { it.priceMinor != null } && detail.copies.map { it.currency }.distinct().size <= 1),
-                            onClick = { viewModel.onExpenseModeChange(mode) },
-                            label = { Text(mode.label.localized()) },
-                        )
-                    }
-                }
-            }
-
-            when (editor.mode) {
-                AllocationMode.EQUAL, AllocationMode.BY_PRICE -> {
-                    if (detail.copies.map { it.currency }.distinct().size > 1) {
-                        Text(stringResource(R.string.allocation_mixed_hint), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-
-                AllocationMode.MANUAL -> {
-                    ManualAllocationEditor(
-                        detail = detail,
-                        editor = editor,
-                        onAmountChange = viewModel::onManualAmountChange,
-                    )
-                }
-            }
-
-            state.editorError?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
-            state.preview?.let { AllocationPreview(detail = detail, preview = it) }
-            OperationError(viewModel)
-
-            SaveButton(
+        Column(Modifier.fillMaxWidth().heightIn(max = 640.dp)) {
+            ExpenseEditorContent(state, viewModel::onExpenseCategoryChange, viewModel::onExpenseAmountChange,
+                viewModel::onExpenseCurrencyChange, viewModel::onExpenseModeChange, viewModel::onManualAmountChange,
+                Modifier.weight(1f, fill = false))
+            FormSaveBar(
                 label = stringResource(R.string.expense_save),
                 saving = state.savingExpense,
-                onClick = viewModel::saveExpense,
+                onClick = { focus.clearFocus(); viewModel.saveExpense() },
                 enabled = state.preview != null && state.editorError == null && !state.savingExpense,
-                modifier = Modifier.fillMaxWidth(),
+                error = { OperationError(viewModel) },
             )
+        }
+    }
+}
+
+@Composable
+internal fun ExpenseEditorContent(
+    state: OrderDetailUiState, onCategory: (ExpenseCategory) -> Unit, onAmount: (String) -> Unit,
+    onCurrency: (String) -> Unit, onMode: (AllocationMode) -> Unit, onManualAmount: (Long, String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val detail = state.detail ?: return
+    val editor = state.editor
+    Column(modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(stringResource(if (editor.editingId == null) R.string.expense_add else R.string.expense_edit), style = MaterialTheme.typography.titleLarge)
+        FormSection(stringResource(R.string.expense_category), R.drawable.ic_ui_batch) {
+            if (editor.editingId != null && editor.name != editor.category.name) Text(editor.name, style = MaterialTheme.typography.bodySmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                (ExpenseCategory.fixedCategories + listOfNotNull(editor.category.takeIf { editor.editingId != null && !it.isFixed })).forEach { category ->
+                    FilterChip(editor.category == category, { onCategory(category) }, label = { Text(category.label.localized()) })
+                }
+            }
+            MoneyInputField(editor.amountText, editor.currency, stringResource(R.string.amount), onAmount, onCurrency,
+                isError = editor.amountText.isNotBlank() && editor.parsedAmount == null)
+        }
+        FormSection(stringResource(R.string.allocation_mode), R.drawable.ic_ui_preferences) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                AllocationMode.entries.forEach { mode ->
+                    FilterChip(editor.mode == mode, { onMode(mode) }, label = { Text(mode.label.localized()) },
+                        enabled = mode != AllocationMode.BY_PRICE || (detail.copies.all { it.priceMinor != null } && detail.copies.map { it.currency }.distinct().size <= 1))
+                }
+            }
+            if (editor.mode == AllocationMode.MANUAL) ManualAllocationEditor(detail, editor, onManualAmount)
+            else if (detail.copies.map { it.currency }.distinct().size > 1) Text(stringResource(R.string.allocation_mixed_hint), style = MaterialTheme.typography.bodySmall)
+            state.editorError?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
+        }
+        state.preview?.let { preview ->
+            FormSection(stringResource(R.string.allocation_preview), R.drawable.ic_ui_list) { AllocationPreview(detail, preview) }
         }
     }
 }
@@ -516,17 +474,16 @@ private fun ExpenseEditorSheet(
 @Composable
 private fun AllocationPreview(detail: OrderDetail, preview: OrderCostBreakdown) {
     Column {
-        Text(stringResource(R.string.allocation_preview), style = MaterialTheme.typography.labelMedium)
         val known = detail.copies.count { it.priceMinor != null }
         if (known < detail.copies.size) Text(stringResource(R.string.price_coverage, known, detail.copies.size), style = MaterialTheme.typography.bodySmall)
         detail.copies.forEach { copy ->
-            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.vnTitle, stringResource(R.string.copy_number, it)) } ?: copy.vnTitle,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 com.vnventory.app.ui.components.MoneyTotalsInline(
                     preview.copyCosts.first { it.copyId == copy.id }.totalsByCurrency,
@@ -562,8 +519,8 @@ private fun ManualAllocationEditor(
         }
 
         detail.copies.forEach { copy ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column {
                     Text(
                         text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.vnTitle, stringResource(R.string.copy_number, it)) } ?: copy.vnTitle,
                         style = MaterialTheme.typography.bodySmall,
@@ -578,14 +535,14 @@ private fun ManualAllocationEditor(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Spacer(Modifier.width(8.dp))
                 OutlinedTextField(
                     value = editor.manualInputs[copy.id].orEmpty(),
                     onValueChange = { onAmountChange(copy.id, it) },
                     isError = !editor.manualInputs[copy.id].isNullOrBlank() && Money.parse(editor.manualInputs[copy.id]!!, editor.currency) == null,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.width(120.dp),
+                    label = { Text(stringResource(R.string.amount)) }, shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth().testTag("manual-allocation-${copy.id}"),
                 )
             }
         }

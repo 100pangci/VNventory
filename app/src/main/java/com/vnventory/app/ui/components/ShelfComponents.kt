@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -106,7 +107,7 @@ fun ShelfFab(onClick: () -> Unit, modifier: Modifier = Modifier, label: String =
 
 @Composable
 fun SaveButton(label: String, saving: Boolean, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(onClick = onClick, enabled = enabled && !saving, modifier = modifier.fillMaxWidth().height(56.dp)) {
+    Button(onClick = onClick, enabled = enabled && !saving, modifier = modifier.fillMaxWidth().heightIn(min = 56.dp), shape = MaterialTheme.shapes.medium) {
         AnimatedContent(saving, transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(100)) }, label = "saveFeedback") { busy ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -33,6 +33,20 @@
 - 验证：`scripts/check.sh --offline :app:assembleRelease`（显式使用不存在的本地签名配置）通过；177 项 JVM/Room/Compose 测试、18 项 Python 回归通过，Debug 与 unsigned Release 构建成功，Lint 0 错误、5 个既有告警。SVG 一致性与 `git diff --check` 通过，Gradle 已停止且确认没有当前用户的残留 Java 进程。
 - 使用 Robolectric Native Graphics 逐张检查浅/深主题、大字体、导航和图标截图；修正了大字体三段按钮高度不齐与中日文孤字换行。不把本机渲染测试当作真机壁纸取色、系统栏或手势体验验收，未覆盖已发布的 v1.0.1 标签/安装包。
 
+## 填写页与设置分组（2026-10-04，续）
+
+- 新增收藏、编辑收藏、费用录入与偏好设置统一使用 `FormSection`，轻描边、20dp 圆角、16dp 内边距、同源功能图标标题；保留字段与校验，不改数据库/备份格式。
+- 金额和币种使用 `MoneyInputField`：宽度不足 300dp 或字体倍率大于 1.2 时上下排列；空商品价格仍是未记录，0 仍是真实零价，费用金额仍必填。
+- 新增/编辑品相及费用类型、分摊方式使用换行选项，窄屏不把后续选项藏在横向滚动中；新增数量控件也允许自动换行。
+- 手动版本仍显示版本名编辑与重新绑定按钮；购买日期、店铺和批次选择保留。日期/批次控件统一 56dp 最小触控高度、圆角与提示图标，长批次名称可换行。
+- 新增、编辑、费用共用 `FormSaveBar`；费用保存从滚动区移到固定底部，长按钮随字体自然增高。新增/编辑容器沿用 IME inset 处理，保存前收起焦点；仍需设备确认键盘实际弹出体验。
+- 手动分摊输入改为作品信息下的整行金额，预览金额不与长标题争抢宽度；保留池化算法、未知价格比例保护、未分摊提醒及 legacy 费用显示。
+- 设置首页改为收藏偏好、数据管理、应用信息三组圆角卡片，去掉额外营销说明；偏好页外观、价格展示、默认货币分区，备份说明及二次确认保留。店铺列表把编辑/删除移到名称下方，长名称不挤占按钮。
+- 新增 `FormsSettingsUiTest`，覆盖 360dp 窄屏、1.5/1.8 倍字体、金额/币种排布、编辑 null/0、手动版本绑定入口、品相自定义、五类费用与手动分摊、完整偏好页、设置四入口和长保存按钮。
+- 截图位于 `toolchain/review/ui/screenshots/`：`copy-edit-grouped.png`、`copy-edit-large-dark.png`、`expense-form-large.png`、`settings-grouped-home.png`、`settings-preferences-large-dark.png`、`money-field-large.png`、`form-save-large.png`；原购入和备份截图也重新生成。
+- 修改前备份：`toolchain/backups/20261004-222401-before-forms-settings.tar.gz`，恢复仍须解到独立目录逐文件比对。未改已发布 v1.0.1 的标签或安装包。
+- 全量验证：184 项 JVM/Room/Compose 测试、18 项 Python 回归、Debug 与 unsigned Release 构建通过；Lint 0 错误、5 个既有告警，branding 和 diff 检查通过。已停止 Gradle 并确认当前用户没有残留 Java 进程。
+
 ## 品牌图标
 
 - 原稿：`assets/branding/vnventory.svg`，保留完整收集 V 图稿、渐变、椭圆阴影、裁切和无障碍描述；旧稿归档为 `vnventory-previous.svg`。

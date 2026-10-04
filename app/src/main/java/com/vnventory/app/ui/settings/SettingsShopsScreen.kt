@@ -9,13 +9,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -27,6 +28,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -110,17 +112,17 @@ internal fun SettingsShopsContent(
             EmptyState(stringResource(R.string.shops_empty), subtitle = stringResource(R.string.shops_empty_hint))
         }
         items(shops, key = { it }) { name ->
-            ListItem(
-                headlineContent = { Text(name) },
-                trailingContent = {
-                    Row {
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(name, style = MaterialTheme.typography.titleMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         TextButton(onClick = { onEdit(name) }, enabled = !busy) { Text(stringResource(R.string.action_edit)) }
                         TextButton(onClick = { onDelete(name) }, enabled = !busy) {
                             Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                         }
                     }
-                },
-            )
+                }
+            }
         }
     }
 }
@@ -151,6 +153,9 @@ internal fun ShopEditorDialog(
                     onValueChange = onNameChange,
                     enabled = !busy,
                     singleLine = true,
+                    shape = MaterialTheme.shapes.small,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (!busy && state.name.isNotBlank()) onSave() }),
                     label = { Text(stringResource(R.string.shops_name)) },
                     modifier = Modifier.fillMaxWidth(),
                 )

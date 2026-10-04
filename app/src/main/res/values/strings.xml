@@ -145,7 +145,6 @@
     <string name="release_bind">绑定到 VNDB 版本</string>
     <string name="release_manual_name">手动版本名称</string>
     <string name="purchase_price">购入价格</string>
-    <string name="owned_order">所属订单</string>
     <string name="release_bind_select">选择要绑定的 VNDB 版本</string>
     <string name="release_bind_empty">没有可绑定的版本</string>
     <string name="release_bind_empty_hint">VNDB 上还没有该作品的版本记录</string>
@@ -226,8 +225,6 @@
     <string name="allocation_input_invalid">请修正无效或超出范围的分摊金额</string>
     <string name="allocation_totals">已分配 %1$s / 总额 %2$s（差额 %3$s）</string>
     <string name="allocation_blank_hint">留空为 0；未分完的金额会明确显示为未分摊费用，不能超额分配。</string>
-    <string name="settings_hint">让这座书架更符合你的收藏习惯。</string>
-    <string name="settings_eyebrow">PREFERENCES</string>
     <string name="settings_collection">收藏偏好</string>
     <string name="settings_preferences">偏好设置</string>
     <string name="settings_currency_summary">外观、价格展示与默认货币 · %1$s</string>

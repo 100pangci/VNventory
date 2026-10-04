@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,6 +33,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,6 +58,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -357,8 +363,10 @@ fun CurrencySelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(modifier = modifier) {
-        OutlinedButton(onClick = { expanded = true }) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.heightIn(min = 56.dp), shape = MaterialTheme.shapes.small) {
             Text(selected)
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { code ->
@@ -384,9 +392,10 @@ fun OrderSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val label = orders.firstOrNull { it.order.id == selectedId }?.order?.title ?: stringResource(R.string.order_unassigned)
-    Box(modifier = modifier) {
-        OutlinedButton(onClick = { expanded = true }) {
-            Text(label, maxLines = 1)
+    Box(modifier = modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), shape = MaterialTheme.shapes.small) {
+            Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
@@ -460,8 +469,10 @@ fun DateField(
     placeholder: String = stringResource(R.string.date_select),
 ) {
     var showPicker by remember { mutableStateOf(false) }
-    OutlinedButton(onClick = { showPicker = true }, modifier = modifier) {
-        Text(date?.toString() ?: placeholder)
+    OutlinedButton(onClick = { showPicker = true }, modifier = modifier.heightIn(min = 56.dp), shape = MaterialTheme.shapes.small) {
+        Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(date?.toString() ?: placeholder, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
     if (showPicker) {
         DatePickerModal(

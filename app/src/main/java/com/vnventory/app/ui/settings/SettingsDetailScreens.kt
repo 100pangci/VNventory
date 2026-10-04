@@ -59,6 +59,7 @@ import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.ui.components.AppLogo
 import com.vnventory.app.ui.components.SectionCard
+import com.vnventory.app.ui.components.FormSection
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -104,36 +105,41 @@ fun SettingsPreferencesScreen(
     val priceStats by viewModel.showPriceStats.collectAsStateWithLifecycle()
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     SettingsDetailScaffold(stringResource(R.string.settings_preferences), onBack) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            item { OperationError(viewModel) }
-            item {
-                SectionCard(title = stringResource(R.string.settings_appearance)) {
-                    AppearancePreferencesContent(appearance, viewModel::setThemeMode, viewModel::setDynamicColor)
-                }
+        SettingsPreferencesContent(currency, appearance, shelfPrices, priceStats,
+            viewModel::setThemeMode, viewModel::setDynamicColor, viewModel::setShowShelfPrices, viewModel::setShowPriceStats,
+            viewModel::setDefaultCurrency, Modifier.padding(padding), error = { OperationError(viewModel) })
+    }
+}
+
+@Composable
+internal fun SettingsPreferencesContent(
+    currency: String, appearance: AppearancePreferences, shelfPrices: Boolean, priceStats: Boolean,
+    onThemeMode: (ThemeMode) -> Unit, onDynamicColor: (Boolean) -> Unit,
+    onShelfPrices: (Boolean) -> Unit, onPriceStats: (Boolean) -> Unit, onCurrency: (String) -> Unit,
+    modifier: Modifier = Modifier, error: @Composable () -> Unit = {},
+) {
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item { error() }
+        item {
+            FormSection(stringResource(R.string.settings_appearance), R.drawable.ic_ui_preferences) {
+                AppearancePreferencesContent(appearance, onThemeMode, onDynamicColor)
             }
-            item {
-                SectionCard(title = stringResource(R.string.price_display_settings)) {
-                    PriceDisplayPreferences(shelfPrices, priceStats, viewModel::setShowShelfPrices, viewModel::setShowPriceStats)
-                }
+        }
+        item {
+            FormSection(stringResource(R.string.price_display_settings), R.drawable.ic_ui_shelf) {
+                PriceDisplayPreferences(shelfPrices, priceStats, onShelfPrices, onPriceStats)
             }
-            item {
-                SectionCard(title = stringResource(R.string.settings_default_currency)) {
-                    InfoLine(stringResource(R.string.settings_default_currency_hint))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Money.commonCurrencies.forEach { code ->
-                            FilterChip(
-                                selected = currency == code,
-                                onClick = { viewModel.setDefaultCurrency(code) },
-                                label = { Text(stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code })) },
-                            )
-                        }
+        }
+        item {
+            FormSection(stringResource(R.string.settings_default_currency), R.drawable.ic_ui_batch, hint = stringResource(R.string.settings_default_currency_hint)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Money.commonCurrencies.forEach { code ->
+                        FilterChip(currency == code, { onCurrency(code) },
+                            label = { Text(stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code })) })
                     }
-                    if (currency !in Money.commonCurrencies) InfoLine(stringResource(R.string.settings_currency_current, currency))
                 }
+                if (currency !in Money.commonCurrencies) InfoLine(stringResource(R.string.settings_currency_current, currency))
             }
         }
     }
@@ -183,11 +189,11 @@ internal fun AppearancePreferencesContent(
 @Composable
 internal fun PriceDisplayPreferences(shelfPrices: Boolean, priceStats: Boolean, onShelfPrices: (Boolean) -> Unit, onPriceStats: (Boolean) -> Unit) {
     Column {
-        Row(Modifier.fillMaxWidth().toggleable(shelfPrices, role = Role.Switch, onValueChange = onShelfPrices), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(shelfPrices, role = Role.Switch, onValueChange = onShelfPrices), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.show_shelf_prices), Modifier.weight(1f))
             Switch(shelfPrices, onCheckedChange = null)
         }
-        Row(Modifier.fillMaxWidth().toggleable(priceStats, role = Role.Switch, onValueChange = onPriceStats), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(priceStats, role = Role.Switch, onValueChange = onPriceStats), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.show_price_stats), Modifier.weight(1f))
             Switch(priceStats, onCheckedChange = null)
         }
@@ -235,7 +241,7 @@ internal fun SettingsDataContent(
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(24.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { error() }
@@ -247,7 +253,7 @@ internal fun SettingsDataContent(
         }
         state.feedback?.let { feedback -> item { Text(feedback.localized(), color = MaterialTheme.colorScheme.primary) } }
         item {
-            SectionCard(title = stringResource(R.string.backup_export)) {
+            FormSection(stringResource(R.string.backup_export), R.drawable.ic_ui_backup) {
                 InfoLine(stringResource(R.string.backup_export_hint))
                 InfoLine(stringResource(R.string.backup_snapshot_hint))
                 Button(onClick = onExport, enabled = !state.busy && state.pendingImport == null, modifier = Modifier.fillMaxWidth()) {
@@ -256,7 +262,7 @@ internal fun SettingsDataContent(
             }
         }
         item {
-            SectionCard(title = stringResource(R.string.backup_restore)) {
+            FormSection(stringResource(R.string.backup_restore), R.drawable.ic_ui_backup) {
                 InfoLine(stringResource(R.string.backup_restore_hint))
                 InfoLine(stringResource(R.string.backup_replace_hint))
                 OutlinedButton(onClick = onImport, enabled = !state.busy && state.pendingImport == null, modifier = Modifier.fillMaxWidth()) {
@@ -265,7 +271,7 @@ internal fun SettingsDataContent(
             }
         }
         item {
-            SectionCard(title = stringResource(R.string.backup_notice)) {
+            FormSection(stringResource(R.string.backup_notice), R.drawable.ic_ui_info) {
                 InfoLine(stringResource(R.string.backup_private_hint))
                 InfoLine(stringResource(R.string.backup_uninstall_hint))
                 InfoLine(stringResource(R.string.backup_file_access_hint))

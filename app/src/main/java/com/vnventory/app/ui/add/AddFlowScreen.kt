@@ -53,6 +53,7 @@ import com.vnventory.app.ui.components.Tag
 import com.vnventory.app.ui.components.VnCover
 import com.vnventory.app.ui.components.AddStepIndicator
 import com.vnventory.app.ui.components.SaveButton
+import com.vnventory.app.ui.components.FormSaveBar
 import com.vnventory.app.ui.components.SectionHeading
 import com.vnventory.app.ui.components.PressableSurface
 import com.vnventory.app.ui.components.PredictiveStepContent
@@ -161,25 +162,12 @@ private fun AddStepScaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (step == 2) {
-                Surface(tonalElevation = 3.dp) {
-                    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
-                        val order = state.orders.firstOrNull { it.order.id == state.form.orderId }?.order
-                        if (order != null) {
-                            Text(
-                                text = stringResource(R.string.add_order_context, order.title),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                            Spacer(Modifier.height(8.dp))
-                        }
-                        SaveButton(
-                            label = if (state.form.quantity > 1) pluralStringResource(R.plurals.copies_add_label, state.form.quantity, state.form.quantity) else stringResource(R.string.add_save_copy),
-                            saving = state.saving,
-                            enabled = state.form.canSave && interactive,
-                            onClick = onSave,
-                        )
-                    }
-                }
+                val order = state.orders.firstOrNull { it.order.id == state.form.orderId }?.order
+                FormSaveBar(
+                    label = if (state.form.quantity > 1) pluralStringResource(R.plurals.copies_add_label, state.form.quantity, state.form.quantity) else stringResource(R.string.add_save_copy),
+                    saving = state.saving, enabled = state.form.canSave && interactive, onClick = onSave,
+                    supporting = order?.let { stringResource(R.string.add_order_context, it.title) },
+                )
             }
         },
     ) { padding ->

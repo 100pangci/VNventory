@@ -1,7 +1,6 @@
 package com.vnventory.app.ui.edit
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,13 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,7 +29,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -41,24 +36,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
-import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.Money
-import com.vnventory.app.ui.components.CurrencySelector
 import com.vnventory.app.ui.components.DateField
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.ErrorState
-import com.vnventory.app.ui.components.LabeledRow
 import com.vnventory.app.ui.components.LoadingState
 import com.vnventory.app.ui.components.OrderSelector
 import com.vnventory.app.ui.components.VnCover
 import com.vnventory.app.ui.components.OperationError
-import com.vnventory.app.ui.components.SaveButton
+import com.vnventory.app.ui.components.FormSaveBar
+import com.vnventory.app.ui.components.FormSection
+import com.vnventory.app.ui.components.MoneyInputField
+import com.vnventory.app.ui.components.ConditionPicker
 import androidx.compose.ui.res.stringResource
 import com.vnventory.app.R
 import com.vnventory.app.ui.components.ShopChannelField
@@ -72,6 +67,7 @@ fun CopyEditScreen(
     viewModel: CopyEditViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val focus = LocalFocusManager.current
 
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -87,21 +83,11 @@ fun CopyEditScreen(
             )
         },
         bottomBar = {
-            Column {
-            OperationError(viewModel)
             if (state.copy != null) {
-                Surface(tonalElevation = 3.dp) {
-                    SaveButton(
-                        label = stringResource(R.string.edit_copy_save),
-                        saving = state.saving,
-                        onClick = { viewModel.save(onSaved) },
-                        enabled = state.form.canSave,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                    )
-                }
-            }
+                FormSaveBar(stringResource(R.string.edit_copy_save), state.saving, state.form.canSave,
+                    { focus.clearFocus(); viewModel.save(onSaved) }, error = { OperationError(viewModel) })
+            } else {
+                OperationError(viewModel)
             }
         },
     ) { padding ->
@@ -113,140 +99,7 @@ fun CopyEditScreen(
                 modifier = Modifier.padding(padding),
             )
 
-            else -> {
-                val copy = state.copy ?: return@Scaffold
-                val form = state.form
-
-                Column(
-                    modifier = Modifier
-                        .padding(padding)
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Row {
-                        VnCover(
-                            url = copy.coverUrl,
-                            contentDescription = copy.vnTitle,
-                            modifier = Modifier
-                                .width(64.dp)
-                                .height(88.dp),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                text = copy.displayReleaseName.localized(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            if (copy.isManualRelease) {
-                                OutlinedButton(onClick = { viewModel.openBindSheet() }) {
-                                    Text(stringResource(R.string.release_bind))
-                                }
-                            }
-                        }
-                    }
-
-                    if (copy.isManualRelease) {
-                        OutlinedTextField(
-                            value = form.releaseTitle,
-                            onValueChange = viewModel::onReleaseTitleChange,
-                            label = { Text(stringResource(R.string.release_manual_name)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = form.priceText,
-                            onValueChange = viewModel::onPriceChange,
-                            label = { Text(stringResource(R.string.purchase_price)) },
-                            isError = !form.priceValid,
-                            supportingText = {
-                                val parsed = form.parsedPrice
-                                Text(
-                                    when {
-                                         form.priceText.isBlank() -> stringResource(R.string.amount_blank_unknown)
-                                        parsed != null -> stringResource(R.string.amount_equivalent, Money.format(parsed, form.currency))
-                                        else -> stringResource(R.string.amount_invalid)
-                                    }
-                                )
-                            },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        CurrencySelector(
-                            selected = form.currency,
-                            onSelect = viewModel::onCurrencyChange,
-                        )
-                    }
-
-                    Column {
-                        Text(stringResource(R.string.condition), style = MaterialTheme.typography.labelMedium)
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            CopyCondition.entries.forEach { condition ->
-                                FilterChip(
-                                    selected = form.condition == condition,
-                                    onClick = { viewModel.onConditionChange(condition) },
-                                    label = { Text(condition.label.localized()) },
-                                )
-                            }
-                        }
-                    }
-
-                    if (form.condition == CopyCondition.CUSTOM) {
-                        OutlinedTextField(
-                            value = form.conditionNote,
-                            onValueChange = viewModel::onConditionNoteChange,
-                            label = { Text(stringResource(R.string.condition_note)) },
-                            isError = !form.conditionValid,
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    LabeledRow(stringResource(R.string.purchase_date)) {
-                        DateField(
-                            date = form.purchaseDate,
-                            onDateChange = viewModel::onPurchaseDateChange,
-                        )
-                    }
-
-                    ShopChannelField(
-                        value = form.shop,
-                        onValueChange = viewModel::onShopChange,
-                        options = state.shopChannels,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    LabeledRow(stringResource(R.string.owned_order)) {
-                        OrderSelector(
-                            orders = state.orders,
-                            selectedId = form.orderId,
-                            onSelect = viewModel::onOrderChange,
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = form.notes,
-                        onValueChange = viewModel::onNotesChange,
-                        label = { Text(stringResource(R.string.notes_optional)) },
-                        minLines = 3,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-                }
-            }
+            else -> CopyEditContent(state, viewModel::onFormChange, viewModel::openBindSheet, Modifier.padding(padding))
         }
     }
 
@@ -325,6 +178,57 @@ fun CopyEditScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun CopyEditContent(state: CopyEditUiState, onFormChange: (EditFormState) -> Unit, onBind: () -> Unit, modifier: Modifier = Modifier) {
+    val copy = state.copy ?: return
+    val form = state.form
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        FormSection(stringResource(R.string.purchase_selected_release), R.drawable.ic_ui_shelf) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                VnCover(copy.coverUrl, copy.vnTitle, Modifier.width(56.dp).height(80.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(copy.vnTitle, style = MaterialTheme.typography.titleMedium)
+                    Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (copy.isManualRelease) {
+                OutlinedTextField(form.releaseTitle, { onFormChange(form.copy(releaseTitle = it)) },
+                    label = { Text(stringResource(R.string.release_manual_name)) }, singleLine = true,
+                    shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth())
+                OutlinedButton(onClick = onBind, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = MaterialTheme.shapes.small) {
+                    Text(stringResource(R.string.release_bind))
+                }
+            }
+        }
+        FormSection(stringResource(R.string.purchase_price), R.drawable.ic_ui_batch) {
+            MoneyInputField(form.priceText, form.currency, stringResource(R.string.purchase_unit_price),
+                { onFormChange(form.copy(priceText = it)) }, { onFormChange(form.copy(currency = it)) },
+                isError = !form.priceValid, supportingText = when {
+                    form.priceText.isBlank() -> stringResource(R.string.amount_blank_unknown)
+                    form.parsedPrice != null -> stringResource(R.string.amount_equivalent, Money.format(form.parsedPrice!!, form.currency))
+                    else -> stringResource(R.string.amount_invalid)
+                })
+        }
+        FormSection(stringResource(R.string.condition), R.drawable.ic_ui_preferences) {
+            ConditionPicker(form.condition, form.conditionNote,
+                { onFormChange(form.copy(condition = it)) }, { onFormChange(form.copy(conditionNote = it)) })
+        }
+        FormSection(stringResource(R.string.purchase_records), R.drawable.ic_ui_shop, hint = stringResource(R.string.purchase_records_hint)) {
+            Text(stringResource(R.string.purchase_date), style = MaterialTheme.typography.labelMedium)
+            DateField(form.purchaseDate, { onFormChange(form.copy(purchaseDate = it)) }, Modifier.fillMaxWidth(), stringResource(R.string.purchase_date_optional))
+            ShopChannelField(form.shop, { onFormChange(form.copy(shop = it)) }, state.shopChannels, Modifier.fillMaxWidth())
+            Text(stringResource(R.string.purchase_order), style = MaterialTheme.typography.labelMedium)
+            OrderSelector(state.orders, form.orderId, { onFormChange(form.copy(orderId = it)) }, Modifier.fillMaxWidth())
+        }
+        FormSection(stringResource(R.string.notes), R.drawable.ic_ui_info) {
+            OutlinedTextField(form.notes, { onFormChange(form.copy(notes = it)) },
+                placeholder = { Text(stringResource(R.string.purchase_notes_placeholder)) }, minLines = 3,
+                shape = MaterialTheme.shapes.small, modifier = Modifier.fillMaxWidth())
         }
     }
 }

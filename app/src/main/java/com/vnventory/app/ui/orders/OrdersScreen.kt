@@ -118,17 +118,17 @@ fun OrdersScreen(
                         label = stringResource(R.string.order_merchant_optional),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         DateField(
                             date = state.form.date,
                             onDateChange = viewModel::onDateChange,
                             placeholder = stringResource(R.string.order_date),
+                            modifier = Modifier.fillMaxWidth(),
                         )
-                        Spacer(Modifier.width(8.dp))
-                        CurrencySelector(
-                            selected = state.form.currency,
-                            onSelect = viewModel::onCurrencyChange,
-                        )
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(R.string.currency), style = MaterialTheme.typography.bodyMedium)
+                            CurrencySelector(selected = state.form.currency, onSelect = viewModel::onCurrencyChange)
+                        }
                     }
                     OutlinedTextField(
                         value = state.form.notes,

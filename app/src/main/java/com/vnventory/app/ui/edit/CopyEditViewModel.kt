@@ -128,6 +128,8 @@ class CopyEditViewModel(
 
     // ---- 表单 ----
 
+    fun onFormChange(form: EditFormState) { formState.value = form.copy(currency = Money.normalize(form.currency)) }
+
     fun onReleaseTitleChange(value: String) = formState.update { it.copy(releaseTitle = value) }
     fun onPriceChange(value: String) = formState.update { it.copy(priceText = value) }
     fun onCurrencyChange(code: String) = formState.update { it.copy(currency = Money.normalize(code)) }
