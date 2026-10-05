@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.1] - 2026-10-04
+
+## Changes
+
+- 将发布版本统一为 v1.0.1 (`d5848de`)
+- 完善可选价格、克制展示与兼容迁移并收紧发布流程 (`305ae24`)
+- Add automatic release changelog updates (`776af61`)
+
+
+**Full Changelog**: https://github.com/100pangci/VNventory/compare/v1.0.0...v1.0.1
+
 ## [1.0.0] - 2026-10-04
 
 ## Changes
