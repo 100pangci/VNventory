@@ -1,40 +1,41 @@
 package com.vnventory.app.ui.orders
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
@@ -98,57 +99,82 @@ fun OrdersScreen(
     }
 
     if (state.createOpen) {
-        AlertDialog(
-            onDismissRequest = viewModel::closeCreate,
-            title = { Text(stringResource(R.string.order_create_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OperationError(viewModel)
+        OrderCreateDialog(state, viewModel::onTitleChange, viewModel::onMerchantChange, viewModel::onDateChange,
+            viewModel::onCurrencyChange, viewModel::onNotesChange, viewModel::closeCreate,
+            { viewModel.createOrder(onOrderCreated) }, error = { OperationError(viewModel) })
+    }
+}
+
+@Composable
+internal fun OrderCreateDialog(
+    state: OrdersUiState,
+    onTitleChange: (String) -> Unit,
+    onMerchantChange: (String) -> Unit,
+    onDateChange: (java.time.LocalDate?) -> Unit,
+    onCurrencyChange: (String) -> Unit,
+    onNotesChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onCreate: () -> Unit,
+    error: @Composable () -> Unit = {},
+) {
+    val focus = LocalFocusManager.current
+    // 可编辑下拉不参与 AlertDialog 的固有尺寸测量；限制高度并固定底部操作。
+    Dialog(onDismissRequest = { if (!state.creating) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.padding(24.dp).widthIn(max = 560.dp).fillMaxWidth(),
+            shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Column(Modifier.heightIn(max = 640.dp)) {
+                Text(stringResource(R.string.order_create_title), style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.padding(24.dp).semantics { heading() })
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    error()
                     OutlinedTextField(
                         value = state.form.title,
-                        onValueChange = viewModel::onTitleChange,
+                        onValueChange = onTitleChange,
                         label = { Text(stringResource(R.string.order_name_hint)) },
                         singleLine = true,
+                        enabled = !state.creating,
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     ShopChannelField(
                         value = state.form.merchant,
-                        onValueChange = viewModel::onMerchantChange,
+                        onValueChange = onMerchantChange,
                         options = state.shopChannels,
                         label = stringResource(R.string.order_merchant_optional),
+                        enabled = !state.creating,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         DateField(
                             date = state.form.date,
-                            onDateChange = viewModel::onDateChange,
+                            onDateChange = onDateChange,
                             placeholder = stringResource(R.string.order_date),
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(stringResource(R.string.currency), style = MaterialTheme.typography.bodyMedium)
-                            CurrencySelector(selected = state.form.currency, onSelect = viewModel::onCurrencyChange)
+                            CurrencySelector(selected = state.form.currency, onSelect = onCurrencyChange)
                         }
                     }
                     OutlinedTextField(
                         value = state.form.notes,
-                        onValueChange = viewModel::onNotesChange,
+                        onValueChange = onNotesChange,
                         label = { Text(stringResource(R.string.notes_optional)) },
                         singleLine = true,
+                        enabled = !state.creating,
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.createOrder(onOrderCreated) },
-                    enabled = state.form.canSave && !state.creating,
-                ) { Text(stringResource(R.string.action_create)) }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::closeCreate) { Text(stringResource(R.string.action_cancel)) }
-            },
-        )
+                FlowRow(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss, enabled = !state.creating) { Text(stringResource(R.string.action_cancel)) }
+                    TextButton(onClick = { focus.clearFocus(); onCreate() }, enabled = state.form.canSave && !state.creating) {
+                        Text(stringResource(if (state.creating) R.string.saving else R.string.action_create))
+                    }
+                }
+            }
+        }
     }
 }
 

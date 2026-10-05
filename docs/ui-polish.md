@@ -47,6 +47,18 @@
 - 修改前备份：`toolchain/backups/20261004-222401-before-forms-settings.tar.gz`，恢复仍须解到独立目录逐文件比对。未改已发布 v1.0.1 的标签或安装包。
 - 全量验证：184 项 JVM/Room/Compose 测试、18 项 Python 回归、Debug 与 unsigned Release 构建通过；Lint 0 错误、5 个既有告警，branding 和 diff 检查通过。已停止 Gradle 并确认当前用户没有残留 Java 进程。
 
+## UI 复查与渠道删除后的订单崩溃（2026-10-04）
+
+- 按“添加渠道 → 订单和收藏使用渠道 → 添加费用 → 删除渠道 → 打开订单”复现；Room 与 DataStore 中的渠道快照仍保留，但界面报 `IllegalArgumentException: Key "1" was already used`。
+- 原因：同一订单详情 LazyColumn 中，`owned_copy` 和 `expense` 各自自增的 ID 被直接用作 key。现在使用 `copy:<id>` 和 `expense:<id>`，避免两类记录的 ID 相同导致崩溃。未修改数据、迁移规则或店铺快照。
+- 新建批次弹窗在 360dp 小屏、1.5 倍字体下出现测量无法稳定的问题；改为有明确宽高边界的 Dialog，表单滚动，创建/取消固定在底部。候选渠道消失后已填写名称继续保留，保存中禁止重复创建/关闭。
+- 备份恢复预览含价格、外观和渠道设置时内容会超屏；预览与覆盖确认的正文均允许滚动，底部操作可见，二次确认逻辑不变。
+- 编辑固定费用切换类型时原稳定 ID 曾被当作旧自定义名称直接展示；现在只展示原费用真正的自定义名称，固定类型保持资源文案。
+- `UiReviewRegressionTest` 覆盖上述复现路径、同 ID 商品/费用分别可点、旧费用名称、新建批次渠道候选变化及大字体弹窗。为直接测试完整展示组件，仅提取 `OrderDetailContent` 和 `OrderCreateDialog`，仓库和 ViewModel 架构保持不变。
+- 修改前备份：`toolchain/backups/20261004-233609-before-ui-review.tar.gz`；回滚仍逐文件比对。
+- 复查结果：189 项 JVM/Room/Compose 测试、18 项 Python 回归、Debug/unsigned Release 构建全部通过；Lint 0 错误，仍为 5 个既有告警。停止 Gradle 后确认当前用户 Java 进程为 0，未推送或重新发布安装包。
+- 实际渲染截图：`review-order-after-channel-deleted.png`、`review-order-dialog-large.png`、`review-backup-dialog-large.png`，位于 `toolchain/review/ui/screenshots/`。这是本机复现和自动回归，不替代用户设备上的崩溃日志、键盘和返回手势验收。
+
 ## 品牌图标
 
 - 原稿：`assets/branding/vnventory.svg`，保留完整收集 V 图稿、渐变、椭圆阴影、裁切和无障碍描述；旧稿归档为 `vnventory-previous.svg`。

@@ -132,63 +132,8 @@ fun OrderDetailScreen(
                 modifier = Modifier.padding(padding),
             )
 
-            else -> LazyColumn(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                item { OrderHeaderCard(detail) }
-
-                item {
-                    SectionHeading(stringResource(R.string.order_collection), pluralStringResource(R.plurals.order_collection_count, detail.copies.size, detail.copies.size), stringResource(R.string.order_add_copy)) { onAddCopies(detail.order.id) }
-                }
-
-                if (detail.copies.isEmpty()) {
-                    item {
-                        Text(
-                            text = stringResource(R.string.order_no_copies),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                items(detail.copies, key = { it.id }) { copy ->
-                    OrderCopyRow(
-                        copy = copy,
-                        cost = detail.costFor(copy.id),
-                        ordinal = detail.copies.copyOrdinal(copy),
-                        onClick = { onCopyClick(copy.id) },
-                        onRemove = { copyToRemove = copy },
-                        modifier = Modifier.animateItem(),
-                    )
-                }
-
-                item {
-                    SectionHeading(stringResource(R.string.order_expenses), pluralStringResource(R.plurals.order_expense_count, detail.expenses.size, detail.expenses.size), stringResource(R.string.expense_add), viewModel::openNewExpense)
-                }
-
-                if (detail.expenses.isEmpty()) {
-                    item {
-                        Text(
-                            text = stringResource(R.string.expense_empty_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                items(detail.expenses, key = { it.id }) { expense ->
-                    ExpenseRow(
-                        expense = expense,
-                        onClick = { viewModel.openEditExpense(expense) },
-                        onDelete = { expenseToDelete = expense },
-                        modifier = Modifier.animateItem(),
-                    )
-                }
-            }
+            else -> OrderDetailContent(detail, onAddCopies, onCopyClick, viewModel::openNewExpense,
+                viewModel::openEditExpense, { expenseToDelete = it }, { copyToRemove = it }, Modifier.padding(padding))
         }
     }
 
@@ -249,6 +194,42 @@ fun OrderDetailScreen(
                 TextButton(onClick = { copyToRemove = null }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
+    }
+}
+
+@Composable
+internal fun OrderDetailContent(
+    detail: OrderDetail,
+    onAddCopies: (Long) -> Unit,
+    onCopyClick: (Long) -> Unit,
+    onAddExpense: () -> Unit,
+    onEditExpense: (Expense) -> Unit,
+    onDeleteExpense: (Expense) -> Unit,
+    onRemoveCopy: (OwnedCopy) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        item { OrderHeaderCard(detail) }
+        item {
+            SectionHeading(stringResource(R.string.order_collection), pluralStringResource(R.plurals.order_collection_count, detail.copies.size, detail.copies.size), stringResource(R.string.order_add_copy)) { onAddCopies(detail.order.id) }
+        }
+        if (detail.copies.isEmpty()) item {
+            Text(stringResource(R.string.order_no_copies), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // 两张表分别自增，商品与费用可能拥有相同 ID；同一 LazyColumn 内必须区分。
+        items(detail.copies, key = { "copy:${it.id}" }) { copy ->
+            OrderCopyRow(copy, detail.costFor(copy.id), { onCopyClick(copy.id) }, { onRemoveCopy(copy) },
+                Modifier.animateItem(), ordinal = detail.copies.copyOrdinal(copy))
+        }
+        item {
+            SectionHeading(stringResource(R.string.order_expenses), pluralStringResource(R.plurals.order_expense_count, detail.expenses.size, detail.expenses.size), stringResource(R.string.expense_add), onAddExpense)
+        }
+        if (detail.expenses.isEmpty()) item {
+            Text(stringResource(R.string.expense_empty_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        items(detail.expenses, key = { "expense:${it.id}" }) { expense ->
+            ExpenseRow(expense, { onEditExpense(expense) }, { onDeleteExpense(expense) }, Modifier.animateItem())
+        }
     }
 }
 
@@ -410,8 +391,7 @@ private fun ExpenseEditorSheet(
     state: OrderDetailUiState,
     viewModel: OrderDetailViewModel,
 ) {
-    val detail = state.detail ?: return
-    val editor = state.editor
+    if (state.detail == null) return
     val focus = LocalFocusManager.current
 
     ModalBottomSheet(
@@ -445,7 +425,10 @@ internal fun ExpenseEditorContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(stringResource(if (editor.editingId == null) R.string.expense_add else R.string.expense_edit), style = MaterialTheme.typography.titleLarge)
         FormSection(stringResource(R.string.expense_category), R.drawable.ic_ui_batch) {
-            if (editor.editingId != null && editor.name != editor.category.name) Text(editor.name, style = MaterialTheme.typography.bodySmall)
+            // 固定分类名称在库中是稳定 ID；仅原始自定义名称作为只读说明显示。
+            detail.expenses.firstOrNull { it.id == editor.editingId }?.takeIf { it.name != it.category.name }?.let {
+                Text(it.displayName.localized(), style = MaterialTheme.typography.bodySmall)
+            }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 (ExpenseCategory.fixedCategories + listOfNotNull(editor.category.takeIf { editor.editingId != null && !it.isFixed })).forEach { category ->
                     FilterChip(editor.category == category, { onCategory(category) }, label = { Text(category.label.localized()) })

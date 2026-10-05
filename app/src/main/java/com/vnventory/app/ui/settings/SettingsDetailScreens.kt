@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -298,7 +300,7 @@ internal fun BackupImportDialogs(
             onDismissRequest = { if (!state.busy) onDismiss() },
             title = { Text(stringResource(R.string.backup_check)) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.backup_contents,
                         pluralStringResource(R.plurals.backup_copy_count, backup.copies.size, backup.copies.size),
                         pluralStringResource(R.plurals.backup_order_count, backup.orders.size, backup.orders.size),
@@ -339,7 +341,7 @@ internal fun BackupImportDialogs(
             onDismissRequest = { if (!state.busy) onCancelReplace() },
             title = { Text(stringResource(R.string.backup_replace_title)) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.backup_replace_warning))
                     if (state.busy) Text(state.progress.localized())
                     error?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }
