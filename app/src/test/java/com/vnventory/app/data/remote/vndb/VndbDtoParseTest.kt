@@ -10,7 +10,7 @@ import org.junit.Test
 
 /**
  * VNDB DTO 解析测试。
- * JSON 样本取自 2026-10 对 api.vndb.org/kana 的真实响应（已截取字段）。
+ * JSON 样本包含 2026-10 对 api.vndb.org/kana 的真实响应（已截取字段）及边界回归样本。
  */
 class VndbDtoParseTest {
 
@@ -101,24 +101,38 @@ class VndbDtoParseTest {
             ),
         )
         assertEquals(dto.title, dto.toDomain().originalTitle)
+        assertEquals(dto.title, dto.toDomain().romanizedTitle)
         assertNull(dto.toDomain().secondaryTitle)
     }
 
-    @Test fun `日语标题优先于其他语言的主标题`() {
-        val dto = VndbVnDto("v1", title = "Romanized", titles = listOf(
-            VndbTitleDto("Main English", "en", main = true, official = true),
-            VndbTitleDto("日本語の題名", "ja", official = true),
-        ))
-        assertEquals("日本語の題名", dto.toDomain().displayTitle)
+    @Test fun `main 标题优先于其它语言官方标题`() {
+        val dto = json.decodeFromString<VndbVnDto>("""
+            {
+              "id": "v1",
+              "title": "Site title",
+              "alttitle": "Fallback title",
+              "titles": [
+                {"lang": "ja", "official": true, "title": "日本語版タイトル", "latin": "Japanese edition"},
+                {"lang": "en", "main": true, "official": true, "title": "Original English Title"}
+              ]
+            }
+        """.trimIndent())
+        for (titles in listOf(dto.titles, dto.titles.reversed())) {
+            val vn = dto.copy(titles = titles).toDomain()
+            assertEquals("Original English Title", vn.originalTitle)
+            assertEquals("Original English Title", vn.displayTitle)
+            assertEquals("Site title", vn.romanizedTitle)
+        }
     }
 
     @Test fun `缺少原文或原文为空时仍有可显示标题`() {
         val dto = VndbVnDto("v1", title = "Kanon", alttitle = "  ", titles = listOf(VndbTitleDto("", "ja", main = true)))
+        assertEquals("Kanon", dto.toDomain().originalTitle)
         assertEquals("Kanon", dto.toDomain().displayTitle)
         assertNull(dto.toDomain().secondaryTitle)
     }
 
-    @Test fun `日语主标题即使是ASCII也不退回其他语言标题`() {
+    @Test fun `main 标题即使是ASCII也不退回其他语言标题`() {
         val dto = VndbVnDto("v1", title = "AIR", alttitle = "Other", titles = listOf(VndbTitleDto("AIR", "ja", main = true)))
         assertEquals("AIR", dto.toDomain().displayTitle)
         assertEquals("AIR", dto.toDomain().originalTitle)

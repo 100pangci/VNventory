@@ -18,7 +18,8 @@
 ## VNDB 标题显示
 
 - 设置 → 偏好设置 → 书架显示 → 标题显示，默认 **原标题**；与「显示版本名」独立。
-- VN 原题沿用日语 main → 日语 official → main → alttitle 的规则；罗马音使用 main 的 `titles.latin`，缺失则使用顶层 `title`。ASCII 原题、与罗马音同名的原题均保留。
+- VN 原标题优先使用 `titles` 中 main 的 `title`（`main.title`），空白或缺失时依次 fallback 到 `alttitle` / 顶层 `title`；罗马音优先使用 `main.latin`，空白或缺失时 fallback 到顶层 `title`。字段 trim 后空白转为 null；ASCII 原标题、与罗马音同名的原标题均保留。
+- 不依据字符集猜语言，不假设原作一定是日文，不让其它语言官方译名覆盖 main；不自行做罗马字转换，也不调用翻译服务。
 - Release 原题使用 `alttitle`，罗马音使用 `title`；空白转为 null，不自行转写或翻译。
 - Domain 明确保存 `originalTitle` / `romanizedTitle`；旧缓存列映射为 `legacyTitle` / `legacyAltTitle`，不推断类型。
 - Room v4 在两个 cache 中增加双标题，在 OwnedCopy 中增加 `vnOriginalTitle` / `vnRomanizedTitle` / `releaseOriginalTitle` / `releaseRomanizedTitle`。3→4 只加 nullable 列，保留旧标题、购买事实和自增序列；1→2→3→4 的正式迁移链继续可用。

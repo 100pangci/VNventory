@@ -17,7 +17,7 @@ data class VnInfo(
     val originalTitle: String? = null,
     val romanizedTitle: String? = null,
 ) {
-    /** 原文（优先日语）作为主标题；保留 VNDB 拉丁字标题供搜索和辅助显示。 */
+    /** 按显示模式选择原标题或 VNDB 拉丁字标题，不假设原作语言。 */
     fun displayTitle(mode: TitleDisplayMode): String = displayTitle(mode, originalTitle, romanizedTitle, legacyAltTitle.normalizedTitle() ?: legacyTitle, id)
     fun secondaryTitle(mode: TitleDisplayMode): String? =
         (if (mode == TitleDisplayMode.ORIGINAL) romanizedTitle else originalTitle).normalizedTitle()

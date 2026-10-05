@@ -27,6 +27,62 @@ class TitleTest {
         assertNull(vn.secondaryTitle)
     }
 
+    @Test fun `main title and latin are trimmed before fallback`() {
+        val vn = VndbVnDto("v1", " Site title ", alttitle = " Fallback title ", titles = listOf(
+            VndbTitleDto(" サクラノ詩 \n", "ja", main = true, latin = " Sakura no Uta\t "),
+        )).toDomain()
+        assertEquals("サクラノ詩", vn.originalTitle)
+        assertEquals("Sakura no Uta", vn.romanizedTitle)
+    }
+
+    @Test fun `missing or blank main latin falls back to top level title without transliteration`() {
+        for (latin in listOf(null, "", " \n\t ")) {
+            val vn = VndbVnDto("v1", " Site title ", titles = listOf(
+                VndbTitleDto("日本語", "ja", main = true, latin = latin),
+            )).toDomain()
+            assertEquals("日本語", vn.originalTitle)
+            assertEquals("Site title", vn.romanizedTitle)
+            assertNull(VndbVnDto("v1", " ", titles = listOf(
+                VndbTitleDto("日本語", "ja", main = true, latin = latin),
+            )).toDomain().romanizedTitle)
+        }
+    }
+
+    @Test fun `missing main falls back to alttitle then top level title ignoring non main titles`() {
+        val dto = VndbVnDto("v1", " Site title ", alttitle = " Original fallback ", titles = listOf(
+            VndbTitleDto("日本語版タイトル", "ja", official = true, latin = "Japanese edition"),
+        ))
+        assertEquals("Original fallback", dto.toDomain().originalTitle)
+        assertEquals("Site title", dto.toDomain().romanizedTitle)
+        for (alttitle in listOf(null, "", " \n\t ")) {
+            val vn = dto.copy(alttitle = alttitle).toDomain()
+            assertEquals("Site title", vn.originalTitle)
+            assertEquals("Site title", vn.romanizedTitle)
+            assertEquals("Site title", dto.copy(alttitle = alttitle, titles = emptyList()).toDomain().originalTitle)
+        }
+    }
+
+    @Test fun `blank main title falls back independently of main latin`() {
+        val dto = VndbVnDto("v1", " Site title ", alttitle = " Original fallback ", titles = listOf(
+            VndbTitleDto("日本語版タイトル", "ja", official = true),
+            VndbTitleDto(" \n\t ", "en", main = true, latin = " Main latin "),
+        ))
+        assertEquals("Original fallback", dto.toDomain().originalTitle)
+        assertEquals("Main latin", dto.toDomain().romanizedTitle)
+        assertEquals("Site title", dto.copy(alttitle = " ").toDomain().originalTitle)
+    }
+
+    @Test fun `all missing or blank title sources normalize to null`() {
+        for (titles in listOf(emptyList(), listOf(VndbTitleDto(" \n\t ", main = true, latin = " ")))) {
+            for (alttitle in listOf(null, "", " \n\t ")) {
+                val vn = VndbVnDto("v1", " \n\t ", alttitle = alttitle, titles = titles).toDomain()
+                assertNull(vn.originalTitle)
+                assertNull(vn.romanizedTitle)
+                assertEquals("v1", vn.displayTitle)
+            }
+        }
+    }
+
     @Test fun `Release original and romanized have independent semantics`() {
         val release = VndbReleaseDto("r1", "Limited Edition", " 初回限定版 ").toDomain("v1")
         assertEquals("初回限定版", release.originalTitle)

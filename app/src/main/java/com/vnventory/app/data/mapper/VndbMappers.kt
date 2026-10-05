@@ -23,17 +23,15 @@ fun VndbVnDto.toDomain(fromCache: Boolean = false): VnInfo = VnInfo(
 )
 
 /**
- * 原题（通常是日文标题）：
- * 优先日语主标题，其次官方日语标题，再回退原语言主标题 / alttitle。
+ * 原题：优先 main.title，空白或缺失时依次回退 alttitle / 顶层 title。
+ * 不按语言或字符集猜测原题，也不使用其它语言的官方译名覆盖 main。
  * 同名 ASCII 原题仍保留。旧缓存标题不推断类型，仅作为 legacy fallback。
  */
 internal fun VndbVnDto.originalTitle(): String? {
-    val candidates = titles.filter { it.title.isNotBlank() }
-    val original = candidates.firstOrNull { it.main && it.lang == "ja" }?.title
-        ?: candidates.firstOrNull { it.official && it.lang == "ja" }?.title
-        ?: candidates.firstOrNull { it.main }?.title
-        ?: alttitle
-    return original.normalizedTitle()
+    val main = titles.firstOrNull { it.main }
+    return main?.title.normalizedTitle()
+        ?: alttitle.normalizedTitle()
+        ?: title.normalizedTitle()
 }
 
 fun VndbReleaseDto.toDomain(vnId: String, fallbackCoverUrl: String? = null): ReleaseInfo = ReleaseInfo(
