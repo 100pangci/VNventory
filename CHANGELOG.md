@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.3] - 2026-10-06
+
+### 修复
+
+- 修正 VN 原标题解析：优先使用 VNDB 的 `main.title`，不再让官方日文译名覆盖非日文原作的主标题；main 标题空白或缺失时依次回退 `alttitle` 和顶层 `title`。
+- 罗马音继续优先使用 `main.latin`，空白或缺失时回退顶层 `title`；保留 AIR、Ever17 等 ASCII 原标题及与罗马音相同的原标题，不猜测语言、不自行转写或翻译。
+
+### 数据兼容与验证
+
+- Release 双标题规则、Room v4、收藏双标题快照、Backup v2、显示偏好、搜索排序及书架布局均保持不变；不批量改写已有收藏或缓存。
+- 替换错误的“日语标题优先”测试，新增 trim/null、main/latin 缺失、空白逐级回退等边界测试，并更新标题语义文档。
+- 240 项 JVM/Room 回归测试全部通过，离线完整检查、Debug 构建及 Lint 通过（0 错误、6 个警告）；本地 v1.0.3 Release 构建及 APK v2/v3 签名验证通过。
+
+**Full Changelog**: https://github.com/100pangci/VNventory/compare/v1.0.2...v1.0.3
+
 ## [1.0.2] - 2026-10-05
 
 ### 新增
