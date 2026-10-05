@@ -141,7 +141,7 @@ class BackupTest {
     @Test fun `空价格零价格与展示设置往返旧版恢复使用关闭默认`() = runTest {
         val original = sample().copy(copies = sample().copies.mapIndexed { index, copy ->
             copy.copy(priceMinor = if (index == 0) null else 0)
-        }, showShelfPrices = true, showPriceStats = true)
+        }, showShelfPrices = true, showPriceStats = true, showShelfReleaseNames = true)
         assertEquals(original, decode(BackupCodec.encode(original)))
         val settings = settings()
         val repo = repository(settings)
@@ -151,16 +151,18 @@ class BackupTest {
         assertEquals(0L, restored.copies[1].priceMinor)
         assertTrue(settings.showShelfPrices.first())
         assertTrue(settings.showPriceStats.first())
+        assertTrue(settings.showShelfReleaseNames.first())
         val root = Json.parseToJsonElement(BackupCodec.encode(sample()).decodeToString()).jsonObject
         val legacy = JsonObject(root + mapOf(
             "schemaVersion" to kotlinx.serialization.json.JsonPrimitive(1),
-            "settings" to JsonObject(root.getValue("settings").jsonObject - "showShelfPrices" - "showPriceStats"),
+            "settings" to JsonObject(root.getValue("settings").jsonObject - "showShelfPrices" - "showPriceStats" - "showShelfReleaseNames"),
         ))
         val old = decode(legacy.toString().encodeToByteArray())
         assertEquals(50L, old.copies.first().priceMinor)
         repo.restore(old, true, true)
         assertFalse(settings.showShelfPrices.first())
         assertFalse(settings.showPriceStats.first())
+        assertFalse(settings.showShelfReleaseNames.first())
         assertEquals("手续费", repo.snapshot().expenses.first().name)
     }
 

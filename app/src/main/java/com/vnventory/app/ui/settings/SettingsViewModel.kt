@@ -97,8 +97,11 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val showPriceStats = settingsRepository.showPriceStats
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val showShelfReleaseNames = settingsRepository.showShelfReleaseNames
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     fun setShowShelfPrices(value: Boolean) { launchAction { settingsRepository.setShowShelfPrices(value) } }
     fun setShowPriceStats(value: Boolean) { launchAction { settingsRepository.setShowPriceStats(value) } }
+    fun setShowShelfReleaseNames(value: Boolean) { launchAction { settingsRepository.setShowShelfReleaseNames(value) } }
 
     val appearance = settingsRepository.appearance
         .catch { reportError(it); emit(AppearancePreferences()) }

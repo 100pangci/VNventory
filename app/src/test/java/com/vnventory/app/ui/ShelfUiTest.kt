@@ -95,7 +95,7 @@ class ShelfUiTest {
         show { HomeContent(ShelfPreviewData.stats, ShelfPreviewData.copies, {}, { selected = it }, {}) }
         compose.onNodeWithText("故事，收进书架").assertIsDisplayed()
         capture("home-light", covers = 3)
-        compose.onNodeWithText("第 1 盒").performClick()
+        compose.onNodeWithText("未拆 · 第 1 盒").performClick()
         assertEquals(101L, selected)
     }
 

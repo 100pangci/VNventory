@@ -9,6 +9,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
@@ -67,12 +68,27 @@ class UiPolishUiTest {
         compose.onNodeWithText("每一个版本，每一盒", substring = true).assertDoesNotExist()
         compose.onNodeWithText("让刚到手的版本先登上书架").assertDoesNotExist()
         compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(0)
-        compose.onNodeWithText("2026-09-01").assertDoesNotExist()
-        compose.onNodeWithText("第 1 盒").performClick()
+        // 首页封面与书架网格一致：日期在叠加层，品相与盒号合并显示。
+        compose.onNodeWithText("2026-09-01").assertIsDisplayed()
+        compose.onNodeWithText("第 1 盒").assertDoesNotExist()
+        compose.onNodeWithText("未拆 · 第 1 盒").performClick()
         assertEquals(101L, selected)
-        compose.onNodeWithText("第 2 盒").performClick()
+        compose.onNodeWithText("中古 · 第 2 盒").performClick()
         assertEquals(102L, selected)
         capture("home-polished-light")
+    }
+
+    @Test fun `首页版本名默认隐藏开关开启后显示`() {
+        val releaseNames = mutableStateOf(false)
+        show {
+            HomeContent(
+                ShelfPreviewData.stats.copy(showReleaseNames = releaseNames.value), ShelfPreviewData.copies,
+                {}, {}, {},
+            )
+        }
+        compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(0)
+        compose.runOnIdle { releaseNames.value = true }
+        compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(2)
     }
 
     @Test fun `收藏详情保留封面下面的版本副标题`() {
@@ -82,14 +98,20 @@ class UiPolishUiTest {
         compose.onNodeWithText(copy.vnTitle).assertIsDisplayed()
     }
 
-    @Test fun `完整书架仍显示版本信息且视图图标可切换`() {
-        show { CollectionContent(CollectionUiState(copies = ShelfPreviewData.copies, loading = false), {}, {}, {}, {}) }
-        compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(2)
+    @Test fun `版本名开关同时控制书架网格与列表`() {
+        val state = mutableStateOf(CollectionUiState(copies = ShelfPreviewData.copies, loading = false))
+        show { CollectionContent(state.value, {}, {}, {}, {}) }
         compose.onNodeWithContentDescription("封面书架").assertIsSelected()
+        compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(0)
         compose.onNodeWithContentDescription("详细列表").performClick().assertIsSelected()
         compose.mainClock.advanceTimeBy(400)
+        // 默认关闭时列表也不显示版本名。
+        compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(0)
+        compose.runOnIdle { state.value = state.value.copy(showReleaseNames = true) }
         compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(2)
         compose.onNodeWithContentDescription("封面书架").performClick().assertIsSelected()
+        compose.mainClock.advanceTimeBy(400)
+        compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(2)
         capture("shelf-polished-light")
     }
 

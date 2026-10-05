@@ -61,16 +61,19 @@ class AppearancePreferencesTest {
         first.setThemeMode(ThemeMode.DARK)
         first.setDynamicColor(true)
         first.setShowShelfPrices(true)
+        first.setShowShelfReleaseNames(true)
         first.setThemeMode(ThemeMode.LIGHT)
         assertEquals(AppearancePreferences(ThemeMode.LIGHT, true), first.appearance.first())
         assertTrue(first.showShelfPrices.first())
         assertFalse(first.showPriceStats.first())
+        assertTrue(first.showShelfReleaseNames.first())
         first.setDynamicColor(false)
         assertEquals(AppearancePreferences(ThemeMode.LIGHT, false), first.appearance.first())
         job.cancelAndJoin()
         val reopened = SettingsRepository(PreferenceDataStoreFactory.create(scope = backgroundScope) { preferencesFile })
         assertEquals(AppearancePreferences(ThemeMode.LIGHT, false), reopened.appearance.first())
         assertTrue(reopened.showShelfPrices.first())
+        assertTrue(reopened.showShelfReleaseNames.first())
     }
 
     @Test fun `应用主题状态实时订阅设置且首次读取前不猜主题`() = runTest {

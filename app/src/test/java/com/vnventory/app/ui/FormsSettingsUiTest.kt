@@ -136,12 +136,13 @@ class FormsSettingsUiTest {
         val appearance = mutableStateOf(AppearancePreferences())
         val shelf = mutableStateOf(false)
         val stats = mutableStateOf(false)
+        val releaseNames = mutableStateOf(false)
         val currency = mutableStateOf("JPY")
         show(scale = 1.5f, dark = true) {
             SettingsDetailScaffold("偏好设置", {}) { padding ->
-                SettingsPreferencesContent(currency.value, appearance.value, shelf.value, stats.value,
+                SettingsPreferencesContent(currency.value, appearance.value, shelf.value, stats.value, releaseNames.value,
                     { appearance.value = appearance.value.copy(themeMode = it) }, { appearance.value = appearance.value.copy(dynamicColor = it) },
-                    { shelf.value = it }, { stats.value = it }, { currency.value = it }, Modifier.padding(padding))
+                    { shelf.value = it }, { stats.value = it }, { releaseNames.value = it }, { currency.value = it }, Modifier.padding(padding))
             }
         }
         compose.onNodeWithText("深色").performScrollTo().performClick().assertIsSelected()
@@ -150,7 +151,11 @@ class FormsSettingsUiTest {
         compose.onNodeWithText("显示价格统计").performScrollTo().performClick()
         assertTrue(shelf.value)
         assertTrue(stats.value)
-        compose.onNodeWithText("CNY（¥）").performScrollTo().performClick().assertIsSelected()
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("显示版本名"))
+        compose.onNodeWithText("显示版本名").performClick()
+        assertTrue(releaseNames.value)
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("CNY（¥）"))
+        compose.onNodeWithText("CNY（¥）").performClick().assertIsSelected()
         assertEquals("CNY", currency.value)
     }
 

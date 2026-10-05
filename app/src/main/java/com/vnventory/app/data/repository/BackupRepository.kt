@@ -30,6 +30,7 @@ class BackupRepository(
                 showShelfPrices = preferences.showShelfPrices,
                 showPriceStats = preferences.showPriceStats,
                 appearance = preferences.appearance,
+                showShelfReleaseNames = preferences.showShelfReleaseNames,
             )
         }
     }
@@ -60,7 +61,14 @@ class BackupRepository(
         withContext(NonCancellable) {
             val shops = data.shopChannels.takeIf { restoreShops }
             val success = try {
-                settings.restorePreferences(data.defaultCurrency.takeIf { restoreCurrency }, shops, data.showShelfPrices, data.showPriceStats, data.appearance)
+                settings.restorePreferences(
+                    currency = data.defaultCurrency.takeIf { restoreCurrency },
+                    shops = shops,
+                    shelfPrices = data.showShelfPrices,
+                    priceStats = data.showPriceStats,
+                    appearance = data.appearance,
+                    shelfReleaseNames = data.showShelfReleaseNames,
+                )
                 true
             } catch (e: CancellationException) {
                 throw e

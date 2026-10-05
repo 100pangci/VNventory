@@ -42,7 +42,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -57,9 +59,9 @@ import com.vnventory.app.R
 import com.vnventory.app.ui.text.localized
 
 @Composable
-fun PageHeader(title: String, subtitle: String?, modifier: Modifier = Modifier, eyebrow: String = stringResource(R.string.brand_eyebrow)) {
+fun PageHeader(title: String, subtitle: String?, modifier: Modifier = Modifier, eyebrow: String? = stringResource(R.string.brand_eyebrow)) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(eyebrow, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        eyebrow?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
         Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
         subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
@@ -128,13 +130,32 @@ fun SaveButton(label: String, saving: Boolean, enabled: Boolean, onClick: () -> 
     }
 }
 
-/** 首页只陈列封面与作品名；版本和日期保留在完整书架卡片与详情。 */
+/** 收藏卡片：封面优先陈列；书架网格与首页使用 overlayMeta，把日期、价格、手动/品相标签放到封面，正文只留作品名与（可选）版本名。 */
 @Composable
-fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, sameReleaseCount: Int = 1, showPrice: Boolean = false, ordinal: Int? = null, compact: Boolean = false) {
+fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, sameReleaseCount: Int = 1, showPrice: Boolean = false, ordinal: Int? = null, overlayMeta: Boolean = false, showReleaseName: Boolean = false) {
     PressableSurface(onClick, modifier) {
         Box(Modifier.padding(8.dp)) {
             VnCover(copy.coverUrl, copy.vnTitle, Modifier.fillMaxWidth().aspectRatio(.70f), corner = 12.dp)
-            if (ordinal != null || sameReleaseCount > 1) {
+            if (overlayMeta) {
+                // 书架网格：手动版本在左上角；品相与盒号合并后放右上角；都不参与封面布局尺寸。
+                if (copy.isManualRelease) {
+                    CoverOverlayTag(stringResource(R.string.manual_short), Modifier.align(Alignment.TopStart).padding(6.dp).testTag("cover-manual"))
+                }
+                val condition = copy.condition.label.localized()
+                CoverOverlayTag(
+                    if (ordinal != null) stringResource(R.string.copy_condition_number, condition, stringResource(R.string.copy_number, ordinal)) else condition,
+                    Modifier.align(Alignment.TopEnd).padding(6.dp).testTag("cover-condition-number"),
+                )
+                if (showPrice) {
+                    // 价格固定在右下角；封面放不下与日期并排，日期改为堆叠在价格上方。
+                    Column(Modifier.align(Alignment.BottomEnd).padding(6.dp), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        copy.purchaseDate?.let { CoverOverlayTag(it.toString(), Modifier.testTag("cover-purchase-date")) }
+                        CoverOverlayTag(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded), Modifier.testTag("cover-price"))
+                    }
+                } else {
+                    copy.purchaseDate?.let { CoverOverlayTag(it.toString(), Modifier.align(Alignment.BottomStart).padding(6.dp).testTag("cover-purchase-date")) }
+                }
+            } else if (ordinal != null || sameReleaseCount > 1) {
                 Tag(
                     if (ordinal != null) stringResource(R.string.copy_number, ordinal) else stringResource(R.string.copy_multiplier, sameReleaseCount),
                     Modifier.align(Alignment.TopEnd).padding(6.dp),
@@ -142,31 +163,56 @@ fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mo
             }
         }
         Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall.copy(lineBreak = LineBreak.Heading), maxLines = 2, minLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
-            if (!compact) Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Tag(copy.condition.label.localized())
-                if (copy.isManualRelease) Tag(stringResource(R.string.manual_short))
+            Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall.copy(lineBreak = LineBreak.Heading), maxLines = if (overlayMeta) 1 else 2, minLines = if (overlayMeta) 1 else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+            if (overlayMeta && showReleaseName) {
+                // 默认隐藏；开启后只以弱化样式补充版本名。
+                Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            } else if (!overlayMeta) {
+                Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (showPrice) Text(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-            if (!compact) copy.purchaseDate?.let { Text(it.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            // 书架网格的正文只留作品名与（可选）版本名，状态都在封面上；其他卡片保持原有标签。
+            val bodyTags = when {
+                overlayMeta -> emptyList()
+                copy.isManualRelease -> listOf(copy.condition.label.localized(), stringResource(R.string.manual_short))
+                else -> listOf(copy.condition.label.localized())
+            }
+            if (bodyTags.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                bodyTags.forEach { Tag(it) }
+            }
+            if (showPrice && !overlayMeta) Text(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            if (!overlayMeta) copy.purchaseDate?.let { Text(it.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
 
+/** 封面叠加小标签：深色半透明底配白字，明暗封面上均可读，也不扩大点击区域。 */
 @Composable
-fun OwnedListCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, showPrice: Boolean = false, ordinal: Int? = null) {
+private fun CoverOverlayTag(text: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        color = Color.Black.copy(alpha = .62f),
+        contentColor = Color.White,
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+    }
+}
+
+@Composable
+fun OwnedListCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, showPrice: Boolean = false, ordinal: Int? = null, showReleaseName: Boolean = false) {
     PressableSurface(onClick, modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             VnCover(copy.coverUrl, copy.vnTitle, Modifier.width(60.dp).height(86.dp))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (showReleaseName) Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (showPrice) Text(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Tag(copy.condition.label.localized())
                     ordinal?.let { Tag(stringResource(R.string.copy_number, it)) }
+                    if (copy.isManualRelease) Tag(stringResource(R.string.manual_short))
+                    copy.purchaseDate?.let { Tag(it.toString()) }
                 }
             }
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))

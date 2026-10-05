@@ -33,6 +33,7 @@ data class SettingsSnapshot(
     val showShelfPrices: Boolean = false,
     val showPriceStats: Boolean = false,
     val appearance: AppearancePreferences = AppearancePreferences(),
+    val showShelfReleaseNames: Boolean = false,
 )
 
 class SettingsRepository(
@@ -51,9 +52,13 @@ class SettingsRepository(
     val showPriceStats: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it[KEY_PRICE_STATS] ?: false }
+    val showShelfReleaseNames: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_SHELF_RELEASE_NAMES] ?: false }
 
     suspend fun setShowShelfPrices(value: Boolean) { dataStore.edit { it[KEY_SHELF_PRICES] = value } }
     suspend fun setShowPriceStats(value: Boolean) { dataStore.edit { it[KEY_PRICE_STATS] = value } }
+    suspend fun setShowShelfReleaseNames(value: Boolean) { dataStore.edit { it[KEY_SHELF_RELEASE_NAMES] = value } }
 
     val appearance: Flow<AppearancePreferences> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -94,14 +99,15 @@ class SettingsRepository(
     }
 
     /** All supplied preferences restore atomically; absent legacy appearance settings stay unchanged. */
-    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null) {
-        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null) return
+    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null) {
+        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null) return
         shops?.let(ShopChannels::validate)
         dataStore.edit { prefs ->
             currency?.let { prefs[KEY_DEFAULT_CURRENCY] = Money.normalize(it) }
             shops?.let { prefs[KEY_SHOP_CHANNELS] = Json.encodeToString(it) }
             shelfPrices?.let { prefs[KEY_SHELF_PRICES] = it }
             priceStats?.let { prefs[KEY_PRICE_STATS] = it }
+            shelfReleaseNames?.let { prefs[KEY_SHELF_RELEASE_NAMES] = it }
             appearance?.let {
                 prefs[KEY_THEME_MODE] = it.themeMode.name
                 prefs[KEY_DYNAMIC_COLOR] = it.dynamicColor
@@ -110,7 +116,7 @@ class SettingsRepository(
     }
 
     suspend fun snapshot(): SettingsSnapshot = dataStore.data.first().let {
-        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance())
+        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance(), it[KEY_SHELF_RELEASE_NAMES] ?: false)
     }
 
     private fun Preferences.readAppearance() = AppearancePreferences(
@@ -140,6 +146,7 @@ class SettingsRepository(
         private val KEY_SHOP_CHANNELS = stringPreferencesKey("shop_channels")
         private val KEY_SHELF_PRICES = booleanPreferencesKey("show_shelf_prices")
         private val KEY_PRICE_STATS = booleanPreferencesKey("show_price_stats")
+        private val KEY_SHELF_RELEASE_NAMES = booleanPreferencesKey("show_shelf_release_names")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
     }

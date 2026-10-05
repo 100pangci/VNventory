@@ -21,6 +21,7 @@ data class CollectionUiState(
     val copies: List<OwnedCopy> = emptyList(),
     val loading: Boolean = true,
     val showPrices: Boolean = false,
+    val showReleaseNames: Boolean = false,
     val allCopies: List<OwnedCopy> = copies,
 ) {
     val isEmpty: Boolean get() = !loading && copies.isEmpty()
@@ -39,8 +40,8 @@ class CollectionViewModel(container: AppContainer) : ActionViewModel() {
     }
 
     val uiState: StateFlow<CollectionUiState> =
-        combine(query, copiesFlow, container.settingsRepository.showShelfPrices, collectionRepository.observeCollection(CollectionQuery())) { q, copies, showPrices, allCopies ->
-            CollectionUiState(query = q, copies = copies, loading = false, showPrices = showPrices, allCopies = allCopies)
+        combine(query, copiesFlow, container.settingsRepository.showShelfPrices, container.settingsRepository.showShelfReleaseNames, collectionRepository.observeCollection(CollectionQuery())) { q, copies, showPrices, showReleaseNames, allCopies ->
+            CollectionUiState(query = q, copies = copies, loading = false, showPrices = showPrices, showReleaseNames = showReleaseNames, allCopies = allCopies)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CollectionUiState())
 
     fun onSearchChange(text: String) {

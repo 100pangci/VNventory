@@ -46,6 +46,7 @@ data class BackupSettings(
     val shopChannels: List<String>? = null,
     val showShelfPrices: Boolean = false,
     val showPriceStats: Boolean = false,
+    val showShelfReleaseNames: Boolean = false,
     val appearance: BackupAppearance? = null,
 )
 
@@ -112,6 +113,7 @@ data class BackupData(
     val showShelfPrices: Boolean = false,
     val showPriceStats: Boolean = false,
     val appearance: AppearancePreferences? = null,
+    val showShelfReleaseNames: Boolean = false,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
@@ -183,7 +185,7 @@ object BackupCodec {
             format = FORMAT,
             schemaVersion = VERSION,
             exportedAt = data.exportedAt,
-            settings = BackupSettings(data.defaultCurrency, data.shopChannels, data.showShelfPrices, data.showPriceStats,
+            settings = BackupSettings(data.defaultCurrency, data.shopChannels, data.showShelfPrices, data.showPriceStats, data.showShelfReleaseNames,
                 data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
@@ -225,6 +227,7 @@ object BackupCodec {
                 showShelfPrices = document.settings.showShelfPrices,
                 showPriceStats = document.settings.showPriceStats,
                 appearance = document.settings.appearance?.let { AppearancePreferences(ThemeMode.valueOf(it.themeMode), it.dynamicColor) },
+                showShelfReleaseNames = document.settings.showShelfReleaseNames,
             )
         } catch (e: java.time.DateTimeException) {
             throw MessageException(message(MessageKey.BACKUP_INVALID_DATE), e)

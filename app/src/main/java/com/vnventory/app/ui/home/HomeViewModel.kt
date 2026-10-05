@@ -24,6 +24,7 @@ data class HomeStats(
     val pricedCopyCount: Int = 0,
     val showPriceStats: Boolean = false,
     val showShelfPrices: Boolean = false,
+    val showReleaseNames: Boolean = false,
     val allCopies: List<OwnedCopy> = emptyList(),
 ) {
     /** 全部支出 = 购入成本 + 运费 + 手续费 + 税费 + 其他 */
@@ -32,6 +33,14 @@ data class HomeStats(
             otherTotals,
         )
 }
+
+/** 首页封面卡片的显示开关与完整收藏快照（用于稳定盒号）。 */
+private data class ShelfDisplay(
+    val showShelfPrices: Boolean,
+    val showReleaseNames: Boolean,
+    val showPriceStats: Boolean,
+    val allCopies: List<OwnedCopy>,
+)
 
 class HomeViewModel(container: AppContainer) : ActionViewModel() {
 
@@ -43,8 +52,13 @@ class HomeViewModel(container: AppContainer) : ActionViewModel() {
         combine(collectionRepository.observeCopyCount(), collectionRepository.observePricedCopyCount()) { all, priced -> all to priced },
         collectionRepository.observePriceTotals(),
         purchaseRepository.observeExpenseCategoryTotals(),
-        combine(container.settingsRepository.showShelfPrices, container.settingsRepository.showPriceStats, collectionRepository.observeCollection(com.vnventory.app.domain.model.CollectionQuery())) { shelf, stats, copies -> Triple(shelf, stats, copies) },
-    ) { vnCount, (copyCount, pricedCount), priceTotals, categoryTotals, (shelfPrices, priceStats, allCopies) ->
+        combine(
+            container.settingsRepository.showShelfPrices,
+            container.settingsRepository.showShelfReleaseNames,
+            container.settingsRepository.showPriceStats,
+            collectionRepository.observeCollection(com.vnventory.app.domain.model.CollectionQuery()),
+        ) { shelf, releaseNames, stats, copies -> ShelfDisplay(shelf, releaseNames, stats, copies) },
+    ) { vnCount, (copyCount, pricedCount), priceTotals, categoryTotals, display ->
         HomeStats(
             vnCount = vnCount,
             copyCount = copyCount,
@@ -54,9 +68,10 @@ class HomeViewModel(container: AppContainer) : ActionViewModel() {
             taxTotals = categoryTotals.totalsFor(ExpenseCategory.TAX),
             otherTotals = categoryTotals.totalsFor(ExpenseCategory.OTHER),
             pricedCopyCount = pricedCount,
-            showShelfPrices = shelfPrices,
-            showPriceStats = priceStats,
-            allCopies = allCopies,
+            showShelfPrices = display.showShelfPrices,
+            showPriceStats = display.showPriceStats,
+            showReleaseNames = display.showReleaseNames,
+            allCopies = display.allCopies,
         )
     }.catch { reportError(it); emit(HomeStats()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeStats())

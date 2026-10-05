@@ -130,7 +130,7 @@ fun HomeContent(
                         ) {
                             items(recent, key = { it.id }) { copy ->
                                 OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.width(coverWidth).animateItem(),
-                                    showPrice = stats.showShelfPrices, ordinal = stats.allCopies.ifEmpty { recent }.copyOrdinal(copy), compact = true)
+                                    showPrice = stats.showShelfPrices, ordinal = stats.allCopies.ifEmpty { recent }.copyOrdinal(copy), overlayMeta = true, showReleaseName = stats.showReleaseNames)
                             }
                         }
                     }

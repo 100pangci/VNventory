@@ -65,7 +65,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.domain.model.CollectionSort
-import com.vnventory.app.domain.model.versionKey
 import com.vnventory.app.domain.model.copyOrdinal
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.LoadingState
@@ -112,11 +111,10 @@ fun CollectionContent(
             else listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 24
         }
     }
-    val counts = remember(state.allCopies) { state.allCopies.groupingBy { it.versionKey() }.eachCount() }
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp)) {
-                PageHeader(stringResource(R.string.collection_title), subtitle = null, eyebrow = stringResource(R.string.collection_eyebrow))
+                PageHeader(stringResource(R.string.collection_title), subtitle = null, eyebrow = null)
                 Spacer(Modifier.height(16.dp))
                 TextField(
                     value = state.query.search,
@@ -171,7 +169,7 @@ fun CollectionContent(
                             verticalArrangement = Arrangement.spacedBy(14.dp),
                         ) {
                             items(state.copies, key = { it.id }, contentType = { "ownedCover" }) { copy ->
-                                OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), counts[copy.versionKey()] ?: 1, state.showPrices, state.allCopies.copyOrdinal(copy))
+                                OwnedCoverCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), showPrice = state.showPrices, ordinal = state.allCopies.copyOrdinal(copy), overlayMeta = true, showReleaseName = state.showReleaseNames)
                             }
                             if (state.isSearching) item(key = "searchSummary") {
                                 Text(pluralStringResource(R.plurals.collection_shown_count, state.copies.size, state.copies.size), Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -182,7 +180,7 @@ fun CollectionContent(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             items(state.copies, key = { it.id }, contentType = { "ownedRow" }) { copy ->
-                                OwnedListCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), state.showPrices, state.allCopies.copyOrdinal(copy))
+                                OwnedListCard(copy, { onCopyClick(copy.id) }, Modifier.animateItem(), showPrice = state.showPrices, ordinal = state.allCopies.copyOrdinal(copy), showReleaseName = state.showReleaseNames)
                             }
                             if (state.isSearching) item(key = "searchSummary") {
                                 Text(pluralStringResource(R.plurals.collection_shown_count, state.copies.size, state.copies.size), Modifier.padding(12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

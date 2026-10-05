@@ -112,19 +112,20 @@ fun SettingsPreferencesScreen(
     val currency by viewModel.defaultCurrency.collectAsStateWithLifecycle()
     val shelfPrices by viewModel.showShelfPrices.collectAsStateWithLifecycle()
     val priceStats by viewModel.showPriceStats.collectAsStateWithLifecycle()
+    val shelfReleaseNames by viewModel.showShelfReleaseNames.collectAsStateWithLifecycle()
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     SettingsDetailScaffold(stringResource(R.string.settings_preferences), onBack) { padding ->
-        SettingsPreferencesContent(currency, appearance, shelfPrices, priceStats,
-            viewModel::setThemeMode, viewModel::setDynamicColor, viewModel::setShowShelfPrices, viewModel::setShowPriceStats,
+        SettingsPreferencesContent(currency, appearance, shelfPrices, priceStats, shelfReleaseNames,
+            viewModel::setThemeMode, viewModel::setDynamicColor, viewModel::setShowShelfPrices, viewModel::setShowPriceStats, viewModel::setShowShelfReleaseNames,
             viewModel::setDefaultCurrency, Modifier.padding(padding), error = { OperationError(viewModel) })
     }
 }
 
 @Composable
 internal fun SettingsPreferencesContent(
-    currency: String, appearance: AppearancePreferences, shelfPrices: Boolean, priceStats: Boolean,
+    currency: String, appearance: AppearancePreferences, shelfPrices: Boolean, priceStats: Boolean, shelfReleaseNames: Boolean,
     onThemeMode: (ThemeMode) -> Unit, onDynamicColor: (Boolean) -> Unit,
-    onShelfPrices: (Boolean) -> Unit, onPriceStats: (Boolean) -> Unit, onCurrency: (String) -> Unit,
+    onShelfPrices: (Boolean) -> Unit, onPriceStats: (Boolean) -> Unit, onShelfReleaseNames: (Boolean) -> Unit, onCurrency: (String) -> Unit,
     modifier: Modifier = Modifier, error: @Composable () -> Unit = {},
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
@@ -138,6 +139,12 @@ internal fun SettingsPreferencesContent(
         item {
             FormSection(stringResource(R.string.price_display_settings), R.drawable.ic_ui_shelf) {
                 PriceDisplayPreferences(shelfPrices, priceStats, onShelfPrices, onPriceStats)
+            }
+        }
+        item {
+            FormSection(stringResource(R.string.settings_shelf_display), R.drawable.ic_ui_grid) {
+                PreferenceSwitchRow(stringResource(R.string.show_shelf_release_names), shelfReleaseNames, onShelfReleaseNames,
+                    hint = stringResource(R.string.show_shelf_release_names_hint))
             }
         }
         item {
