@@ -1,5 +1,7 @@
 package com.vnventory.app.ui.add
 
+import com.vnventory.app.ui.text.uiTitle
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -59,11 +61,11 @@ internal fun PurchaseFormContent(
     ) {
         FormSection(stringResource(R.string.purchase_selected_release), R.drawable.ic_ui_shelf) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                VnCover(release?.displayImage() ?: vn.imageUrl, vn.displayTitle, Modifier.width(56.dp).height(80.dp))
+                VnCover(release?.displayImage() ?: vn.imageUrl, vn.uiTitle(), Modifier.width(56.dp).height(80.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(vn.displayTitle, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(vn.uiTitle(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(
-                        release?.title ?: stringResource(R.string.message_manual_release),
+                        release?.uiTitle() ?: form.releaseTitle.takeIf { it.isNotBlank() } ?: stringResource(R.string.message_manual_release),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,

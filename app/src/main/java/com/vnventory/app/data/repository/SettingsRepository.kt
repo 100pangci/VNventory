@@ -12,6 +12,7 @@ import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.ShopChannels
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
+import com.vnventory.app.domain.model.TitleDisplayMode
 import com.vnventory.app.domain.text.MessageException
 import com.vnventory.app.domain.text.MessageKey
 import com.vnventory.app.domain.text.message
@@ -34,11 +35,17 @@ data class SettingsSnapshot(
     val showPriceStats: Boolean = false,
     val appearance: AppearancePreferences = AppearancePreferences(),
     val showShelfReleaseNames: Boolean = false,
+    val titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
 )
 
 class SettingsRepository(
     private val dataStore: DataStore<Preferences>,
 ) {
+    val titleDisplayMode: Flow<TitleDisplayMode> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it.readTitleDisplayMode() }
+
+    suspend fun setTitleDisplayMode(mode: TitleDisplayMode) { dataStore.edit { it[KEY_TITLE_DISPLAY_MODE] = mode.name } }
 
     val defaultCurrency: Flow<String> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -99,8 +106,8 @@ class SettingsRepository(
     }
 
     /** All supplied preferences restore atomically; absent legacy appearance settings stay unchanged. */
-    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null) {
-        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null) return
+    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null, titleDisplayMode: TitleDisplayMode? = null) {
+        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null && titleDisplayMode == null) return
         shops?.let(ShopChannels::validate)
         dataStore.edit { prefs ->
             currency?.let { prefs[KEY_DEFAULT_CURRENCY] = Money.normalize(it) }
@@ -108,6 +115,7 @@ class SettingsRepository(
             shelfPrices?.let { prefs[KEY_SHELF_PRICES] = it }
             priceStats?.let { prefs[KEY_PRICE_STATS] = it }
             shelfReleaseNames?.let { prefs[KEY_SHELF_RELEASE_NAMES] = it }
+            titleDisplayMode?.let { prefs[KEY_TITLE_DISPLAY_MODE] = it.name }
             appearance?.let {
                 prefs[KEY_THEME_MODE] = it.themeMode.name
                 prefs[KEY_DYNAMIC_COLOR] = it.dynamicColor
@@ -116,8 +124,10 @@ class SettingsRepository(
     }
 
     suspend fun snapshot(): SettingsSnapshot = dataStore.data.first().let {
-        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance(), it[KEY_SHELF_RELEASE_NAMES] ?: false)
+        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance(), it[KEY_SHELF_RELEASE_NAMES] ?: false, it.readTitleDisplayMode())
     }
+
+    private fun Preferences.readTitleDisplayMode() = TitleDisplayMode.entries.firstOrNull { it.name == this[KEY_TITLE_DISPLAY_MODE] } ?: TitleDisplayMode.ORIGINAL
 
     private fun Preferences.readAppearance() = AppearancePreferences(
         themeMode = ThemeMode.entries.firstOrNull { it.name == this[KEY_THEME_MODE] } ?: ThemeMode.SYSTEM,
@@ -143,6 +153,7 @@ class SettingsRepository(
     companion object {
         const val FALLBACK_CURRENCY = "CNY"
         private val KEY_DEFAULT_CURRENCY = stringPreferencesKey("default_currency")
+        private val KEY_TITLE_DISPLAY_MODE = stringPreferencesKey("title_display_mode")
         private val KEY_SHOP_CHANNELS = stringPreferencesKey("shop_channels")
         private val KEY_SHELF_PRICES = booleanPreferencesKey("show_shelf_prices")
         private val KEY_PRICE_STATS = booleanPreferencesKey("show_price_stats")

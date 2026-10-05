@@ -20,4 +20,6 @@ data class VnCacheEntity(
     val description: String?,
     /** 缓存写入时间（epoch millis） */
     val fetchedAt: Long,
+    val originalTitle: String? = null,
+    val romanizedTitle: String? = null,
 )

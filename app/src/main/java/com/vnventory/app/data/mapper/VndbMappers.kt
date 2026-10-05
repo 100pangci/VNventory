@@ -4,6 +4,7 @@ import com.vnventory.app.data.remote.vndb.VndbReleaseDto
 import com.vnventory.app.data.remote.vndb.VndbVnDto
 import com.vnventory.app.domain.model.ReleaseInfo
 import com.vnventory.app.domain.model.VnInfo
+import com.vnventory.app.domain.model.normalizedTitle
 
 // ---------------------------------------------------------------------------
 // VNDB DTO -> Domain
@@ -11,8 +12,10 @@ import com.vnventory.app.domain.model.VnInfo
 
 fun VndbVnDto.toDomain(fromCache: Boolean = false): VnInfo = VnInfo(
     id = id,
-    title = title,
-    altTitle = originalTitle(),
+    legacyTitle = title,
+    legacyAltTitle = alttitle,
+    originalTitle = originalTitle(),
+    romanizedTitle = titles.firstOrNull { it.main }?.latin.normalizedTitle() ?: title.normalizedTitle(),
     released = released,
     imageUrl = image?.url ?: image?.thumbnail,
     description = description,
@@ -22,7 +25,7 @@ fun VndbVnDto.toDomain(fromCache: Boolean = false): VnInfo = VnInfo(
 /**
  * 原题（通常是日文标题）：
  * 优先日语主标题，其次官方日语标题，再回退原语言主标题 / alttitle。
- * 不改变缓存字段含义，旧缓存也可通过 VnInfo.displayTitle 优先展示原文。
+ * 同名 ASCII 原题仍保留。旧缓存标题不推断类型，仅作为 legacy fallback。
  */
 internal fun VndbVnDto.originalTitle(): String? {
     val candidates = titles.filter { it.title.isNotBlank() }
@@ -30,13 +33,15 @@ internal fun VndbVnDto.originalTitle(): String? {
         ?: candidates.firstOrNull { it.official && it.lang == "ja" }?.title
         ?: candidates.firstOrNull { it.main }?.title
         ?: alttitle
-    return original?.trim()?.takeIf { it.isNotEmpty() && it != title }
+    return original.normalizedTitle()
 }
 
 fun VndbReleaseDto.toDomain(vnId: String, fallbackCoverUrl: String? = null): ReleaseInfo = ReleaseInfo(
     id = id,
     vnId = vnId,
-    title = alttitle?.takeIf { it.isNotBlank() } ?: title,
+    legacyTitle = title,
+    originalTitle = alttitle.normalizedTitle(),
+    romanizedTitle = title.normalizedTitle(),
     released = released,
     platforms = platforms,
     languages = languages.mapNotNull { it.lang?.takeIf(String::isNotBlank) },

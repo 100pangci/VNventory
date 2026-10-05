@@ -1,5 +1,8 @@
 package com.vnventory.app.ui.add
 
+import com.vnventory.app.ui.text.uiTitle
+import com.vnventory.app.ui.text.uiSecondaryTitle
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -250,7 +253,7 @@ private fun SearchStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
 }
 
 @Composable
-private fun VnSearchRow(vn: VnInfo, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun VnSearchRow(vn: VnInfo, modifier: Modifier = Modifier, onClick: () -> Unit) {
     PressableSurface(onClick, modifier.fillMaxWidth()) {
     Row(
         modifier = Modifier
@@ -259,7 +262,7 @@ private fun VnSearchRow(vn: VnInfo, modifier: Modifier = Modifier, onClick: () -
     ) {
         VnCover(
             url = vn.imageUrl,
-            contentDescription = vn.displayTitle,
+            contentDescription = vn.uiTitle(),
             modifier = Modifier
                 .width(48.dp)
                 .height(68.dp),
@@ -268,12 +271,12 @@ private fun VnSearchRow(vn: VnInfo, modifier: Modifier = Modifier, onClick: () -
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = vn.displayTitle,
+                text = vn.uiTitle(),
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            vn.secondaryTitle?.let {
+            vn.uiSecondaryTitle()?.let {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
@@ -310,15 +313,15 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
                 Row {
                     VnCover(
                         url = vn.imageUrl,
-                        contentDescription = vn.displayTitle,
+                        contentDescription = vn.uiTitle(),
                         modifier = Modifier
                             .width(72.dp)
                             .height(100.dp),
                     )
                     Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(vn.displayTitle, style = MaterialTheme.typography.titleMedium)
-                        vn.secondaryTitle?.let {
+                        Text(vn.uiTitle(), style = MaterialTheme.typography.titleMedium)
+                        vn.uiSecondaryTitle()?.let {
                             Text(
                                 it,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -404,7 +407,7 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
 }
 
 @Composable
-private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
     PressableSurface(onClick, modifier.fillMaxWidth()) {
     Row(
         modifier = Modifier
@@ -413,7 +416,7 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: M
     ) {
         VnCover(
             url = release.displayImage() ?: coverFallback,
-            contentDescription = release.title,
+            contentDescription = release.uiTitle(),
             modifier = Modifier
                 .width(64.dp)
                 .height(88.dp),
@@ -422,7 +425,7 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: M
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = release.title,
+                text = release.uiTitle(),
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -441,7 +444,7 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: M
             Text(
                 text = buildString {
                     if (release.languages.isNotEmpty()) {
-                        append(release.languages.joinToString("/"))
+                        append(release.languages.joinToString(stringResource(R.string.separator_compact_slash)))
                     }
                     if (release.publishers.isNotEmpty()) {
                         if (isNotEmpty()) append(stringResource(R.string.separator_dot))

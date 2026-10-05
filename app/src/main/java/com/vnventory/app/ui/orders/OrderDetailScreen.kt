@@ -1,5 +1,8 @@
 package com.vnventory.app.ui.orders
 
+import com.vnventory.app.ui.text.uiTitle
+import com.vnventory.app.ui.text.uiReleaseName
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -197,7 +200,7 @@ fun OrderDetailScreen(
     copyToRemove?.let { copy ->
         AlertDialog(
             onDismissRequest = { copyToRemove = null },
-            title = { Text(stringResource(R.string.copy_remove_title, copy.vnTitle)) },
+            title = { Text(stringResource(R.string.copy_remove_title, copy.uiTitle())) },
             text = { Text(stringResource(R.string.copy_remove_hint)) },
             confirmButton = {
                 TextButton(onClick = {
@@ -301,7 +304,7 @@ private fun OrderCopyRow(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         VnCover(
             url = copy.coverUrl,
-            contentDescription = copy.vnTitle,
+            contentDescription = copy.uiTitle(),
             modifier = Modifier
                 .width(48.dp)
                 .height(68.dp),
@@ -310,13 +313,13 @@ private fun OrderCopyRow(
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = copy.vnTitle,
+                text = copy.uiTitle(),
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = copy.displayReleaseName.localized(),
+                text = copy.uiReleaseName(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -457,7 +460,7 @@ private fun AllocationPreview(detail: OrderDetail, preview: OrderCostBreakdown) 
         detail.copies.forEach { copy ->
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
-                    text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.vnTitle, stringResource(R.string.copy_number, it)) } ?: copy.vnTitle,
+                    text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.uiTitle(), stringResource(R.string.copy_number, it)) } ?: copy.uiTitle(),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -500,13 +503,13 @@ private fun ManualAllocationEditor(
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Column {
                     Text(
-                        text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.vnTitle, stringResource(R.string.copy_number, it)) } ?: copy.vnTitle,
+                        text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.uiTitle(), stringResource(R.string.copy_number, it)) } ?: copy.uiTitle(),
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = copy.displayReleaseName.localized(),
+                        text = copy.uiReleaseName(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

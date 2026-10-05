@@ -13,6 +13,7 @@ import com.vnventory.app.data.local.VNventoryDatabase
 import com.vnventory.app.data.backup.BackupFileStore
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
+import com.vnventory.app.domain.model.TitleDisplayMode
 import com.vnventory.app.ui.theme.ThemeViewModel
 import com.vnventory.app.ui.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -47,6 +48,7 @@ class AppearancePreferencesTest {
         val settings = SettingsRepository(PreferenceDataStoreFactory.create(scope = backgroundScope) { preferencesFile })
         assertEquals(AppearancePreferences(), settings.appearance.first())
         assertEquals(AppearancePreferences(), settings.snapshot().appearance)
+        assertEquals(TitleDisplayMode.ORIGINAL, settings.titleDisplayMode.first())
         for (systemDark in listOf(false, true)) {
             assertEquals(systemDark, ThemeMode.SYSTEM.isDark(systemDark))
             assertFalse(ThemeMode.LIGHT.isDark(systemDark))
@@ -62,6 +64,7 @@ class AppearancePreferencesTest {
         first.setDynamicColor(true)
         first.setShowShelfPrices(true)
         first.setShowShelfReleaseNames(true)
+        first.setTitleDisplayMode(TitleDisplayMode.ROMANIZED)
         first.setThemeMode(ThemeMode.LIGHT)
         assertEquals(AppearancePreferences(ThemeMode.LIGHT, true), first.appearance.first())
         assertTrue(first.showShelfPrices.first())
@@ -74,6 +77,8 @@ class AppearancePreferencesTest {
         assertEquals(AppearancePreferences(ThemeMode.LIGHT, false), reopened.appearance.first())
         assertTrue(reopened.showShelfPrices.first())
         assertTrue(reopened.showShelfReleaseNames.first())
+        assertEquals(TitleDisplayMode.ROMANIZED, reopened.titleDisplayMode.first())
+        assertEquals(TitleDisplayMode.ROMANIZED, reopened.snapshot().titleDisplayMode)
     }
 
     @Test fun `应用主题状态实时订阅设置且首次读取前不猜主题`() = runTest {

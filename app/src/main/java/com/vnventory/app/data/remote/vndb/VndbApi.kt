@@ -104,7 +104,7 @@ class VndbApi(private val client: HttpClient) : VndbService {
 
         /** 实测于 2026-10（schema 见 https://api.vndb.org/kana/schema） */
         const val VN_FIELDS =
-            "id,title,alttitle,released,description,image{url,thumbnail},titles{title,lang,main,official}"
+            "id,title,alttitle,released,description,image{url,thumbnail},titles{title,latin,lang,main,official}"
 
         const val RELEASE_FIELDS =
             "id,title,alttitle,released,platforms,languages{lang,main}," +

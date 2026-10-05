@@ -84,8 +84,8 @@ class VndbDtoParseTest {
     @Test
     fun `原题取日文 main 标题`() {
         val vn = json.decodeFromString<VndbVnResponse>(vnJson).results[0].toDomain()
-        assertEquals("うたわれるもの", vn.altTitle)
-        assertEquals("Utawarerumono", vn.title)
+        assertEquals("うたわれるもの", vn.originalTitle)
+        assertEquals("Utawarerumono", vn.romanizedTitle)
         assertEquals("うたわれるもの", vn.displayTitle)
         assertEquals("Utawarerumono", vn.secondaryTitle)
     }
@@ -100,7 +100,7 @@ class VndbDtoParseTest {
                 VndbTitleDto(title = "Ever17 -the out of infinity-", lang = "ja", main = true),
             ),
         )
-        assertNull(dto.toDomain().altTitle)
+        assertEquals(dto.title, dto.toDomain().originalTitle)
         assertNull(dto.toDomain().secondaryTitle)
     }
 
@@ -121,7 +121,7 @@ class VndbDtoParseTest {
     @Test fun `日语主标题即使是ASCII也不退回其他语言标题`() {
         val dto = VndbVnDto("v1", title = "AIR", alttitle = "Other", titles = listOf(VndbTitleDto("AIR", "ja", main = true)))
         assertEquals("AIR", dto.toDomain().displayTitle)
-        assertNull(dto.toDomain().altTitle)
+        assertEquals("AIR", dto.toDomain().originalTitle)
     }
 
     // ---- Release ----
@@ -226,8 +226,9 @@ class VndbDtoParseTest {
 
     @Test fun `版本使用原文标题空原文回退拉丁字标题`() {
         val dto = VndbReleaseDto("r1", title = "Utawarerumono - Limited Edition", alttitle = "うたわれるもの 初回限定版")
-        assertEquals("うたわれるもの 初回限定版", dto.toDomain("v3").title)
-        assertEquals(dto.title, dto.copy(alttitle = " ").toDomain("v3").title)
+        assertEquals("うたわれるもの 初回限定版", dto.toDomain("v3").originalTitle)
+        assertEquals(dto.title, dto.toDomain("v3").romanizedTitle)
+        assertEquals(dto.title, dto.copy(alttitle = " ").toDomain("v3").displayTitle(com.vnventory.app.domain.model.TitleDisplayMode.ORIGINAL))
     }
 
     @Test

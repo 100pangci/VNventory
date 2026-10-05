@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.vnventory.app.data.local.VNventoryDatabase
 import com.vnventory.app.data.local.entity.ReleaseVnEntity
 import com.vnventory.app.data.local.entity.VnCacheEntity
+import com.vnventory.app.data.mapper.toDomain
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.*
@@ -22,6 +23,7 @@ class MigrationTest {
     @Test fun `真实v1经v2到v3保留全部事实`() = verifyMigration(1)
     @Test fun `真实v2到v3保留零价分摊与自增序列`() = verifyMigration(2)
     @Test fun `已清空收藏的v2仍保留自增序列`() = verifyMigration(2, empty = true)
+    @Test fun `真实v3到v4保留全部事实且不猜标题类型`() = verifyMigration(3)
 
     private fun verifyMigration(version: Int, empty: Boolean = false) = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -59,7 +61,7 @@ class MigrationTest {
             old.version = version
         }
         val db = Room.databaseBuilder(context, VNventoryDatabase::class.java, name)
-            .addMigrations(VNventoryDatabase.MIGRATION_1_2, VNventoryDatabase.MIGRATION_2_3).allowMainThreadQueries().build()
+            .addMigrations(VNventoryDatabase.MIGRATION_1_2, VNventoryDatabase.MIGRATION_2_3, VNventoryDatabase.MIGRATION_3_4).allowMainThreadQueries().build()
         try {
             if (empty) {
                 db.openHelper.writableDatabase.execSQL("""INSERT INTO owned_copy(vnId,vnTitle,releaseTitle,priceMinor,currency,condition,createdAt,updatedAt) VALUES ('v1','A','Manual',NULL,'JPY','USED',0,0)""")
@@ -70,9 +72,19 @@ class MigrationTest {
             }
             // Room validates the entire migrated schema as it opens this database.
             val copy = db.ownedCopyDao().getById(1)!!
+            assertNull(copy.vnOriginalTitle)
+            assertNull(copy.vnRomanizedTitle)
+            assertNull(copy.releaseOriginalTitle)
+            assertNull(copy.releaseRomanizedTitle)
+            assertEquals("A", copy.toDomain().displayTitle(com.vnventory.app.domain.model.TitleDisplayMode.ROMANIZED))
             assertEquals(5000L, copy.priceMinor)
             assertEquals("keep", copy.notes)
             assertEquals(1L, copy.orderId)
+            assertEquals("Batch", db.purchaseOrderDao().getById(1)!!.title)
+            val expense = db.expenseDao().getAll().single()
+            assertEquals("Ship", expense.name)
+            assertEquals(100L, expense.amountMinor)
+            assertEquals(com.vnventory.app.domain.model.AllocationMode.MANUAL, expense.mode)
             assertEquals(100L, db.expenseDao().getAllocations(1).single().amountMinor)
             assertEquals(0L, db.ownedCopyDao().getById(2)!!.priceMinor)
             val nullId = db.ownedCopyDao().insert(copy.copy(id = 0, priceMinor = null))

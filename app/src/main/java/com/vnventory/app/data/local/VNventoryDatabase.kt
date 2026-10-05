@@ -42,7 +42,7 @@ import com.vnventory.app.data.local.entity.VnCacheEntity
         ExpenseEntity::class,
         ExpenseAllocationEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -108,9 +108,23 @@ abstract class VNventoryDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Old single titles are unclassified. Keep them intact; no network or backfill.
+                for (table in listOf("vn_cache", "release_cache")) {
+                    for (column in listOf("originalTitle", "romanizedTitle")) {
+                        db.execSQL("ALTER TABLE $table ADD COLUMN $column TEXT")
+                    }
+                }
+                for (column in listOf("vnOriginalTitle", "vnRomanizedTitle", "releaseOriginalTitle", "releaseRomanizedTitle")) {
+                    db.execSQL("ALTER TABLE owned_copy ADD COLUMN $column TEXT")
+                }
+            }
+        }
+
         fun build(context: Context): VNventoryDatabase =
             Room.databaseBuilder(context, VNventoryDatabase::class.java, DB_NAME)
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

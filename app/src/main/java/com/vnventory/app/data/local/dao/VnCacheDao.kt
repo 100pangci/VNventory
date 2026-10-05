@@ -54,6 +54,8 @@ interface VnCacheDao {
         SELECT * FROM vn_cache
         WHERE title LIKE '%' || :query || '%'
            OR IFNULL(altTitle, '') LIKE '%' || :query || '%'
+           OR IFNULL(originalTitle, '') LIKE '%' || :query || '%'
+           OR IFNULL(romanizedTitle, '') LIKE '%' || :query || '%'
            OR vndbId = :query
         ORDER BY title ASC
         LIMIT :limit

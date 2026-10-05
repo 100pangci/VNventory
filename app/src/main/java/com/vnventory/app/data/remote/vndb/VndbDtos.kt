@@ -26,6 +26,7 @@ data class VndbTitleDto(
     val lang: String? = null,
     val main: Boolean = false,
     val official: Boolean = false,
+    val latin: String? = null,
 )
 
 @Serializable

@@ -1,5 +1,8 @@
 package com.vnventory.app.ui.components
 
+import com.vnventory.app.ui.text.uiTitle
+import com.vnventory.app.ui.text.uiReleaseName
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -135,7 +138,7 @@ fun SaveButton(label: String, saving: Boolean, enabled: Boolean, onClick: () -> 
 fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, sameReleaseCount: Int = 1, showPrice: Boolean = false, ordinal: Int? = null, overlayMeta: Boolean = false, showReleaseName: Boolean = false) {
     PressableSurface(onClick, modifier) {
         Box(Modifier.padding(8.dp)) {
-            VnCover(copy.coverUrl, copy.vnTitle, Modifier.fillMaxWidth().aspectRatio(.70f), corner = 12.dp)
+            VnCover(copy.coverUrl, copy.uiTitle(), Modifier.fillMaxWidth().aspectRatio(.70f), corner = 12.dp)
             if (overlayMeta) {
                 // 书架网格：手动版本在左上角；品相与盒号合并后放右上角；都不参与封面布局尺寸。
                 if (copy.isManualRelease) {
@@ -163,12 +166,12 @@ fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mo
             }
         }
         Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 2.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall.copy(lineBreak = LineBreak.Heading), maxLines = if (overlayMeta) 1 else 2, minLines = if (overlayMeta) 1 else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+            Text(copy.uiTitle(), style = MaterialTheme.typography.titleSmall.copy(lineBreak = LineBreak.Heading), maxLines = if (overlayMeta) 1 else 2, minLines = if (overlayMeta) 1 else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
             if (overlayMeta && showReleaseName) {
                 // 默认隐藏；开启后只以弱化样式补充版本名。
-                Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(copy.uiReleaseName(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             } else if (!overlayMeta) {
-                Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(copy.uiReleaseName(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             // 书架网格的正文只留作品名与（可选）版本名，状态都在封面上；其他卡片保持原有标签。
             val bodyTags = when {
@@ -202,11 +205,11 @@ private fun CoverOverlayTag(text: String, modifier: Modifier = Modifier) {
 fun OwnedListCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, showPrice: Boolean = false, ordinal: Int? = null, showReleaseName: Boolean = false) {
     PressableSurface(onClick, modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            VnCover(copy.coverUrl, copy.vnTitle, Modifier.width(60.dp).height(86.dp))
+            VnCover(copy.coverUrl, copy.uiTitle(), Modifier.width(60.dp).height(86.dp))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(copy.vnTitle, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (showReleaseName) Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(copy.uiTitle(), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (showReleaseName) Text(copy.uiReleaseName(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (showPrice) Text(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Tag(copy.condition.label.localized())

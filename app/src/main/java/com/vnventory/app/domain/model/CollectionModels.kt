@@ -30,13 +30,25 @@ data class OwnedCopy(
     val notes: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    val vnOriginalTitle: String? = null,
+    val vnRomanizedTitle: String? = null,
+    val releaseOriginalTitle: String? = null,
+    val releaseRomanizedTitle: String? = null,
 ) {
+    fun displayTitle(mode: TitleDisplayMode): String = displayTitle(mode, vnOriginalTitle, vnRomanizedTitle, vnTitle, vnId)
+    fun displayReleaseName(mode: TitleDisplayMode): Message {
+        val legacy = releaseTitle.normalizedTitle()
+        if (isManualRelease) return legacy?.let(Message::Literal) ?: message(MessageKey.MANUAL_RELEASE)
+        if (listOf(releaseOriginalTitle, releaseRomanizedTitle, legacy).any { it.normalizedTitle() != null }) {
+            return Message.Literal(displayTitle(mode, releaseOriginalTitle, releaseRomanizedTitle, legacy, releaseId.orEmpty()))
+        }
+        return message(MessageKey.UNKNOWN_RELEASE)
+    }
     val isManualRelease: Boolean get() = releaseId == null
 
     /** 列表展示用版本名：Release 名 > 手动版本名 > “手动版本” */
     val displayReleaseName: Message
-        get() = releaseTitle?.takeIf { it.isNotBlank() }?.let(Message::Literal)
-            ?: message(if (isManualRelease) MessageKey.MANUAL_RELEASE else MessageKey.UNKNOWN_RELEASE)
+        get() = displayReleaseName(TitleDisplayMode.ORIGINAL)
 }
 
 /** 同一 VN 下同一发行版本；手动版本按用户填写的版本名区分。 */

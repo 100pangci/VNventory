@@ -1,5 +1,8 @@
 package com.vnventory.app.ui.edit
 
+import com.vnventory.app.ui.text.uiTitle
+import com.vnventory.app.ui.text.uiReleaseName
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -147,7 +150,7 @@ fun CopyEditScreen(
                             ) {
                                 VnCover(
                                     url = release.displayImage(),
-                                    contentDescription = release.title,
+                                    contentDescription = release.uiTitle(),
                                     modifier = Modifier
                                         .width(48.dp)
                                         .height(68.dp),
@@ -156,7 +159,7 @@ fun CopyEditScreen(
                                 Spacer(Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = release.title,
+                                        text = release.uiTitle(),
                                         style = MaterialTheme.typography.titleSmall,
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis,
@@ -166,7 +169,7 @@ fun CopyEditScreen(
                                             append(release.released ?: stringResource(R.string.release_date_unknown))
                                             if (release.platforms.isNotEmpty()) {
                                                 append(stringResource(R.string.separator_dot))
-                                                append(release.platforms.joinToString("/"))
+                                                append(release.platforms.joinToString(stringResource(R.string.separator_compact_slash)))
                                             }
                                         },
                                         style = MaterialTheme.typography.bodySmall,
@@ -190,10 +193,10 @@ internal fun CopyEditContent(state: CopyEditUiState, onFormChange: (EditFormStat
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         FormSection(stringResource(R.string.purchase_selected_release), R.drawable.ic_ui_shelf) {
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                VnCover(copy.coverUrl, copy.vnTitle, Modifier.width(56.dp).height(80.dp))
+                VnCover(copy.coverUrl, copy.uiTitle(), Modifier.width(56.dp).height(80.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(copy.vnTitle, style = MaterialTheme.typography.titleMedium)
-                    Text(copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(copy.uiTitle(), style = MaterialTheme.typography.titleMedium)
+                    Text(copy.uiReleaseName(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             if (copy.isManualRelease) {

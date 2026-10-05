@@ -5,8 +5,8 @@
     <string name="message_theme_dark">深色</string>
     <string name="message_backup_feedback_appearance_restored">外观设置已恢复。</string>
     <string name="message_backup_feedback_appearance_failed">收藏数据已恢复，但外观设置写入失败；请在设置中手动调整，不要重复导入。</string>
-    <string name="message_backup_feedback_price_display_restored">价格展示设置已恢复。</string>
-    <string name="message_backup_feedback_price_display_failed">收藏数据已恢复，但价格展示设置写入失败；请在设置中手动调整，不要重复导入。</string>
+    <string name="message_backup_feedback_price_display_restored">标题与书架展示设置已恢复。</string>
+    <string name="message_backup_feedback_price_display_failed">收藏数据已恢复，但标题与书架展示设置写入失败；请在设置中手动调整，不要重复导入。</string>
     <string name="message_allocation_price_missing">部分商品未记录价格，无法按价格比例分摊；请选择平均或手动分摊。</string>
     <string name="message_input_expense_category">请选择固定费用类型</string>
     <string name="message_category_international_shipping">国际运费</string>

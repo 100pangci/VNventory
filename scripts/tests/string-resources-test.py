@@ -44,6 +44,16 @@ class StringResourcesTest(unittest.TestCase):
             source = path.read_text()
             self.assertNotRegex(source, r"(?m)^import (?:android\.|androidx\.|com\.vnventory\.app\.R\b)", str(path))
 
+    def test_all_kotlin_string_and_plural_references_exist(self):
+        resources = {"string": set(), "plurals": set()}
+        for path in (ROOT / "app/src/main/res/values").glob("*.xml"):
+            for entry in ET.parse(path).getroot():
+                if entry.tag in resources:
+                    resources[entry.tag].add(entry.attrib["name"])
+        for path in (ROOT / "app/src").rglob("*.kt"):
+            for kind, name in re.findall(r"\bR\.(string|plurals)\.([A-Za-z0-9_]+)", path.read_text()):
+                self.assertIn(name, resources[kind], str(path))
+
 
 if __name__ == "__main__":
     unittest.main()

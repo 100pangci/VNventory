@@ -276,7 +276,7 @@ class AddFlowViewModel(
         if (release.official == false || release.vnId != selectedVn.value?.id ||
             releasesState.value.releases.none { it.id == release.id && it.vnId == release.vnId && it.official != false }) return
         formState.update {
-            it.copy(releaseId = release.id, releaseTitle = release.title, manualVersion = false)
+            it.copy(releaseId = release.id, releaseTitle = release.displayTitle(com.vnventory.app.domain.model.TitleDisplayMode.ORIGINAL), manualVersion = false)
         }
     }
 
@@ -365,7 +365,12 @@ class AddFlowViewModel(
                         id = 0,
                         vnId = vn.id,
                         releaseId = form.releaseId,
-                        vnTitle = vn.displayTitle,
+                        // Fixed compatibility snapshot, never the current UI display preference.
+                        vnTitle = vn.displayTitle(com.vnventory.app.domain.model.TitleDisplayMode.ORIGINAL),
+                        vnOriginalTitle = vn.originalTitle,
+                        vnRomanizedTitle = vn.romanizedTitle,
+                        releaseOriginalTitle = release?.originalTitle,
+                        releaseRomanizedTitle = release?.romanizedTitle,
                         releaseTitle = form.releaseTitle.takeIf { it.isNotBlank() },
                         coverUrl = coverUrl,
                         priceMinor = form.parsedPrice,

@@ -1,0 +1,598 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 4,
+    "identityHash": "e523348e1ccd09d3844d90fcafb55c3b",
+    "entities": [
+      {
+        "tableName": "vn_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`vndbId` TEXT NOT NULL, `title` TEXT NOT NULL, `altTitle` TEXT, `released` TEXT, `imageUrl` TEXT, `description` TEXT, `fetchedAt` INTEGER NOT NULL, `originalTitle` TEXT, `romanizedTitle` TEXT, PRIMARY KEY(`vndbId`))",
+        "fields": [
+          {
+            "fieldPath": "vndbId",
+            "columnName": "vndbId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "altTitle",
+            "columnName": "altTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "released",
+            "columnName": "released",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "imageUrl",
+            "columnName": "imageUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fetchedAt",
+            "columnName": "fetchedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalTitle",
+            "columnName": "originalTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "romanizedTitle",
+            "columnName": "romanizedTitle",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "vndbId"
+          ]
+        }
+      },
+      {
+        "tableName": "release_cache",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`vndbId` TEXT NOT NULL, `title` TEXT NOT NULL, `released` TEXT, `platforms` TEXT NOT NULL, `languages` TEXT NOT NULL, `publishers` TEXT NOT NULL, `jan` TEXT, `minAge` INTEGER, `official` INTEGER, `packagingImageUrl` TEXT, `fetchedAt` INTEGER NOT NULL, `originalTitle` TEXT, `romanizedTitle` TEXT, PRIMARY KEY(`vndbId`))",
+        "fields": [
+          {
+            "fieldPath": "vndbId",
+            "columnName": "vndbId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "released",
+            "columnName": "released",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "platforms",
+            "columnName": "platforms",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "languages",
+            "columnName": "languages",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "publishers",
+            "columnName": "publishers",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "jan",
+            "columnName": "jan",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "minAge",
+            "columnName": "minAge",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "official",
+            "columnName": "official",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "packagingImageUrl",
+            "columnName": "packagingImageUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fetchedAt",
+            "columnName": "fetchedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "originalTitle",
+            "columnName": "originalTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "romanizedTitle",
+            "columnName": "romanizedTitle",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "vndbId"
+          ]
+        }
+      },
+      {
+        "tableName": "release_vn",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`vnId` TEXT NOT NULL, `releaseId` TEXT NOT NULL, PRIMARY KEY(`vnId`, `releaseId`), FOREIGN KEY(`vnId`) REFERENCES `vn_cache`(`vndbId`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`releaseId`) REFERENCES `release_cache`(`vndbId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "vnId",
+            "columnName": "vnId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "releaseId",
+            "columnName": "releaseId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "vnId",
+            "releaseId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_release_vn_releaseId",
+            "unique": false,
+            "columnNames": [
+              "releaseId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_release_vn_releaseId` ON `${TABLE_NAME}` (`releaseId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "vn_cache",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "vnId"
+            ],
+            "referencedColumns": [
+              "vndbId"
+            ]
+          },
+          {
+            "table": "release_cache",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "releaseId"
+            ],
+            "referencedColumns": [
+              "vndbId"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "owned_copy",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `vnId` TEXT NOT NULL, `releaseId` TEXT, `vnTitle` TEXT NOT NULL, `releaseTitle` TEXT, `coverUrl` TEXT, `priceMinor` INTEGER, `currency` TEXT NOT NULL, `condition` TEXT NOT NULL, `conditionNote` TEXT, `purchaseDate` TEXT, `shop` TEXT, `orderId` INTEGER, `notes` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `vnOriginalTitle` TEXT, `vnRomanizedTitle` TEXT, `releaseOriginalTitle` TEXT, `releaseRomanizedTitle` TEXT, FOREIGN KEY(`orderId`) REFERENCES `purchase_order`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vnId",
+            "columnName": "vnId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "releaseId",
+            "columnName": "releaseId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "vnTitle",
+            "columnName": "vnTitle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "releaseTitle",
+            "columnName": "releaseTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "coverUrl",
+            "columnName": "coverUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "priceMinor",
+            "columnName": "priceMinor",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "condition",
+            "columnName": "condition",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "conditionNote",
+            "columnName": "conditionNote",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "purchaseDate",
+            "columnName": "purchaseDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "shop",
+            "columnName": "shop",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "orderId",
+            "columnName": "orderId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "vnOriginalTitle",
+            "columnName": "vnOriginalTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "vnRomanizedTitle",
+            "columnName": "vnRomanizedTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "releaseOriginalTitle",
+            "columnName": "releaseOriginalTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "releaseRomanizedTitle",
+            "columnName": "releaseRomanizedTitle",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_owned_copy_vnId",
+            "unique": false,
+            "columnNames": [
+              "vnId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_owned_copy_vnId` ON `${TABLE_NAME}` (`vnId`)"
+          },
+          {
+            "name": "index_owned_copy_releaseId",
+            "unique": false,
+            "columnNames": [
+              "releaseId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_owned_copy_releaseId` ON `${TABLE_NAME}` (`releaseId`)"
+          },
+          {
+            "name": "index_owned_copy_orderId",
+            "unique": false,
+            "columnNames": [
+              "orderId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_owned_copy_orderId` ON `${TABLE_NAME}` (`orderId`)"
+          },
+          {
+            "name": "index_owned_copy_purchaseDate",
+            "unique": false,
+            "columnNames": [
+              "purchaseDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_owned_copy_purchaseDate` ON `${TABLE_NAME}` (`purchaseDate`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "purchase_order",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "orderId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "purchase_order",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `merchant` TEXT, `orderDate` TEXT, `currency` TEXT NOT NULL, `notes` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "merchant",
+            "columnName": "merchant",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "orderDate",
+            "columnName": "orderDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "expense",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `orderId` INTEGER NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `mode` TEXT NOT NULL, `notes` TEXT, `createdAt` INTEGER NOT NULL, FOREIGN KEY(`orderId`) REFERENCES `purchase_order`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "orderId",
+            "columnName": "orderId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountMinor",
+            "columnName": "amountMinor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currency",
+            "columnName": "currency",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_expense_orderId",
+            "unique": false,
+            "columnNames": [
+              "orderId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_expense_orderId` ON `${TABLE_NAME}` (`orderId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "purchase_order",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "orderId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "expense_allocation",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`expenseId` INTEGER NOT NULL, `ownedCopyId` INTEGER NOT NULL, `amountMinor` INTEGER NOT NULL, PRIMARY KEY(`expenseId`, `ownedCopyId`), FOREIGN KEY(`expenseId`) REFERENCES `expense`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`ownedCopyId`) REFERENCES `owned_copy`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "expenseId",
+            "columnName": "expenseId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ownedCopyId",
+            "columnName": "ownedCopyId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "amountMinor",
+            "columnName": "amountMinor",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "expenseId",
+            "ownedCopyId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_expense_allocation_ownedCopyId",
+            "unique": false,
+            "columnNames": [
+              "ownedCopyId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_expense_allocation_ownedCopyId` ON `${TABLE_NAME}` (`ownedCopyId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "expense",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "expenseId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "owned_copy",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "ownedCopyId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e523348e1ccd09d3844d90fcafb55c3b')"
+    ]
+  }
+}

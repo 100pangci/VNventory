@@ -185,6 +185,10 @@ class ViewModelRegressionTest {
             val copy = collection.getById(id)!!
             assertEquals("日本語の題名", copy.vnTitle)
             assertEquals("初回限定版", copy.releaseTitle)
+            assertEquals("日本語の題名", copy.vnOriginalTitle)
+            assertEquals("Romanized", copy.vnRomanizedTitle)
+            assertEquals("初回限定版", copy.releaseOriginalTitle)
+            assertEquals("Limited", copy.releaseRomanizedTitle)
             assertEquals(6800L, copy.priceMinor)
             assertEquals("JPY", copy.currency)
         }

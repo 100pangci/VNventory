@@ -1,5 +1,9 @@
 package com.vnventory.app.ui.detail
 
+import com.vnventory.app.ui.text.uiTitle
+import com.vnventory.app.ui.text.uiReleaseName
+import com.vnventory.app.ui.text.uiSecondaryTitle
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -162,15 +166,15 @@ private fun DetailPoster(state: CopyDetailUiState) {
             contentAlignment = Alignment.Center,
         ) {
             VnCover(
-                state.coverUrl, copy.vnTitle,
+                state.coverUrl, copy.uiTitle(),
                 Modifier.width(152.dp).height(218.dp).shadow(14.dp, RoundedCornerShape(16.dp)),
                 corner = 16.dp, contentScale = ContentScale.Fit,
             )
         }
         Spacer(Modifier.height(16.dp))
-        Text(copy.vnTitle, style = MaterialTheme.typography.headlineSmall)
+        Text(copy.uiTitle(), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
-        Text(state.release?.title ?: copy.displayReleaseName.localized(), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant)
+        Text(copy.uiReleaseName(), style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant)
         Spacer(Modifier.height(12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Tag(copy.condition.label.localized(), emphasized = true)
@@ -200,7 +204,7 @@ private fun VndbInfoCard(state: CopyDetailUiState) {
             LabeledRow(stringResource(R.string.vn_id)) { Text(it.id) }
             if (release == null) {
                 LabeledRow(stringResource(R.string.vn_release_date)) { Text(it.released ?: stringResource(R.string.unknown)) }
-                it.altTitle?.let { title -> LabeledRow(stringResource(R.string.vn_original_title)) { Text(title) } }
+                it.uiSecondaryTitle()?.let { title -> LabeledRow(stringResource(R.string.title_secondary)) { Text(title) } }
             }
         }
         description?.let {

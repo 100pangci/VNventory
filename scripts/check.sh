@@ -6,6 +6,8 @@ cleanup() { "$ROOT/gradlew" -p "$ROOT" --stop; }
 trap cleanup EXIT
 python3 "$ROOT/scripts/tests/setup-toolchain-test.py"
 python3 "$ROOT/scripts/tests/string-resources-test.py"
+python3 "$ROOT/scripts/check-ui-strings.py"
+python3 "$ROOT/scripts/tests/ui-string-guard-test.py"
 python3 "$ROOT/scripts/tests/changelog-test.py"
 python3 "$ROOT/scripts/tests/release-test.py"
 python3 "$ROOT/scripts/tests/branding-test.py"

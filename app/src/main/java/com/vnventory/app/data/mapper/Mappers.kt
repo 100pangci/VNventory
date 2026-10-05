@@ -18,18 +18,22 @@ import com.vnventory.app.domain.model.VnInfo
 
 fun VnCacheEntity.toDomain(): VnInfo = VnInfo(
     id = vndbId,
-    title = title,
-    altTitle = altTitle,
+    legacyTitle = title,
+    legacyAltTitle = altTitle,
     released = released,
     imageUrl = imageUrl,
     description = description,
     fromCache = true,
+    originalTitle = originalTitle,
+    romanizedTitle = romanizedTitle,
 )
 
 fun VnInfo.toEntity(fetchedAt: Long): VnCacheEntity = VnCacheEntity(
+    originalTitle = originalTitle,
+    romanizedTitle = romanizedTitle,
     vndbId = id,
-    title = title,
-    altTitle = altTitle,
+    title = legacyTitle,
+    altTitle = legacyAltTitle,
     released = released,
     imageUrl = imageUrl,
     description = description,
@@ -37,9 +41,11 @@ fun VnInfo.toEntity(fetchedAt: Long): VnCacheEntity = VnCacheEntity(
 )
 
 fun ReleaseCacheEntity.toDomain(vnId: String): ReleaseInfo = ReleaseInfo(
+    originalTitle = originalTitle,
+    romanizedTitle = romanizedTitle,
     id = vndbId,
     vnId = vnId,
-    title = title,
+    legacyTitle = title,
     released = released,
     platforms = splitCompact(platforms, ReleaseCacheEntity.SEP_LIST),
     languages = splitCompact(languages, ReleaseCacheEntity.SEP_LIST),
@@ -52,8 +58,10 @@ fun ReleaseCacheEntity.toDomain(vnId: String): ReleaseInfo = ReleaseInfo(
 )
 
 fun ReleaseInfo.toEntity(fetchedAt: Long): ReleaseCacheEntity = ReleaseCacheEntity(
+    originalTitle = originalTitle,
+    romanizedTitle = romanizedTitle,
     vndbId = id,
-    title = title,
+    title = legacyTitle,
     released = released,
     platforms = platforms.joinToString(ReleaseCacheEntity.SEP_LIST),
     languages = languages.joinToString(ReleaseCacheEntity.SEP_LIST),
@@ -66,6 +74,10 @@ fun ReleaseInfo.toEntity(fetchedAt: Long): ReleaseCacheEntity = ReleaseCacheEnti
 )
 
 fun OwnedCopyEntity.toDomain(): OwnedCopy = OwnedCopy(
+    vnOriginalTitle = vnOriginalTitle,
+    vnRomanizedTitle = vnRomanizedTitle,
+    releaseOriginalTitle = releaseOriginalTitle,
+    releaseRomanizedTitle = releaseRomanizedTitle,
     id = id,
     vnId = vnId,
     releaseId = releaseId,
@@ -85,6 +97,10 @@ fun OwnedCopyEntity.toDomain(): OwnedCopy = OwnedCopy(
 )
 
 fun OwnedCopy.toEntity(): OwnedCopyEntity = OwnedCopyEntity(
+    vnOriginalTitle = vnOriginalTitle,
+    vnRomanizedTitle = vnRomanizedTitle,
+    releaseOriginalTitle = releaseOriginalTitle,
+    releaseRomanizedTitle = releaseRomanizedTitle,
     id = id,
     vnId = vnId,
     releaseId = releaseId,

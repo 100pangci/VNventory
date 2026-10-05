@@ -25,6 +25,7 @@ import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.ExpenseCategory
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
+import com.vnventory.app.domain.model.TitleDisplayMode
 import com.vnventory.app.ui.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -103,6 +104,38 @@ class BackupTest {
     }
 
     private fun decode(bytes: ByteArray) = BackupCodec.decode(ByteArrayInputStream(bytes))
+
+    @Test fun `dual snapshots title preference and independent switches round trip with legacy defaults`() = runTest {
+        val data = sample().copy(titleDisplayMode = TitleDisplayMode.ROMANIZED, showShelfReleaseNames = true,
+            showShelfPrices = true, showPriceStats = true, copies = sample().copies.map {
+                it.copy(vnOriginalTitle = "サクラノ詩", vnRomanizedTitle = "Sakura no Uta",
+                    releaseOriginalTitle = "初回版", releaseRomanizedTitle = "First Edition")
+            })
+        assertEquals(data, decode(BackupCodec.encode(data)))
+        val settings = settings()
+        val repo = repository(settings)
+        repo.restore(decode(BackupCodec.encode(data)), true, true)
+        assertEquals(TitleDisplayMode.ROMANIZED, settings.titleDisplayMode.first())
+        assertTrue(settings.showShelfReleaseNames.first())
+        assertEquals(data.copies.map { it.vnRomanizedTitle }, repo.snapshot().copies.map { it.vnRomanizedTitle })
+        val root = Json.parseToJsonElement(BackupCodec.encode(sample()).decodeToString()).jsonObject
+        for (version in listOf(1, 2)) {
+            val legacy = JsonObject(root + mapOf(
+                "schemaVersion" to kotlinx.serialization.json.JsonPrimitive(version),
+                "settings" to JsonObject(root.getValue("settings").jsonObject - "titleDisplayMode"),
+                "copies" to kotlinx.serialization.json.JsonArray(root.getValue("copies").let { it as kotlinx.serialization.json.JsonArray }.map {
+                    JsonObject(it.jsonObject - "vnOriginalTitle" - "vnRomanizedTitle" - "releaseOriginalTitle" - "releaseRomanizedTitle")
+                }),
+            ))
+            val old = decode(legacy.toString().encodeToByteArray())
+            assertEquals(TitleDisplayMode.ORIGINAL, old.titleDisplayMode)
+            assertNull(old.copies.first().vnOriginalTitle)
+            settings.setTitleDisplayMode(TitleDisplayMode.ROMANIZED)
+            repo.restore(old, true, true)
+            assertEquals(TitleDisplayMode.ORIGINAL, settings.titleDisplayMode.first())
+            assertEquals("作品名", repo.snapshot().copies.first().vnTitle)
+        }
+    }
 
     private fun invalid(data: BackupData) {
         assertThrows(IllegalArgumentException::class.java) { decode(BackupCodec.encode(data)) }

@@ -31,6 +31,7 @@ class BackupRepository(
                 showPriceStats = preferences.showPriceStats,
                 appearance = preferences.appearance,
                 showShelfReleaseNames = preferences.showShelfReleaseNames,
+                titleDisplayMode = preferences.titleDisplayMode,
             )
         }
     }
@@ -68,6 +69,7 @@ class BackupRepository(
                     priceStats = data.showPriceStats,
                     appearance = data.appearance,
                     shelfReleaseNames = data.showShelfReleaseNames,
+                    titleDisplayMode = data.titleDisplayMode,
                 )
                 true
             } catch (e: CancellationException) {

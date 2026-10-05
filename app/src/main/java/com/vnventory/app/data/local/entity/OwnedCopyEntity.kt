@@ -60,4 +60,8 @@ data class OwnedCopyEntity(
     val notes: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    val vnOriginalTitle: String? = null,
+    val vnRomanizedTitle: String? = null,
+    val releaseOriginalTitle: String? = null,
+    val releaseRomanizedTitle: String? = null,
 )

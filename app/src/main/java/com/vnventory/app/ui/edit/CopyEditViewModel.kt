@@ -228,7 +228,7 @@ class CopyEditViewModel(
             requireMessage(release.vnId == copy.vnId) { message(MessageKey.RELEASE_VN_MISMATCH) }
             collectionRepository.bindRelease(copy.id, release, coverUrl = release.displayImage())
             copyState.value = collectionRepository.getById(copy.id)
-            formState.update { it.copy(releaseTitle = release.title) }
+            formState.update { it.copy(releaseTitle = release.displayTitle(com.vnventory.app.domain.model.TitleDisplayMode.ORIGINAL)) }
             bindSheetState.value = BindSheetState()
         }
     }

@@ -16,6 +16,7 @@ import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.ShopChannels
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
+import com.vnventory.app.domain.model.TitleDisplayMode
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -48,6 +49,7 @@ data class BackupSettings(
     val showPriceStats: Boolean = false,
     val showShelfReleaseNames: Boolean = false,
     val appearance: BackupAppearance? = null,
+    val titleDisplayMode: String = TitleDisplayMode.ORIGINAL.name,
 )
 
 @Serializable
@@ -83,6 +85,10 @@ data class BackupCopy(
     val notes: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    val vnOriginalTitle: String? = null,
+    val vnRomanizedTitle: String? = null,
+    val releaseOriginalTitle: String? = null,
+    val releaseRomanizedTitle: String? = null,
 )
 
 @Serializable
@@ -114,6 +120,7 @@ data class BackupData(
     val showPriceStats: Boolean = false,
     val appearance: AppearancePreferences? = null,
     val showShelfReleaseNames: Boolean = false,
+    val titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
@@ -186,7 +193,7 @@ object BackupCodec {
             schemaVersion = VERSION,
             exportedAt = data.exportedAt,
             settings = BackupSettings(data.defaultCurrency, data.shopChannels, data.showShelfPrices, data.showPriceStats, data.showShelfReleaseNames,
-                data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }),
+                data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }, data.titleDisplayMode.name),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
             expenses = data.expenses.map { it.toBackup() },
@@ -228,6 +235,7 @@ object BackupCodec {
                 showPriceStats = document.settings.showPriceStats,
                 appearance = document.settings.appearance?.let { AppearancePreferences(ThemeMode.valueOf(it.themeMode), it.dynamicColor) },
                 showShelfReleaseNames = document.settings.showShelfReleaseNames,
+                titleDisplayMode = TitleDisplayMode.valueOf(document.settings.titleDisplayMode),
             )
         } catch (e: java.time.DateTimeException) {
             throw MessageException(message(MessageKey.BACKUP_INVALID_DATE), e)
@@ -261,6 +269,10 @@ private fun BackupOrder.toEntity() = PurchaseOrderEntity(
 )
 
 private fun OwnedCopyEntity.toBackup() = BackupCopy(
+    vnOriginalTitle = vnOriginalTitle,
+    vnRomanizedTitle = vnRomanizedTitle,
+    releaseOriginalTitle = releaseOriginalTitle,
+    releaseRomanizedTitle = releaseRomanizedTitle,
     id = id,
     vnId = vnId,
     releaseId = releaseId,
@@ -280,6 +292,10 @@ private fun OwnedCopyEntity.toBackup() = BackupCopy(
 )
 
 private fun BackupCopy.toEntity() = OwnedCopyEntity(
+    vnOriginalTitle = vnOriginalTitle,
+    vnRomanizedTitle = vnRomanizedTitle,
+    releaseOriginalTitle = releaseOriginalTitle,
+    releaseRomanizedTitle = releaseRomanizedTitle,
     id = id,
     vnId = vnId,
     releaseId = releaseId,

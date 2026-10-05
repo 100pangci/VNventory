@@ -41,10 +41,15 @@
     <string name="copy_condition_number">%1$s · %2$s</string>
     <string name="copy_multiplier">×%1$d</string>
     <string name="price_display_settings">价格展示</string>
-    <string name="backup_price_display_hint">同时恢复价格展示与版本名显示设置；旧备份没有这些设置时默认关闭。</string>
+    <string name="backup_price_display_hint">同时恢复标题显示、价格展示与版本名显示设置；旧备份默认使用原标题，展示开关默认关闭。</string>
     <string name="show_shelf_prices">在书架显示价格</string>
     <string name="show_price_stats">显示价格统计</string>
     <string name="settings_shelf_display">书架显示</string>
+    <string name="title_display_mode">标题显示</string>
+    <string name="title_secondary">另一标题</string>
+    <string name="title_original">原标题</string>
+    <string name="title_romanized">罗马音</string>
+    <string name="separator_compact_slash">/</string>
     <string name="show_shelf_release_names">显示版本名</string>
     <string name="show_shelf_release_names_hint">默认隐藏；开启后在作品名下方以浅色小字显示。</string>
     <string name="recorded_spending">已记录的支出（含附加费用）</string>
@@ -250,8 +255,8 @@
     <string name="settings_default_currency_hint">添加收藏、新建订单和费用时的默认币种，每笔仍可单独修改。</string>
     <string name="settings_currency_current">当前默认货币：%1$s</string>
     <string name="backup_export">导出备份</string>
-    <string name="backup_export_hint">将外观、默认货币、价格展示设置、店铺/渠道列表、所有收藏、购买批次、费用和手动分摊保存为 JSON 文件。</string>
-    <string name="backup_snapshot_hint">保留标题、版本、封面链接及购买记录，不包含 VNDB 缓存或图片文件。</string>
+    <string name="backup_export_hint">将外观、默认货币、标题与书架展示设置、店铺/渠道列表、所有收藏、购买批次、费用和手动分摊保存为 JSON 文件。</string>
+    <string name="backup_snapshot_hint">保留作品与版本的原标题、罗马音快照、旧标题、封面链接及购买记录，不包含 VNDB 缓存或图片文件。</string>
     <string name="backup_restore">恢复备份</string>
     <string name="backup_restore_hint">先选择并检查备份，再决定追加还是覆盖。追加保留现有记录，但重复导入会增加重复收藏。</string>
     <string name="backup_replace_hint">覆盖将替换全部收藏、订单和费用，请先导出当前数据。</string>

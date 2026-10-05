@@ -65,6 +65,7 @@ import com.vnventory.app.di.AppViewModelProvider
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
+import com.vnventory.app.domain.model.TitleDisplayMode
 import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.ui.components.AppLogo
 import com.vnventory.app.ui.components.SectionCard
@@ -114,10 +115,12 @@ fun SettingsPreferencesScreen(
     val priceStats by viewModel.showPriceStats.collectAsStateWithLifecycle()
     val shelfReleaseNames by viewModel.showShelfReleaseNames.collectAsStateWithLifecycle()
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
+    val titleDisplayMode by viewModel.titleDisplayMode.collectAsStateWithLifecycle()
     SettingsDetailScaffold(stringResource(R.string.settings_preferences), onBack) { padding ->
         SettingsPreferencesContent(currency, appearance, shelfPrices, priceStats, shelfReleaseNames,
             viewModel::setThemeMode, viewModel::setDynamicColor, viewModel::setShowShelfPrices, viewModel::setShowPriceStats, viewModel::setShowShelfReleaseNames,
-            viewModel::setDefaultCurrency, Modifier.padding(padding), error = { OperationError(viewModel) })
+            viewModel::setDefaultCurrency, Modifier.padding(padding), error = { OperationError(viewModel) },
+            titleDisplayMode = titleDisplayMode, onTitleDisplayMode = viewModel::setTitleDisplayMode)
     }
 }
 
@@ -127,6 +130,8 @@ internal fun SettingsPreferencesContent(
     onThemeMode: (ThemeMode) -> Unit, onDynamicColor: (Boolean) -> Unit,
     onShelfPrices: (Boolean) -> Unit, onPriceStats: (Boolean) -> Unit, onShelfReleaseNames: (Boolean) -> Unit, onCurrency: (String) -> Unit,
     modifier: Modifier = Modifier, error: @Composable () -> Unit = {},
+    titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
+    onTitleDisplayMode: (TitleDisplayMode) -> Unit = {},
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -143,6 +148,10 @@ internal fun SettingsPreferencesContent(
         }
         item {
             FormSection(stringResource(R.string.settings_shelf_display), R.drawable.ic_ui_grid) {
+                Text(stringResource(R.string.title_display_mode), style = MaterialTheme.typography.bodyMedium)
+                OptionGrid(TitleDisplayMode.entries,
+                    { stringResource(if (it == TitleDisplayMode.ORIGINAL) R.string.title_original else R.string.title_romanized) },
+                    titleDisplayMode, onTitleDisplayMode, maxColumns = 2)
                 PreferenceSwitchRow(stringResource(R.string.show_shelf_release_names), shelfReleaseNames, onShelfReleaseNames,
                     hint = stringResource(R.string.show_shelf_release_names_hint))
             }

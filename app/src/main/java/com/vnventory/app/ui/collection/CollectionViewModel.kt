@@ -35,12 +35,14 @@ class CollectionViewModel(container: AppContainer) : ActionViewModel() {
 
     private val query = MutableStateFlow(CollectionQuery())
 
-    private val copiesFlow = query.flatMapLatest { q ->
+    private val displayQuery = combine(query, container.settingsRepository.titleDisplayMode) { q, mode -> q.copy(titleDisplayMode = mode) }
+
+    private val copiesFlow = displayQuery.flatMapLatest { q ->
         collectionRepository.observeCollection(q).catch { reportError(it); emit(emptyList()) }
     }
 
     val uiState: StateFlow<CollectionUiState> =
-        combine(query, copiesFlow, container.settingsRepository.showShelfPrices, container.settingsRepository.showShelfReleaseNames, collectionRepository.observeCollection(CollectionQuery())) { q, copies, showPrices, showReleaseNames, allCopies ->
+        combine(displayQuery, copiesFlow, container.settingsRepository.showShelfPrices, container.settingsRepository.showShelfReleaseNames, collectionRepository.observeCollection(CollectionQuery())) { q, copies, showPrices, showReleaseNames, allCopies ->
             CollectionUiState(query = q, copies = copies, loading = false, showPrices = showPrices, showReleaseNames = showReleaseNames, allCopies = allCopies)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CollectionUiState())
 

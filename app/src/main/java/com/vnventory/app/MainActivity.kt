@@ -8,6 +8,8 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import com.vnventory.app.ui.text.LocalTitleDisplayMode
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vnventory.app.di.AppViewModelProvider
@@ -23,6 +25,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val appearance by themeViewModel.appearance.collectAsStateWithLifecycle()
+            val titleDisplayMode by themeViewModel.titleDisplayMode.collectAsStateWithLifecycle()
             appearance?.let { preferences ->
                 val dark = preferences.themeMode.isDark(isSystemInDarkTheme())
                 SideEffect {
@@ -33,7 +36,9 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 VNventoryTheme(preferences) {
-                    VNventoryRoot()
+                    CompositionLocalProvider(LocalTitleDisplayMode provides titleDisplayMode) {
+                        VNventoryRoot()
+                    }
                 }
             }
         }

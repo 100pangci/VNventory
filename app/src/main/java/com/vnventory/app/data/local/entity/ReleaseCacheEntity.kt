@@ -30,6 +30,8 @@ data class ReleaseCacheEntity(
     /** 实体包装图（VNDB 有则用，否则 UI 回落到 VN 封面） */
     val packagingImageUrl: String?,
     val fetchedAt: Long,
+    val originalTitle: String? = null,
+    val romanizedTitle: String? = null,
 ) {
     companion object {
         const val SEP_LIST = ","

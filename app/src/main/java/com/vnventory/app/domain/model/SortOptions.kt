@@ -21,4 +21,5 @@ enum class CollectionSort(private val labelKey: MessageKey) {
 data class CollectionQuery(
     val search: String = "",
     val sort: CollectionSort = CollectionSort.ADDED_DESC,
+    val titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
 )

@@ -106,7 +106,9 @@ class CollectionRepository(
             ownedCopyDao.update(
                 existing.copy(
                     releaseId = release.id,
-                    releaseTitle = release.title,
+                    releaseTitle = release.displayTitle(com.vnventory.app.domain.model.TitleDisplayMode.ORIGINAL),
+                    releaseOriginalTitle = release.originalTitle,
+                    releaseRomanizedTitle = release.romanizedTitle,
                     coverUrl = coverUrl ?: existing.coverUrl,
                     updatedAt = System.currentTimeMillis(),
                 )
@@ -132,15 +134,26 @@ class CollectionRepository(
             """
             WHERE (vnTitle LIKE '%' || ? || '%'
                 OR IFNULL(releaseTitle, '') LIKE '%' || ? || '%'
+                OR IFNULL(vnOriginalTitle, '') LIKE '%' || ? || '%'
+                OR IFNULL(vnRomanizedTitle, '') LIKE '%' || ? || '%'
+                OR IFNULL(releaseOriginalTitle, '') LIKE '%' || ? || '%'
+                OR IFNULL(releaseRomanizedTitle, '') LIKE '%' || ? || '%'
                 OR IFNULL(shop, '') LIKE '%' || ? || '%'
                 OR vnId = ?)
             """.trimIndent()
         }
+        fun titleOrder(original: String, romanized: String, legacy: String, placeholder: String): String {
+            val columns = if (query.titleDisplayMode == com.vnventory.app.domain.model.TitleDisplayMode.ORIGINAL) listOf(original, romanized) else listOf(romanized, original)
+            return "COALESCE(" + (columns + legacy + placeholder).joinToString(",") { "NULLIF(TRIM($it), '')" } + ", '—') COLLATE NOCASE"
+        }
+        val vnOrder = titleOrder("vnOriginalTitle", "vnRomanizedTitle", "vnTitle", "vnId")
+        val releaseOrder = "CASE WHEN releaseId IS NULL THEN TRIM(releaseTitle) ELSE " +
+            titleOrder("releaseOriginalTitle", "releaseRomanizedTitle", "releaseTitle", "releaseId") + " END COLLATE NOCASE"
         val orderBy = when (query.sort) {
             CollectionSort.ADDED_DESC -> "createdAt DESC, id DESC"
             CollectionSort.ADDED_ASC -> "createdAt ASC, id ASC"
-            CollectionSort.TITLE_ASC -> "vnTitle COLLATE NOCASE ASC, releaseTitle COLLATE NOCASE ASC, id ASC"
-            CollectionSort.TITLE_DESC -> "vnTitle COLLATE NOCASE DESC, releaseTitle COLLATE NOCASE DESC, id DESC"
+            CollectionSort.TITLE_ASC -> "$vnOrder ASC, $releaseOrder ASC, id ASC"
+            CollectionSort.TITLE_DESC -> "$vnOrder DESC, $releaseOrder DESC, id DESC"
             CollectionSort.PURCHASE_DESC -> "(purchaseDate IS NULL) ASC, purchaseDate DESC, createdAt DESC"
             CollectionSort.PURCHASE_ASC -> "(purchaseDate IS NULL) ASC, purchaseDate ASC, createdAt ASC"
             CollectionSort.PRICE_DESC -> "(priceMinor IS NULL) ASC, priceMinor DESC, id DESC"
@@ -150,7 +163,7 @@ class CollectionRepository(
         return if (keyword.isEmpty()) {
             SimpleSQLiteQuery(sql)
         } else {
-            SimpleSQLiteQuery(sql, arrayOf(keyword, keyword, keyword, keyword))
+            SimpleSQLiteQuery(sql, Array(8) { keyword })
         }
     }
 }

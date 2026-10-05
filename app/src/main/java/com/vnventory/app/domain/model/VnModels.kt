@@ -7,16 +7,23 @@ package com.vnventory.app.domain.model
  */
 data class VnInfo(
     val id: String,
-    val title: String,
-    val altTitle: String?,
+    /** Unclassified legacy cache fallback; never use to infer original/romanized. */
+    val legacyTitle: String,
+    val legacyAltTitle: String?,
     val released: String?,
     val imageUrl: String?,
     val description: String?,
     val fromCache: Boolean = false,
+    val originalTitle: String? = null,
+    val romanizedTitle: String? = null,
 ) {
     /** 原文（优先日语）作为主标题；保留 VNDB 拉丁字标题供搜索和辅助显示。 */
-    val displayTitle: String get() = altTitle?.takeIf { it.isNotBlank() } ?: title
-    val secondaryTitle: String? get() = title.takeIf { it.isNotBlank() && it != displayTitle }
+    fun displayTitle(mode: TitleDisplayMode): String = displayTitle(mode, originalTitle, romanizedTitle, legacyAltTitle.normalizedTitle() ?: legacyTitle, id)
+    fun secondaryTitle(mode: TitleDisplayMode): String? =
+        (if (mode == TitleDisplayMode.ORIGINAL) romanizedTitle else originalTitle).normalizedTitle()
+            ?.takeIf { it != displayTitle(mode) }
+    val displayTitle: String get() = displayTitle(TitleDisplayMode.ORIGINAL)
+    val secondaryTitle: String? get() = secondaryTitle(TitleDisplayMode.ORIGINAL)
 }
 
 /**
@@ -28,7 +35,8 @@ data class VnInfo(
 data class ReleaseInfo(
     val id: String,
     val vnId: String,
-    val title: String,
+    /** Unclassified legacy cache fallback. */
+    val legacyTitle: String,
     val released: String?,
     val platforms: List<String>,
     val languages: List<String>,
@@ -38,7 +46,10 @@ data class ReleaseInfo(
     val official: Boolean?,
     val packagingImageUrl: String?,
     val coverImageUrl: String?,
+    val originalTitle: String? = null,
+    val romanizedTitle: String? = null,
 ) {
+    fun displayTitle(mode: TitleDisplayMode): String = displayTitle(mode, originalTitle, romanizedTitle, legacyTitle, id)
     fun displayImage(): String? = packagingImageUrl ?: coverImageUrl
 }
 

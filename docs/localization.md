@@ -11,6 +11,23 @@
 
 `scripts/check.sh` 包含字符串回归检查，防止在生产 Kotlin 中重新硬编码文案；测试和 Debug 预览的展示样本不属于应用固定文案。
 
+`scripts/check-ui-strings.py` 保守检查 `Text`（含命名参数）、标签、无障碍说明、Snackbar、Toast 及中文/日文字符串。注释、testTag、SQL、稳定 ID 不作为翻译文案；必要例外在 `ALLOWLIST` 中按文件路径和完整字面量列出原因。检查器自身有误报/漏报边界测试，资源检查还验证生产、测试和预览中的所有 strings/plurals 引用。
+
+本轮 audit 未发现仍硬编码的中文固定 UI 文案；补齐了版本选择/绑定页面的紧凑斜线分隔符资源，保持原有视觉间距。测试中的断言、手势模拟页面以及用户/VNDB 示例内容不提取为翻译资源。
+
+## VNDB 标题显示
+
+- 设置 → 偏好设置 → 书架显示 → 标题显示，默认 **原标题**；与「显示版本名」独立。
+- VN 原题沿用日语 main → 日语 official → main → alttitle 的规则；罗马音使用 main 的 `titles.latin`，缺失则使用顶层 `title`。ASCII 原题、与罗马音同名的原题均保留。
+- Release 原题使用 `alttitle`，罗马音使用 `title`；空白转为 null，不自行转写或翻译。
+- Domain 明确保存 `originalTitle` / `romanizedTitle`；旧缓存列映射为 `legacyTitle` / `legacyAltTitle`，不推断类型。
+- Room v4 在两个 cache 中增加双标题，在 OwnedCopy 中增加 `vnOriginalTitle` / `vnRomanizedTitle` / `releaseOriginalTitle` / `releaseRomanizedTitle`。3→4 只加 nullable 列，保留旧标题、购买事实和自增序列；1→2→3→4 的正式迁移链继续可用。
+- 新增收藏写入两套快照，不依赖当前显示偏好。手动版本保留用户输入；绑定 VNDB Release 时只更新所绑定收藏的版本快照。
+- 全局 DataStore Flow 由应用级 ViewModel 订阅，`LocalTitleDisplayMode` 提供给全部 Compose 页面和弹窗；`ui/text/Titles.kt` 调用领域层统一 fallback，切换只重组 UI、不联网、不 UPDATE 收藏。
+- 两种模式都回退另一种标题 → legacy → VNDB ID（最终安全非空占位）。收藏显示以 snapshot 为准，不依赖 cache；旧收藏只有一个标题时，两种模式显示相同 legacy 值，不猜测补齐。
+- 书架搜索同时匹配四个双标题快照字段、旧作品/版本名、手动版本名、店铺和 VNDB ID；离线 VN 搜索同时匹配 cache 双标题与旧字段。标题排序跟随当前显示模式；其它排序维持原规则。
+- 备份仍为 v2：按已有可选字段扩展策略增加 `settings.titleDisplayMode` 和四个快照字段，无需破坏性格式升级。旧 v1/v2 缺少模式时为 ORIGINAL，缺少双标题时为 null；恢复无网络请求，旧标题完整保留。
+
 ## 常用店铺/渠道
 
 设置 → **店铺 / 渠道**：支持新增、改名和删除，名称去除首尾空白，空名和重复名会被拒绝。

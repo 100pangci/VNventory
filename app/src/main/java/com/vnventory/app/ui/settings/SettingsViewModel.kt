@@ -20,6 +20,7 @@ import com.vnventory.app.domain.text.MessageKey
 import com.vnventory.app.domain.text.message
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
+import com.vnventory.app.domain.model.TitleDisplayMode
 
 data class BackupUiState(
     val busy: Boolean = false,
@@ -102,6 +103,10 @@ class SettingsViewModel(
     fun setShowShelfPrices(value: Boolean) { launchAction { settingsRepository.setShowShelfPrices(value) } }
     fun setShowPriceStats(value: Boolean) { launchAction { settingsRepository.setShowPriceStats(value) } }
     fun setShowShelfReleaseNames(value: Boolean) { launchAction { settingsRepository.setShowShelfReleaseNames(value) } }
+
+    val titleDisplayMode = settingsRepository.titleDisplayMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TitleDisplayMode.ORIGINAL)
+    fun setTitleDisplayMode(mode: TitleDisplayMode) { launchAction { settingsRepository.setTitleDisplayMode(mode) } }
 
     val appearance = settingsRepository.appearance
         .catch { reportError(it); emit(AppearancePreferences()) }
