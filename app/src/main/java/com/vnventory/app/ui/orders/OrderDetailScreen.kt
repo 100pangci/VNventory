@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -95,10 +97,11 @@ fun OrderDetailScreen(
     var confirmDeleteOrder by remember { mutableStateOf(false) }
     var expenseToDelete by remember { mutableStateOf<Expense?>(null) }
     var copyToRemove by remember { mutableStateOf<OwnedCopy?>(null) }
+    BackHandler(enabled = state.orderEditor.saving) { /* 保存期间禁止离开。 */ }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = { if (!state.editor.open) OperationError(viewModel) },
+        bottomBar = { if (!state.editor.open && !state.orderEditor.open) OperationError(viewModel) },
         topBar = {
             TopAppBar(
                 title = {
@@ -109,13 +112,16 @@ fun OrderDetailScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = onBack, enabled = !state.orderEditor.saving) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     if (state.detail != null) {
-                        IconButton(onClick = { confirmDeleteOrder = true }) {
+                        IconButton(onClick = viewModel::openOrderEditor, enabled = !state.orderEditor.open && !state.editor.open) {
+                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.order_edit))
+                        }
+                        IconButton(onClick = { confirmDeleteOrder = true }, enabled = !state.orderEditor.open) {
                             Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.order_delete))
                         }
                     }
@@ -139,6 +145,15 @@ fun OrderDetailScreen(
 
     if (state.editor.open) {
         ExpenseEditorSheet(state = state, viewModel = viewModel)
+    }
+
+    if (state.orderEditor.open) {
+        val form = state.orderEditor.form
+        OrderCreateDialog(OrdersUiState(createOpen = true, creating = state.orderEditor.saving,
+            form = form, shopChannels = state.shopChannels),
+            viewModel::onOrderTitleChange, viewModel::onOrderMerchantChange, viewModel::onOrderDateChange,
+            viewModel::onOrderCurrencyChange, viewModel::onOrderNotesChange,
+            viewModel::closeOrderEditor, viewModel::saveOrder, error = { OperationError(viewModel) }, editing = true)
     }
 
     if (confirmDeleteOrder) {
@@ -244,32 +259,15 @@ private fun OrderHeaderCard(detail: OrderDetail) {
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-            Text(
-                stringResource(R.string.goods_base),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
+        LabeledRow(stringResource(R.string.goods_base)) {
             val goods = detail.breakdown.goodsTotals
             com.vnventory.app.ui.components.MoneyTotalsInline(goods)
         }
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-            Text(
-                stringResource(R.string.fees_all),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
+        LabeledRow(stringResource(R.string.fees_all)) {
             val fees = detail.breakdown.feeTotals
             com.vnventory.app.ui.components.MoneyTotalsInline(fees)
         }
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-            Text(
-                stringResource(R.string.order_actual_spending),
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f),
-            )
+        LabeledRow(stringResource(R.string.order_actual_spending)) {
             com.vnventory.app.ui.components.MoneyTotalsInline(
                 totals = detail.breakdown.totalsByCurrency,
                 style = MaterialTheme.typography.titleMedium,
@@ -294,12 +292,13 @@ private fun OrderCopyRow(
     modifier: Modifier = Modifier,
     ordinal: Int? = null,
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
     ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         VnCover(
             url = copy.coverUrl,
             contentDescription = copy.vnTitle,
@@ -330,7 +329,8 @@ private fun OrderCopyRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Column(horizontalAlignment = Alignment.End) {
+        }
+        Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.End) {
             val totals = cost?.takeIf { it.feeShares.isNotEmpty() }?.totalsByCurrency.orEmpty()
             if (totals.isNotEmpty()) Text(stringResource(if (copy.priceMinor == null) R.string.recorded_cost else R.string.detail_final_cost), style = MaterialTheme.typography.labelSmall)
             totals.entries.sortedBy { it.key }.forEach { (currency, amount) ->
@@ -354,21 +354,25 @@ private fun ExpenseRow(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(expense.displayName.localized(), style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (expense.name != expense.category.name) Tag(text = expense.category.label.localized())
                 Tag(text = expense.mode.label.localized())
             }
         }
-        Column(horizontalAlignment = Alignment.End) {
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.expense_delete))
+        }
+        }
+        Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.End) {
             Text(
                 text = Money.formatWithCode(expense.amountMinor, expense.currency),
                 style = MaterialTheme.typography.titleSmall,
@@ -378,9 +382,6 @@ private fun ExpenseRow(
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.expense_delete))
         }
     }
 }
@@ -429,21 +430,15 @@ internal fun ExpenseEditorContent(
             detail.expenses.firstOrNull { it.id == editor.editingId }?.takeIf { it.name != it.category.name }?.let {
                 Text(it.displayName.localized(), style = MaterialTheme.typography.bodySmall)
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                (ExpenseCategory.fixedCategories + listOfNotNull(editor.category.takeIf { editor.editingId != null && !it.isFixed })).forEach { category ->
-                    FilterChip(editor.category == category, { onCategory(category) }, label = { Text(category.label.localized()) })
-                }
-            }
+            com.vnventory.app.ui.components.OptionGrid(
+                ExpenseCategory.fixedCategories + listOfNotNull(editor.category.takeIf { editor.editingId != null && !it.isFixed }),
+                { it.label.localized() }, editor.category, onCategory)
             MoneyInputField(editor.amountText, editor.currency, stringResource(R.string.amount), onAmount, onCurrency,
                 isError = editor.amountText.isNotBlank() && editor.parsedAmount == null)
         }
         FormSection(stringResource(R.string.allocation_mode), R.drawable.ic_ui_preferences) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                AllocationMode.entries.forEach { mode ->
-                    FilterChip(editor.mode == mode, { onMode(mode) }, label = { Text(mode.label.localized()) },
-                        enabled = mode != AllocationMode.BY_PRICE || (detail.copies.all { it.priceMinor != null } && detail.copies.map { it.currency }.distinct().size <= 1))
-                }
-            }
+            com.vnventory.app.ui.components.OptionGrid(AllocationMode.entries, { it.label.localized() }, editor.mode, onMode,
+                enabled = { mode -> mode != AllocationMode.BY_PRICE || (detail.copies.all { it.priceMinor != null } && detail.copies.map { it.currency }.distinct().size <= 1) })
             if (editor.mode == AllocationMode.MANUAL) ManualAllocationEditor(detail, editor, onManualAmount)
             else if (detail.copies.map { it.currency }.distinct().size > 1) Text(stringResource(R.string.allocation_mixed_hint), style = MaterialTheme.typography.bodySmall)
             state.editorError?.let { Text(it.localized(), color = MaterialTheme.colorScheme.error) }

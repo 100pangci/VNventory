@@ -17,8 +17,9 @@ CMDLINE_BUILD=15859902
 
 JDK="${VNVENTORY_JDK:-${JAVA_HOME:-}}"
 if [ -z "$JDK" ]; then
-  for candidate in "$HOME/Software/jdk-21.0.12.1+1" \
+  for candidate in "$HOME"/Software/lib/jdk-21* "$HOME/Software/jdk-21.0.12.1+1" \
     /usr/lib/jvm/java-21-openjdk /usr/lib/jvm/java-21-openjdk-amd64 \
+    "$HOME"/Software/lib/jdk-17* \
     /usr/lib/jvm/java-17-openjdk /usr/lib/jvm/java-17-openjdk-amd64; do
     if [ -x "$candidate/bin/java" ]; then JDK="$candidate"; break; fi
   done

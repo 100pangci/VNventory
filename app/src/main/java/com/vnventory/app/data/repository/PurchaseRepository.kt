@@ -93,9 +93,13 @@ class PurchaseRepository(
     }
 
     suspend fun updateOrder(order: PurchaseOrder) = withContext(io) {
-        requireMessage(order.title.isNotBlank()) { message(MessageKey.ORDER_TITLE_REQUIRED) }
-        LocalRules.currency(order.currency)
-        orderDao.update(order.toEntity())
+        database.withTransaction {
+            requireMessage(order.title.isNotBlank()) { message(MessageKey.ORDER_TITLE_REQUIRED) }
+            LocalRules.currency(order.currency)
+            val old = requireNotNullMessage(orderDao.getById(order.id)) { message(MessageKey.ORDER_MISSING) }
+            // 默认币种只影响之后的录入，不改已有商品、费用及手动分摊。
+            orderDao.update(order.copy(createdAt = old.createdAt).toEntity())
+        }
     }
 
     /** 删除订单：费用级联删除，收藏盒保留（orderId 置空） */

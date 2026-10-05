@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.FlowRow
@@ -44,6 +47,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -51,6 +55,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.vnventory.app.ui.components.OptionGrid
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.BuildConfig
@@ -135,12 +142,9 @@ internal fun SettingsPreferencesContent(
         }
         item {
             FormSection(stringResource(R.string.settings_default_currency), R.drawable.ic_ui_batch, hint = stringResource(R.string.settings_default_currency_hint)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Money.commonCurrencies.forEach { code ->
-                        FilterChip(currency == code, { onCurrency(code) },
-                            label = { Text(stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code })) })
-                    }
-                }
+                OptionGrid(Money.commonCurrencies,
+                    { code -> stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code }) },
+                    currency, onCurrency, maxColumns = 2)
                 if (currency !in Money.commonCurrencies) InfoLine(stringResource(R.string.settings_currency_current, currency))
             }
         }
@@ -172,33 +176,38 @@ internal fun AppearancePreferencesContent(
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                .toggleable(appearance.dynamicColor, enabled = dynamicColorSupported, role = Role.Switch, onValueChange = onDynamicColorChange),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.settings_dynamic_color), style = MaterialTheme.typography.bodyLarge)
-                Text(stringResource(if (dynamicColorSupported) R.string.settings_dynamic_color_hint else R.string.settings_dynamic_color_unavailable),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(appearance.dynamicColor, onCheckedChange = null, enabled = dynamicColorSupported)
-        }
+        PreferenceSwitchRow(stringResource(R.string.settings_dynamic_color), appearance.dynamicColor, onDynamicColorChange,
+            Modifier.testTag("dynamic-color-row"), enabled = dynamicColorSupported,
+            hint = stringResource(if (dynamicColorSupported) R.string.settings_dynamic_color_hint else R.string.settings_dynamic_color_unavailable))
     }
 }
 
 @Composable
 internal fun PriceDisplayPreferences(shelfPrices: Boolean, priceStats: Boolean, onShelfPrices: (Boolean) -> Unit, onPriceStats: (Boolean) -> Unit) {
     Column {
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(shelfPrices, role = Role.Switch, onValueChange = onShelfPrices), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.show_shelf_prices), Modifier.weight(1f))
-            Switch(shelfPrices, onCheckedChange = null)
+        PreferenceSwitchRow(stringResource(R.string.show_shelf_prices), shelfPrices, onShelfPrices)
+        PreferenceSwitchRow(stringResource(R.string.show_price_stats), priceStats, onPriceStats)
+    }
+}
+
+/** 整行只保留一个开关动作，按住时的反馈与圆角触控范围一致。 */
+@Composable
+private fun PreferenceSwitchRow(
+    title: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier,
+    enabled: Boolean = true, hint: String? = null,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    Row(modifier.fillMaxWidth().heightIn(min = 56.dp).clip(MaterialTheme.shapes.small)
+        .background(if (pressed) MaterialTheme.colorScheme.onSurface.copy(alpha = .08f) else Color.Transparent)
+        .toggleable(checked, interactionSource = interaction, indication = null, enabled = enabled, role = Role.Switch, onValueChange = onChange)
+        .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            hint?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(priceStats, role = Role.Switch, onValueChange = onPriceStats), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.show_price_stats), Modifier.weight(1f))
-            Switch(priceStats, onCheckedChange = null)
-        }
+        Switch(checked, onCheckedChange = null, enabled = enabled)
     }
 }
 

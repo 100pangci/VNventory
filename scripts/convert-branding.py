@@ -201,7 +201,7 @@ class Converter:
         root.append(group)
         if safe:
             # AdaptiveIconDrawable enlarges its layers. Keep the sleeve tips within its safe circle.
-            safe_group = element("group", scaleX="0.84", scaleY="0.84", pivotX="512", pivotY="512")
+            safe_group = element("group", scaleX="0.68", scaleY="0.68", pivotX="512", pivotY="512")
             group.append(safe_group)
             group = safe_group
         return root, group

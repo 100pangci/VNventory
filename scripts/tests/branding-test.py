@@ -58,6 +58,16 @@ class BrandingTest(unittest.TestCase):
                 self.assertEqual("@drawable/ic_launcher_foreground_safe", drawables.get("foreground"))
                 self.assertEqual("@drawable/ic_launcher_monochrome", drawables.get("monochrome"))
 
+    def test_launcher_foregrounds_use_matching_uniform_insets(self):
+        generated = convert_branding.Converter().files()
+        for name in ("ic_launcher_foreground_safe.xml", "ic_launcher_monochrome.xml"):
+            root = ET.fromstring(generated[name])
+            inset = root.find("group/group")
+            self.assertEqual("0.68", inset.get(ANDROID + "scaleX"))
+            self.assertEqual(inset.get(ANDROID + "scaleX"), inset.get(ANDROID + "scaleY"))
+            self.assertEqual("512", inset.get(ANDROID + "pivotX"))
+            self.assertEqual("512", inset.get(ANDROID + "pivotY"))
+
 
 if __name__ == "__main__":
     unittest.main()

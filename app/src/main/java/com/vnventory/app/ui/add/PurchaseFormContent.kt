@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -89,8 +91,7 @@ internal fun PurchaseFormContent(
                 { onFormChange(form.copy(priceText = it)) }, { onFormChange(form.copy(currency = it)) },
                 isError = !form.priceValid,
                 supportingText = stringResource(if (!form.priceValid) R.string.amount_invalid else R.string.amount_blank_unknown))
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.purchase_quantity), style = MaterialTheme.typography.bodyMedium)
+            val quantityControls: @Composable () -> Unit = {
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
@@ -105,6 +106,16 @@ internal fun PurchaseFormContent(
                             Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.quantity_increase))
                         }
                     }
+                }
+            }
+            val scale = LocalDensity.current.fontScale
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                if (maxWidth < 240.dp || scale > 1.2f) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.purchase_quantity), style = MaterialTheme.typography.bodyMedium)
+                    quantityControls()
+                } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(stringResource(R.string.purchase_quantity), style = MaterialTheme.typography.bodyMedium)
+                    quantityControls()
                 }
             }
             Text(stringResource(R.string.purchase_multiple_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -16,7 +16,7 @@ VNventory 是一款面向 Galgame / Visual Novel 实体收藏的 Android 应用�
 - **VNDB 作品与版本**：按需搜索和分页，查看发行日期、平台、语言、发行商、JAN/EAN 与包装图；无对应版本时可创建手动版本，之后再绑定。
 - **逐盒购买记录**：价格可留空（未记录）或明确填 0；记录币种、品相、日期、店铺/渠道与备注，批量添加也为每盒建立独立记录。
 - **常用店铺/渠道**：在设置中维护名称，在收藏或批次表单里直接选择；也可临时填写。管理候选项不会更改历史购买记录。
-- **购买批次与成本**：直接选择国际运费、岛内运费、国内运费、手续费或税费，预览整个批次的成本与分摊；历史自定义费用仍可读取和编辑。
+- **购买批次与成本**：批次创建后可编辑名称、店铺/渠道、日期、默认币种与备注；默认币种变更不转换已有商品或费用。直接选择国际运费、岛内运费、国内运费、手续费或税费，预览整个批次的成本与分摊；历史自定义费用仍可读取和编辑。
 - **按需展示价格**：「在书架显示价格」和「显示价格统计」独立设置，默认均关闭；详情始终可查看价格状态。统计仅汇总已记录金额并显示有价格的盒数/总盒数，不要求补齐历史记录。
 - **三种费用分摊**：平均分摊、按价格比例、手动指定；显示未分摊金额，并在保存时再次校验。
 - **JSON 备份与恢复**：系统文件选择器导出或导入，可追加或二次确认后覆盖；包含购买记录和可选恢复的常用店铺/渠道。
@@ -124,7 +124,7 @@ Release 开启 R8 优化/混淆和资源压缩；配置签名后 APK 使用 v2/v
 
 没有本地签名配置时 Debug 构建和测试不受影响；本地仍可执行 `assembleRelease` 生成未签名 APK，但该包不能作为已签名正式版的升级包。已签名 APK 位于 `app/build/outputs/apk/release/app-release.apk`，无签名配置时为同目录的 `app-release-unsigned.apk`。
 
-本地默认版本为 **1.0.1**（versionCode **1000001**，高于已有 `v1.0.0`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
+本地默认版本为 **1.0.2**（versionCode **1000002**，高于已有 `v1.0.1`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
 
 正式 tag 发布必须配齐 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。缺少任意必要 secret、构建失败、APK 缺失或签名校验失败均不发布，不允许用 unsigned APK 兜底。临时签名文件使用私有权限，日志不输出私钥或密码。Release notes 发布后幂等追加到 `CHANGELOG.md`，由 Actions bot 提交到 `main`；CHANGELOG 更新失败不影响已发布 APK，bot 的普通分支提交不会触发 tag 发布。
 

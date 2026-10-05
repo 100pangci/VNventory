@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.activity.compose.BackHandler
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
@@ -116,14 +117,16 @@ internal fun OrderCreateDialog(
     onDismiss: () -> Unit,
     onCreate: () -> Unit,
     error: @Composable () -> Unit = {},
+    editing: Boolean = false,
 ) {
     val focus = LocalFocusManager.current
+    BackHandler(enabled = state.creating) { /* 写入期间保留弹窗。 */ }
     // 可编辑下拉不参与 AlertDialog 的固有尺寸测量；限制高度并固定底部操作。
     Dialog(onDismissRequest = { if (!state.creating) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.padding(24.dp).widthIn(max = 560.dp).fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             Column(Modifier.heightIn(max = 640.dp)) {
-                Text(stringResource(R.string.order_create_title), style = MaterialTheme.typography.headlineSmall,
+                Text(stringResource(if (editing) R.string.order_edit_title else R.string.order_create_title), style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.padding(24.dp).semantics { heading() })
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -151,12 +154,15 @@ internal fun OrderCreateDialog(
                             onDateChange = onDateChange,
                             placeholder = stringResource(R.string.order_date),
                             modifier = Modifier.fillMaxWidth(),
+                            enabled = !state.creating,
                         )
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                             Text(stringResource(R.string.currency), style = MaterialTheme.typography.bodyMedium)
-                            CurrencySelector(selected = state.form.currency, onSelect = onCurrencyChange)
+                            CurrencySelector(selected = state.form.currency, onSelect = onCurrencyChange, enabled = !state.creating)
                         }
                     }
+                    if (editing) Text(stringResource(R.string.order_currency_edit_hint), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(
                         value = state.form.notes,
                         onValueChange = onNotesChange,
@@ -170,7 +176,7 @@ internal fun OrderCreateDialog(
                 FlowRow(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss, enabled = !state.creating) { Text(stringResource(R.string.action_cancel)) }
                     TextButton(onClick = { focus.clearFocus(); onCreate() }, enabled = state.form.canSave && !state.creating) {
-                        Text(stringResource(if (state.creating) R.string.saving else R.string.action_create))
+                        Text(stringResource(if (state.creating) R.string.saving else if (editing) R.string.action_save else R.string.action_create))
                     }
                 }
             }

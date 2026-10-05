@@ -9,12 +9,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.selection.selectableGroup
 import com.vnventory.app.R
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.ui.text.localized
@@ -64,7 +67,7 @@ fun MoneyInputField(
                 supportingText = supportingText?.let { text -> { Text(text) } }, isError = isError,
                 singleLine = true, shape = MaterialTheme.shapes.small,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                modifier = fieldModifier)
+                 modifier = fieldModifier.testTag("money-input"))
         }
         if (stacked) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             field(Modifier.fillMaxWidth())
@@ -74,10 +77,7 @@ fun MoneyInputField(
             }
         } else Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
             field(Modifier.weight(1f))
-            Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.currency), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                CurrencySelector(currency, onCurrencyChange)
-            }
+            CurrencySelector(currency, onCurrencyChange, Modifier.width(104.dp).testTag("money-currency"), label = stringResource(R.string.currency))
         }
     }
 }
@@ -91,15 +91,44 @@ fun ConditionPicker(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            CopyCondition.entries.forEach { value ->
-                FilterChip(condition == value, { onConditionChange(value) }, label = { Text(value.label.localized()) })
-            }
-        }
+        OptionGrid(CopyCondition.entries, { it.label.localized() }, condition, onConditionChange)
         if (condition == CopyCondition.CUSTOM) OutlinedTextField(
             note, onNoteChange, label = { Text(stringResource(R.string.condition_note)) },
             isError = note.isBlank(), singleLine = true, shape = MaterialTheme.shapes.small,
             modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next))
+    }
+}
+
+/** 等宽、等高的单选项；大字体减少列数，保留完整文字与最小触控高度。 */
+@Composable
+fun <T> OptionGrid(
+    options: List<T>, label: @Composable (T) -> String, selected: T, onSelect: (T) -> Unit,
+    modifier: Modifier = Modifier, maxColumns: Int = 3, enabled: (T) -> Boolean = { true },
+) {
+    val scale = LocalDensity.current.fontScale
+    BoxWithConstraints(modifier.fillMaxWidth().selectableGroup()) {
+        val columns = ((maxWidth.value + 8f) / (88f * scale + 8f)).toInt().coerceIn(1, maxColumns)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.chunked(columns).forEach { row ->
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { option ->
+                        val active = option == selected
+                        Surface(selected = active, onClick = { onSelect(option) }, enabled = enabled(option),
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp).fillMaxHeight(),
+                            shape = MaterialTheme.shapes.small,
+                            color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                            contentColor = if (!enabled(option)) MaterialTheme.colorScheme.onSurface.copy(alpha = .38f)
+                                else if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            border = if (active) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                            Box(Modifier.padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                Text(label(option), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
     }
 }
 

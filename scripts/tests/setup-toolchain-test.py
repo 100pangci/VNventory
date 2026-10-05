@@ -44,11 +44,14 @@ with (Path(__file__).parent / 'invocations.jsonl').open('a') as out:
         path.write_text(text)
         path.chmod(0o755)
 
-    def run_setup(self):
+    def run_setup(self, discover=False):
         env = {k: v for k, v in os.environ.items() if k not in (
-            "ANDROID_HOME", "ANDROID_SDK_ROOT", "GRADLE_USER_HOME", "ANDROID_USER_HOME", "JAVA_HOME"
+            "ANDROID_HOME", "ANDROID_SDK_ROOT", "GRADLE_USER_HOME", "ANDROID_USER_HOME", "JAVA_HOME", "VNVENTORY_JDK"
         )}
-        env["VNVENTORY_JDK"] = str(self.jdk)
+        if discover:
+            env["HOME"] = str(self.project / "mock home")
+        else:
+            env["VNVENTORY_JDK"] = str(self.jdk)
         subprocess.run(["bash", str(self.project / "scripts/setup-android-env.sh")], env=env,
                        cwd=ROOT, capture_output=True, text=True, check=True)
 
@@ -74,6 +77,13 @@ with (Path(__file__).parent / 'invocations.jsonl').open('a') as out:
         self.run_setup()
         self.assertEqual("# user's settings\nsdk.dir=/custom/sdk\n", local.read_text())
         self.assertEqual("org.gradle.java.home=/custom/jdk\norg.gradle.workers.max=1\n", config.read_text())
+
+    def test_discovers_jdk_under_software_lib_with_spaces_in_home(self):
+        jdk = self.project / "mock home/Software/lib/jdk-21.0.12.1+1"
+        shutil.copytree(self.jdk, jdk)
+        self.run_setup(discover=True)
+        properties = (self.project / "toolchain/gradle-home/gradle.properties").read_text()
+        self.assertIn("org.gradle.java.home=" + str(jdk).replace(" ", "\\ "), properties)
 
 
 if __name__ == "__main__":

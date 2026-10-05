@@ -120,18 +120,18 @@ fun CopyEditScreen(
                 val bindError = state.bindSheet.error
                 when {
                     state.bindSheet.loading && state.bindSheet.releases.isEmpty() ->
-                        LoadingState(modifier = Modifier.height(200.dp))
+                        LoadingState(modifier = Modifier.heightIn(min = 200.dp))
 
                     bindError != null && state.bindSheet.releases.isEmpty() ->
                         ErrorState(
                             message = bindError.localized(),
-                            modifier = Modifier.height(200.dp),
+                            modifier = Modifier.heightIn(min = 200.dp).verticalScroll(rememberScrollState()),
                         )
 
                     state.bindSheet.releases.isEmpty() -> EmptyState(
                         title = stringResource(R.string.release_bind_empty),
                         subtitle = stringResource(R.string.release_bind_empty_hint),
-                        modifier = Modifier.height(200.dp),
+                        modifier = Modifier.heightIn(min = 200.dp).verticalScroll(rememberScrollState()),
                     )
 
                     else -> LazyColumn(
@@ -219,11 +219,15 @@ internal fun CopyEditContent(state: CopyEditUiState, onFormChange: (EditFormStat
                 { onFormChange(form.copy(condition = it)) }, { onFormChange(form.copy(conditionNote = it)) })
         }
         FormSection(stringResource(R.string.purchase_records), R.drawable.ic_ui_shop, hint = stringResource(R.string.purchase_records_hint)) {
-            Text(stringResource(R.string.purchase_date), style = MaterialTheme.typography.labelMedium)
-            DateField(form.purchaseDate, { onFormChange(form.copy(purchaseDate = it)) }, Modifier.fillMaxWidth(), stringResource(R.string.purchase_date_optional))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.purchase_date), style = MaterialTheme.typography.labelMedium)
+                DateField(form.purchaseDate, { onFormChange(form.copy(purchaseDate = it)) }, Modifier.fillMaxWidth(), stringResource(R.string.purchase_date_optional))
+            }
             ShopChannelField(form.shop, { onFormChange(form.copy(shop = it)) }, state.shopChannels, Modifier.fillMaxWidth())
-            Text(stringResource(R.string.purchase_order), style = MaterialTheme.typography.labelMedium)
-            OrderSelector(state.orders, form.orderId, { onFormChange(form.copy(orderId = it)) }, Modifier.fillMaxWidth())
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.purchase_order), style = MaterialTheme.typography.labelMedium)
+                OrderSelector(state.orders, form.orderId, { onFormChange(form.copy(orderId = it)) }, Modifier.fillMaxWidth())
+            }
         }
         FormSection(stringResource(R.string.notes), R.drawable.ic_ui_info) {
             OutlinedTextField(form.notes, { onFormChange(form.copy(notes = it)) },

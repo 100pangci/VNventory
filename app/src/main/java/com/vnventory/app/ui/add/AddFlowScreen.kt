@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.imePadding
@@ -347,11 +348,11 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
 
         item {
             Surface(
+                onClick = { viewModel.selectManualVersion() },
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { viewModel.selectManualVersion() },
+                    .fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
@@ -369,14 +370,14 @@ private fun ReleasesStep(state: AddFlowUiState, viewModel: AddFlowViewModel) {
         }
 
         if (releases.loading && releases.releases.isEmpty()) {
-            item { LoadingState(modifier = Modifier.height(200.dp), message = stringResource(R.string.release_loading)) }
+            item { LoadingState(modifier = Modifier.heightIn(min = 200.dp), message = stringResource(R.string.release_loading)) }
         }
 
         releases.error?.let { error ->
             item {
                 ErrorState(
                     message = error.localized(),
-                    modifier = Modifier.height(200.dp),
+                    modifier = Modifier.heightIn(min = 200.dp),
                     onRetry = { viewModel.selectVn(vn) },
                 )
             }
@@ -432,7 +433,7 @@ private fun ReleaseRow(release: ReleaseInfo, coverFallback: String?, modifier: M
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 release.platforms.take(4).forEach { Tag(text = it) }
                 if (release.platforms.size > 4) Tag(text = stringResource(R.string.release_more_platforms, release.platforms.size - 4))
             }

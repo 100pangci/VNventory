@@ -184,6 +184,9 @@
     <string name="orders_create_first">建立第一个批次</string>
     <string name="order_create">新建批次</string>
     <string name="order_create_title">新建购买批次</string>
+    <string name="order_edit">编辑批次</string>
+    <string name="order_edit_title">编辑购买批次</string>
+    <string name="order_currency_edit_hint">默认币种仅用于之后的录入，不会转换已有商品或费用的金额与币种。</string>
     <string name="order_name_hint">名称，如：骏河屋九月购入</string>
     <string name="order_merchant_optional">商家 / 转运（可空）</string>
     <string name="order_date">下单日期</string>

@@ -68,15 +68,17 @@ class BrandingTest {
         assertEquals(255, Color.alpha(background.getPixel(0, 0)))
         assertEquals(255, Color.alpha(background.getPixel(1023, 1023)))
         assertTrue(render(normal).sameAs(render(round)))
+        val visibleForegroundWidth = sourceForeground.alphaBounds().width().toFloat() * icon.foreground.bounds.width() / 1024f
+        assertTrue("Launcher foreground leaves comfortable horizontal margins", visibleForegroundWidth <= 1024f * .72f)
         capture("brand-launcher", render(normal))
     }
 
     @Test fun `单色主题图标V与价签孔镂空不是一整块方形`() {
         val monochrome = render(drawable(R.drawable.ic_launcher_monochrome))
         assertEquals(0, Color.alpha(monochrome.getPixel(100, 100)))
-        assertEquals("Spine label remains punched out", 0, Color.alpha(monochrome.getPixel(315, 343)))
-        assertEquals("Collection-tab eyelet remains punched out", 0, Color.alpha(monochrome.getPixel(657, 273)))
-        assertEquals("The game sleeve is a foreground silhouette", 255, Color.alpha(monochrome.getPixel(387, 506)))
+        assertEquals("Spine label remains punched out", 0, Color.alpha(monochrome.getPixel(353, 375)))
+        assertEquals("Collection-tab eyelet remains punched out", 0, Color.alpha(monochrome.getPixel(629, 319)))
+        assertEquals("The game sleeve is a foreground silhouette", 255, Color.alpha(monochrome.getPixel(411, 507)))
         capture("brand-monochrome", monochrome)
     }
 

@@ -38,6 +38,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -57,6 +63,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -282,7 +289,7 @@ fun MoneyAmountText(
     Text(text = Money.formatWithCode(minor, currency), style = style, color = color, modifier = modifier)
 }
 
-/** 多币种合计，如 “¥1,200 + $30”；无数据显示 [emptyText] */
+/** 各币种合计分行呈现，避免长金额挤压其他列；无数据显示 [emptyText]。 */
 @Composable
 fun MoneyTotalsInline(
     totals: Map<String, Long>,
@@ -291,14 +298,12 @@ fun MoneyTotalsInline(
     color: Color = MaterialTheme.colorScheme.onSurface,
     emptyText: String = stringResource(R.string.empty_value),
 ) {
-    val text = if (totals.isEmpty()) {
-        emptyText
-    } else {
-        totals.entries.sortedBy { it.key }.joinToString(stringResource(R.string.separator_plus)) { (currency, amount) ->
-            Money.formatWithCode(amount, currency)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (totals.isEmpty()) Text(emptyText, style = style, color = color)
+        else totals.entries.sortedBy { it.key }.forEach { (currency, amount) ->
+            Text(Money.formatWithCode(amount, currency), style = style, color = color)
         }
     }
-    Text(text = text, style = style, color = color, modifier = modifier)
 }
 
 // ---------------------------------------------------------------------------
@@ -312,18 +317,20 @@ fun LabeledRow(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(88.dp),
-        )
-        Box(modifier = Modifier.weight(1f)) { content() }
+    val scale = LocalDensity.current.fontScale
+    val density = LocalDensity.current
+    val labelStyle = MaterialTheme.typography.bodyMedium
+    val measuredLabel = rememberTextMeasurer().measure(label, labelStyle, softWrap = false)
+    val longLabel = measuredLabel.size.width > with(density) { 92.dp.roundToPx() }
+    BoxWithConstraints(modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        if (maxWidth < 280.dp || scale > 1.2f || longLabel) Column {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.padding(top = 4.dp)) { content() }
+        } else Row(Modifier.fillMaxWidth()) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(104.dp).padding(end = 12.dp).alignByBaseline())
+            Box(Modifier.weight(1f).alignByBaseline()) { content() }
+        }
     }
 }
 
@@ -355,20 +362,38 @@ fun SectionCard(
 
 /** 货币选择（下拉） */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun CurrencySelector(
     selected: String,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
     options: List<String> = Money.commonCurrencies,
+    label: String? = null,
+    enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    if (label != null) {
+        ExposedDropdownMenuBox(expanded && enabled, { if (enabled) expanded = it }, modifier) {
+            OutlinedTextField(selected, {}, readOnly = true, singleLine = true, enabled = enabled,
+                label = { Text(label) }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled))
+            ExposedDropdownMenu(expanded && enabled, { expanded = false }) {
+                options.forEach { code ->
+                    DropdownMenuItem(text = { Text(stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code })) },
+                        onClick = { expanded = false; onSelect(code) })
+                }
+            }
+        }
+        return
+    }
     Box(modifier = modifier) {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.heightIn(min = 56.dp), shape = MaterialTheme.shapes.small) {
+        OutlinedButton(onClick = { expanded = true }, enabled = enabled, modifier = Modifier.heightIn(min = 56.dp), shape = MaterialTheme.shapes.small) {
             Text(selected)
             Spacer(Modifier.width(6.dp))
             Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
             options.forEach { code ->
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code })) },
@@ -384,6 +409,7 @@ fun CurrencySelector(
 
 /** 订单选择（下拉，可“不加入订单”） */
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun OrderSelector(
     orders: List<OrderSummary>,
     selectedId: Long?,
@@ -392,12 +418,12 @@ fun OrderSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val label = orders.firstOrNull { it.order.id == selectedId }?.order?.title ?: stringResource(R.string.order_unassigned)
-    Box(modifier = modifier.fillMaxWidth()) {
-        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), shape = MaterialTheme.shapes.small) {
-            Text(label, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+    ExposedDropdownMenuBox(expanded, { expanded = it }, modifier.fillMaxWidth()) {
+        OutlinedTextField(value = label, onValueChange = {}, readOnly = true,
+            maxLines = 2, shape = MaterialTheme.shapes.small,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable))
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.order_unassigned)) },
                 onClick = {
@@ -467,14 +493,15 @@ fun DateField(
     onDateChange: (LocalDate?) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = stringResource(R.string.date_select),
+    enabled: Boolean = true,
 ) {
     var showPicker by remember { mutableStateOf(false) }
-    OutlinedButton(onClick = { showPicker = true }, modifier = modifier.heightIn(min = 56.dp), shape = MaterialTheme.shapes.small) {
+    OutlinedButton(onClick = { showPicker = true }, enabled = enabled, modifier = modifier.heightIn(min = 56.dp), shape = MaterialTheme.shapes.small) {
         Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
         Text(date?.toString() ?: placeholder, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
-    if (showPicker) {
+    if (showPicker && enabled) {
         DatePickerModal(
             initial = date,
             onDismiss = { showPicker = false },

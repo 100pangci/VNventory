@@ -144,10 +144,11 @@ internal fun ShopEditorDialog(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 6.dp,
         ) {
-            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()).padding(24.dp),
+            Column(Modifier.heightIn(max = 520.dp).padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(stringResource(if (state.original == null) R.string.shops_add else R.string.shops_edit),
                     style = MaterialTheme.typography.headlineSmall, modifier = Modifier.semantics { heading() })
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = state.name,
                     onValueChange = onNameChange,
@@ -162,6 +163,7 @@ internal fun ShopEditorDialog(
                 Text(stringResource(R.string.shops_name_hint), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 error()
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
                     TextButton(onClick = onSave, enabled = !busy && state.name.isNotBlank()) {

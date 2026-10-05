@@ -59,6 +59,36 @@
 - 复查结果：189 项 JVM/Room/Compose 测试、18 项 Python 回归、Debug/unsigned Release 构建全部通过；Lint 0 错误，仍为 5 个既有告警。停止 Gradle 后确认当前用户 Java 进程为 0，未推送或重新发布安装包。
 - 实际渲染截图：`review-order-after-channel-deleted.png`、`review-order-dialog-large.png`、`review-backup-dialog-large.png`，位于 `toolchain/review/ui/screenshots/`。这是本机复现和自动回归，不替代用户设备上的崩溃日志、键盘和返回手势验收。
 
+## 控件排版与触控反馈（2026-10-05，v1.0.2）
+
+- 默认货币、品相、费用类型和分摊方式统一使用 `OptionGrid`：等宽列、同一行等高、48dp 最小触控高度、8dp 行列间距；根据可用宽度和字体倍率减少列数，末行不拉伸。保留选中语义与比例分摊禁用规则。
+- 金额横排时币种改用同结构的带标签只读输入框，消除外置标题导致的边框错位；窄屏和大字体继续上下排列。金额提示和 null/0 规则不变。
+- 动态取色和价格开关共用整行开关组件，圆角范围内提供持续按压反馈及内部留白，整行只执行一次切换；关闭或不支持时不会触发操作。
+- 数量标签与加减控件正常字号垂直居中，窄屏、大字体上下排列；编辑页日期和批次标签与控件按新增页的方式成组。
+- 标签和值正常宽度按首行基线对齐，大字体、窄屏或实际测量超出标签列的长标签改为上下排列。订单汇总复用该组件；多币种金额分行显示，订单收藏和费用金额移至独立整行，不再挤占标题。
+- 版本平台及费用标签允许换行，分区标题与操作在窄屏、大字体时分行。手动版本入口使用可点击 Surface，反馈沿圆角裁切。
+- 加载／错误／空状态不再固定为 200dp；添加页允许内容自然增高，绑定面板的长错误／空状态可滚动。店铺编辑弹窗固定标题和操作区，只滚动中间表单。
+- 新增 `LayoutAlignmentUiTest`，覆盖金额对齐、货币等宽末行、长选项与禁用项、持续按压圆角与单次切换、大字体标签排布、不同字号基线与长标签、多币种长金额与删除入口、店铺弹窗固定操作。
+- 本机渲染截图在 `toolchain/review/ui/screenshots/layout-*.png`，不提交；测试不能替代真机 IME、系统返回与厂商字体验收。
+- 本地默认版本升级至 1.0.2 / 1000002；不改数据库 schema、费用分摊、备份格式或已有购买事实。不创建 tag、不推送或发布 GitHub Release。
+- 修改前备份：`toolchain/backups/20261005-151448-before-layout-fixes.tar.gz`（UI 源码、资源、测试与本文）；恢复前解到独立目录逐文件比对，不覆盖后续修改。
+- 最终验证：197 项 JVM／Room／Compose 测试、18 项 Python 回归通过；Lint 0 错误、5 个既有告警，branding 和 diff 检查通过。最终 Release 经 R8／资源压缩并沿用本机签名，v2/v3 校验通过；交付文件 `app/build/outputs/apk/release/VNventory-v1.0.2.apk`。
+- 本机旧 JDK 21 路径已失效，本轮仅通过命令行 `-Dorg.gradle.java.home=/usr/lib/jvm/java-25-openjdk` 使用现有 JDK；不改机器路径配置。检查脚本的退出清理因旧路径报错后已显式使用有效路径执行 `--stop`，最终完整 Gradle 验证也通过。
+
+## 批次编辑与启动图标留白（2026-10-05，v1.0.2 续）
+
+- 购买批次详情页右上角增加“编辑批次”铅笔入口；复用新建批次表单，预填名称、店铺/渠道、日期、默认币种及备注。取消不写入，重新打开读取当前记录；候选渠道不存在时仍保留历史名称。
+- 保存中禁用表单、日期、币种、取消和返回，拒绝重复保存。失败保留草稿及可关闭错误，不创建新订单；更新在事务中检查订单仍存在，并保留创建时间。默认币种变更不转换或修改已有收藏、费用或手动分摊。
+- 通过字段级原子更新修改编辑草稿，避免多个字段快速修改时使用旧界面快照覆盖其他输入；Room 订阅刷新详情页标题、元数据和批次列表。
+- 启动图标彩色前景和单色前景的中心等比缩放由 0.84 调整为 0.68，图案尺寸减少约 19%，背景满铺不变。只改自适应启动图标留白，原 SVG、应用内标记和关于页图案保持不变。
+- `OrderEditingUiTest` 覆盖实际详情页入口、预填、取消/重新打开、全部字段保存、创建时间与收藏/费用/成本保持、空名称/已删除批次保护、失败保留草稿、小屏大字体与保存期间禁用；品牌测试校验两个前景等比缩放、最终占比与单色孔洞。
+- 截图：`order-edit-large-dark.png`、更新后的 `brand-launcher.png` 和 `brand-monochrome.png`，位于本机 `toolchain/review/ui/screenshots/`。
+- 修改前备份：`toolchain/backups/20261005-154050-before-order-edit-icon-inset.tar.gz`；恢复需解到独立目录逐文件比对，不覆盖此前 UI 修复或后续修改。
+- 最终验证：202 项 JVM／Room／Compose 测试、19 项 Python 回归通过；Lint 0 错误、5 个既有告警，v1.0.2 已签名 Release 重新构建并通过 v2/v3 校验。仍交付 `app/build/outputs/apk/release/VNventory-v1.0.2.apk`，不改版本号、不发布；已停止 Gradle daemon。
+- 随后修正本机 `toolchain/gradle-home/gradle.properties` 的 JDK 路径至 `~/Software/lib/jdk-21.0.12.1+1`，配置已按时间戳备份且继续不入库；仓库内引导脚本增加 `Software/lib` 下 JDK 21／17 的自动发现，保留显式环境变量及已有配置优先规则，并补充含空格路径的模拟回归。后续构建恢复使用 JDK 21，无需命令行路径覆盖。
+- 根据真机截图修复购买批次下拉菜单按内容收窄的问题：`OrderSelector` 改用与渠道同源的 `ExposedDropdownMenuBox`／只读输入框／等宽菜单，统一箭头及焦点样式；新增和编辑收藏均受益。保留“不加入订单”、选中 ID 与长名称换行；补充两种菜单等宽、选择/清空、长名称无溢出回归和 `layout-order-dropdown*.png` 截图。
+- JDK 21 下最终执行 `scripts/check.sh --offline :app:assembleRelease` 成功（退出清理也成功）：204 项 JVM／Room／Compose 测试、20 项 Python 回归通过，Lint 0 错误、5 个既有告警；Debug／已签名 Release 构建及 v2/v3 验签通过，Gradle 已停止。
+
 ## 品牌图标
 
 - 原稿：`assets/branding/vnventory.svg`，保留完整收集 V 图稿、渐变、椭圆阴影、裁切和无障碍描述；旧稿归档为 `vnventory-previous.svg`。

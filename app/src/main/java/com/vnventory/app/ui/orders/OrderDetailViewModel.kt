@@ -2,6 +2,7 @@ package com.vnventory.app.ui.orders
 
 import com.vnventory.app.di.AppContainer
 import com.vnventory.app.data.repository.PurchaseRepository
+import com.vnventory.app.data.repository.SettingsRepository
 import com.vnventory.app.domain.cost.CostEngine
 import com.vnventory.app.domain.cost.OrderCostBreakdown
 import com.vnventory.app.domain.model.*
@@ -72,24 +73,38 @@ data class OrderDetailUiState(
     val savingExpense: Boolean = false,
     val editorError: Message? = null,
     val preview: OrderCostBreakdown? = null,
+    val orderEditor: OrderEditorState = OrderEditorState(),
+    val shopChannels: List<String> = emptyList(),
+)
+
+data class OrderEditorState(
+    val open: Boolean = false,
+    val saving: Boolean = false,
+    val form: OrderFormState = OrderFormState(),
 )
 
 class OrderDetailViewModel(
     private val purchaseRepository: PurchaseRepository,
     private val orderId: Long,
+    private val settingsRepository: SettingsRepository? = null,
 ) : ActionViewModel() {
-    constructor(container: AppContainer, orderId: Long) : this(container.purchaseRepository, orderId)
+    constructor(container: AppContainer, orderId: Long) : this(container.purchaseRepository, orderId, container.settingsRepository)
     private val editorState = MutableStateFlow(ExpenseEditorState())
     private val savingState = MutableStateFlow(false)
     private val loaded = MutableStateFlow(false)
     private val detailState = MutableStateFlow<OrderDetail?>(null)
+    private val orderEditorState = MutableStateFlow(OrderEditorState())
 
-    val uiState: StateFlow<OrderDetailUiState> = combine(detailState, editorState, savingState, loaded) { detail, editor, saving, ready ->
+    private val expenseUiState = combine(detailState, editorState, savingState, loaded) { detail, editor, saving, ready ->
         var error = if (editor.open && detail != null) editor.validationError(detail) else null
         val preview = if (editor.open && detail != null && error == null) {
             try { detail.previewExpense(editor.candidate(detail)) } catch (e: IllegalArgumentException) { error = e.toAppError().message; null }
         } else null
         OrderDetailUiState(!ready, ready && detail == null, detail, editor, saving, error, preview)
+    }
+    val uiState: StateFlow<OrderDetailUiState> = combine(expenseUiState, orderEditorState,
+        settingsRepository?.shopChannels?.catch { reportError(it); emit(emptyList()) } ?: flowOf(emptyList())) { state, editor, shops ->
+        state.copy(orderEditor = editor, shopChannels = shops)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OrderDetailUiState())
 
     init {
@@ -99,7 +114,45 @@ class OrderDetailViewModel(
         }
     }
 
-    fun openNewExpense() { clearError(); editorState.value = ExpenseEditorState(open = true, currency = detailState.value?.order?.currency ?: "CNY") }
+    fun openOrderEditor() {
+        val order = detailState.value?.order ?: return
+        if (savingState.value || editorState.value.open || orderEditorState.value.saving) return
+        clearError()
+        orderEditorState.value = OrderEditorState(open = true, form = OrderFormState(
+            order.title, order.merchant.orEmpty(), order.orderDate, order.currency, order.notes.orEmpty()))
+    }
+    fun closeOrderEditor() {
+        if (!orderEditorState.value.saving) { clearError(); orderEditorState.value = OrderEditorState() }
+    }
+    private fun updateOrderForm(change: (OrderFormState) -> OrderFormState) {
+        orderEditorState.update { if (it.saving) it else it.copy(form = change(it.form)) }
+    }
+    fun onOrderTitleChange(value: String) = updateOrderForm { it.copy(title = value) }
+    fun onOrderMerchantChange(value: String) = updateOrderForm { it.copy(merchant = value) }
+    fun onOrderDateChange(value: java.time.LocalDate?) = updateOrderForm { it.copy(date = value) }
+    fun onOrderCurrencyChange(value: String) = updateOrderForm { it.copy(currency = Money.normalize(value)) }
+    fun onOrderNotesChange(value: String) = updateOrderForm { it.copy(notes = value) }
+    fun saveOrder() {
+        val editor = orderEditorState.value
+        if (!editor.open || editor.saving || !editor.form.canSave) return
+        orderEditorState.update { it.copy(saving = true) }
+        launchAction {
+            try {
+                val old = requireNotNullMessage(purchaseRepository.getOrder(orderId)) { message(MessageKey.ORDER_MISSING) }
+                val form = editor.form
+                purchaseRepository.updateOrder(old.copy(title = form.title.trim(),
+                    merchant = form.merchant.trim().takeIf { it.isNotBlank() }, orderDate = form.date,
+                    currency = Money.normalize(form.currency), notes = form.notes.takeIf { it.isNotBlank() },
+                    updatedAt = System.currentTimeMillis()))
+                orderEditorState.value = OrderEditorState()
+            } finally { orderEditorState.update { it.copy(saving = false) } }
+        }
+    }
+
+    fun openNewExpense() {
+        if (orderEditorState.value.open) return
+        clearError(); editorState.value = ExpenseEditorState(open = true, currency = detailState.value?.order?.currency ?: "CNY")
+    }
     fun openEditExpense(expense: Expense) {
         clearError()
         val currentCopyIds = detailState.value?.copies.orEmpty().map { it.id }.toSet()
