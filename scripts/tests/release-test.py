@@ -88,6 +88,9 @@ class ReleaseTest(unittest.TestCase):
         self.assertIn("Remove temporary signing files", workflow)
         self.assertIn("fail_on_unmatched_files: true", workflow)
         self.assertNotIn("app-release-unsigned.apk", workflow)
+        self.assertIn("scripts/release_notes.py", workflow)
+        self.assertNotIn("git log", workflow)
+        self.assertNotIn("releases/generate-notes", workflow)
         self.assertIn("paths-ignore:", (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
 
 
