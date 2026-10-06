@@ -32,6 +32,7 @@ class BackupRepository(
                 appearance = preferences.appearance,
                 showShelfReleaseNames = preferences.showShelfReleaseNames,
                 titleDisplayMode = preferences.titleDisplayMode,
+                showCopyNumbers = preferences.showCopyNumbers,
             )
         }
     }
@@ -70,6 +71,7 @@ class BackupRepository(
                     appearance = data.appearance,
                     shelfReleaseNames = data.showShelfReleaseNames,
                     titleDisplayMode = data.titleDisplayMode,
+                    showCopyNumbers = data.showCopyNumbers,
                 )
                 true
             } catch (e: CancellationException) {

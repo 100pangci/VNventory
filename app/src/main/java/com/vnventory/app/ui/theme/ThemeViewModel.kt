@@ -14,6 +14,10 @@ import kotlinx.coroutines.flow.stateIn
 class ThemeViewModel(settings: SettingsRepository) : ActionViewModel() {
     constructor(container: AppContainer) : this(container.settingsRepository)
 
+    val showCopyNumbers = settings.showCopyNumbers
+        .catch { reportError(it); emit(false) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     val titleDisplayMode = settings.titleDisplayMode
         .catch { reportError(it); emit(TitleDisplayMode.ORIGINAL) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TitleDisplayMode.ORIGINAL)

@@ -116,9 +116,9 @@ fun <T> OptionGrid(
                         Surface(selected = active, onClick = { onSelect(option) }, enabled = enabled(option),
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp).fillMaxHeight(),
                             shape = MaterialTheme.shapes.small,
-                            color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                             color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
                             contentColor = if (!enabled(option)) MaterialTheme.colorScheme.onSurface.copy(alpha = .38f)
-                                else if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                 else if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                             border = if (active) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                             Box(Modifier.padding(horizontal = 8.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                                 Text(label(option), style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)

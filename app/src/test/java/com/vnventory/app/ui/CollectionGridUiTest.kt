@@ -3,6 +3,8 @@ package com.vnventory.app.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
+import com.vnventory.app.ui.text.LocalShowCopyNumbers
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -31,24 +33,25 @@ class CollectionGridUiTest {
 
     private val usedSingle = ShelfPreviewData.copies.first().copy(condition = CopyCondition.USED)
 
-    private fun showCollection(copies: List<OwnedCopy>, showPrices: Boolean = false, showReleaseNames: Boolean = false, allCopies: List<OwnedCopy> = copies) {
+    private fun showCollection(copies: List<OwnedCopy>, showPrices: Boolean = false, showReleaseNames: Boolean = false, allCopies: List<OwnedCopy> = copies, showCopyNumbers: Boolean = false) {
         compose.setContent {
             VNventoryTheme {
                 Surface {
-                    CollectionContent(
+                    CompositionLocalProvider(LocalShowCopyNumbers provides showCopyNumbers) { CollectionContent(
                         CollectionUiState(copies = copies, loading = false, showPrices = showPrices, showReleaseNames = showReleaseNames, allCopies = allCopies),
                         {}, {}, {}, {},
-                    )
+                    ) }
                 }
             }
         }
     }
 
-    @Test fun `书架页只保留标题不再显示 COLLECTION`() {
+    @Test fun `书架页显示大写英文分类标题`() {
         showCollection(listOf(usedSingle))
         compose.onNodeWithText("我的书架").assertIsDisplayed()
-        compose.onNodeWithText("COLLECTION").assertDoesNotExist()
+        compose.onNodeWithText("COLLECTION").assertIsDisplayed()
         compose.onNodeWithText("VNVENTORY").assertDoesNotExist()
+        compose.onNodeWithText("VNventory").assertDoesNotExist()
     }
 
     @Test fun `网格单盒只显示品相且不显示第 1 盒`() {
@@ -75,7 +78,7 @@ class CollectionGridUiTest {
 
     @Test fun `网格多盒合并显示品相与盒号`() {
         val second = usedSingle.copy(id = 102, createdAt = 1)
-        showCollection(listOf(usedSingle, second))
+        showCollection(listOf(usedSingle, second), showCopyNumbers = true)
         compose.onNodeWithText("中古 · 第 1 盒").assertIsDisplayed()
         compose.onNodeWithText("中古 · 第 2 盒").assertIsDisplayed()
         // 不再单独显示品相或“第 X 盒”。
@@ -83,9 +86,38 @@ class CollectionGridUiTest {
         compose.onNodeWithText("第 2 盒").assertDoesNotExist()
     }
 
+    @Test fun `网格多盒默认不显示盒号且仍保留两盒`() {
+        showCollection(listOf(usedSingle, usedSingle.copy(id = 102, createdAt = 1)))
+        compose.onAllNodesWithText("中古").assertCountEquals(2)
+        compose.onNodeWithText("第 ", substring = true).assertDoesNotExist()
+        compose.onAllNodesWithText(usedSingle.vnTitle).assertCountEquals(2)
+    }
+
+    @Test fun `盒号开关即时更新网格与列表且不隐藏品相`() {
+        val enabled = mutableStateOf(false)
+        compose.setContent {
+            VNventoryTheme { Surface {
+                CompositionLocalProvider(LocalShowCopyNumbers provides enabled.value) {
+                    Column {
+                        com.vnventory.app.ui.components.OwnedCoverCard(usedSingle, {}, ordinal = 2, overlayMeta = true)
+                        OwnedListCard(usedSingle, {}, ordinal = 2)
+                    }
+                }
+            } }
+        }
+        compose.onNodeWithText("第 ", substring = true).assertDoesNotExist()
+        compose.onAllNodesWithText("中古").assertCountEquals(2)
+        compose.runOnIdle { enabled.value = true }
+        compose.onNodeWithText("中古 · 第 2 盒").assertIsDisplayed()
+        compose.onNodeWithText("第 2 盒").assertIsDisplayed()
+        compose.runOnIdle { enabled.value = false }
+        compose.onNodeWithText("第 ", substring = true).assertDoesNotExist()
+        compose.onAllNodesWithText("中古").assertCountEquals(2)
+    }
+
     @Test fun `网格搜索过滤后盒号仍按完整收藏计算`() {
         val second = usedSingle.copy(id = 102, createdAt = 1)
-        showCollection(copies = listOf(second), allCopies = listOf(usedSingle, second))
+        showCollection(copies = listOf(second), allCopies = listOf(usedSingle, second), showCopyNumbers = true)
         compose.onNodeWithText("中古 · 第 2 盒").assertIsDisplayed()
         compose.onNodeWithText("第 1 盒").assertDoesNotExist()
     }
@@ -176,7 +208,9 @@ class CollectionGridUiTest {
             VNventoryTheme {
                 Surface {
                     Column {
-                        OwnedListCard(usedSingle, {}, showPrice = true, ordinal = 6, showReleaseName = true)
+                        CompositionLocalProvider(LocalShowCopyNumbers provides true) {
+                            OwnedListCard(usedSingle, {}, showPrice = true, ordinal = 6, showReleaseName = true)
+                        }
                         OwnedListCard(manual, {}, showPrice = true)
                     }
                 }

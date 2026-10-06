@@ -36,6 +36,7 @@ data class SettingsSnapshot(
     val appearance: AppearancePreferences = AppearancePreferences(),
     val showShelfReleaseNames: Boolean = false,
     val titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
+    val showCopyNumbers: Boolean = false,
 )
 
 class SettingsRepository(
@@ -52,6 +53,11 @@ class SettingsRepository(
         .map { prefs -> prefs[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY }
 
     val shopChannels: Flow<List<String>> = dataStore.data.map { it.readShopChannels() }
+
+    val showCopyNumbers: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_COPY_NUMBERS] ?: false }
+    suspend fun setShowCopyNumbers(value: Boolean) { dataStore.edit { it[KEY_COPY_NUMBERS] = value } }
 
     val showShelfPrices: Flow<Boolean> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -106,8 +112,8 @@ class SettingsRepository(
     }
 
     /** All supplied preferences restore atomically; absent legacy appearance settings stay unchanged. */
-    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null, titleDisplayMode: TitleDisplayMode? = null) {
-        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null && titleDisplayMode == null) return
+    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null, titleDisplayMode: TitleDisplayMode? = null, showCopyNumbers: Boolean? = null) {
+        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null && titleDisplayMode == null && showCopyNumbers == null) return
         shops?.let(ShopChannels::validate)
         dataStore.edit { prefs ->
             currency?.let { prefs[KEY_DEFAULT_CURRENCY] = Money.normalize(it) }
@@ -116,6 +122,7 @@ class SettingsRepository(
             priceStats?.let { prefs[KEY_PRICE_STATS] = it }
             shelfReleaseNames?.let { prefs[KEY_SHELF_RELEASE_NAMES] = it }
             titleDisplayMode?.let { prefs[KEY_TITLE_DISPLAY_MODE] = it.name }
+            showCopyNumbers?.let { prefs[KEY_COPY_NUMBERS] = it }
             appearance?.let {
                 prefs[KEY_THEME_MODE] = it.themeMode.name
                 prefs[KEY_DYNAMIC_COLOR] = it.dynamicColor
@@ -124,7 +131,7 @@ class SettingsRepository(
     }
 
     suspend fun snapshot(): SettingsSnapshot = dataStore.data.first().let {
-        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance(), it[KEY_SHELF_RELEASE_NAMES] ?: false, it.readTitleDisplayMode())
+        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance(), it[KEY_SHELF_RELEASE_NAMES] ?: false, it.readTitleDisplayMode(), it[KEY_COPY_NUMBERS] ?: false)
     }
 
     private fun Preferences.readTitleDisplayMode() = TitleDisplayMode.entries.firstOrNull { it.name == this[KEY_TITLE_DISPLAY_MODE] } ?: TitleDisplayMode.ORIGINAL
@@ -158,6 +165,7 @@ class SettingsRepository(
         private val KEY_SHELF_PRICES = booleanPreferencesKey("show_shelf_prices")
         private val KEY_PRICE_STATS = booleanPreferencesKey("show_price_stats")
         private val KEY_SHELF_RELEASE_NAMES = booleanPreferencesKey("show_shelf_release_names")
+        private val KEY_COPY_NUMBERS = booleanPreferencesKey("show_copy_numbers")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
     }

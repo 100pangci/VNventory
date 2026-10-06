@@ -50,6 +50,7 @@ data class BackupSettings(
     val showShelfReleaseNames: Boolean = false,
     val appearance: BackupAppearance? = null,
     val titleDisplayMode: String = TitleDisplayMode.ORIGINAL.name,
+    val showCopyNumbers: Boolean = false,
 )
 
 @Serializable
@@ -121,6 +122,7 @@ data class BackupData(
     val appearance: AppearancePreferences? = null,
     val showShelfReleaseNames: Boolean = false,
     val titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
+    val showCopyNumbers: Boolean = false,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
@@ -193,7 +195,7 @@ object BackupCodec {
             schemaVersion = VERSION,
             exportedAt = data.exportedAt,
             settings = BackupSettings(data.defaultCurrency, data.shopChannels, data.showShelfPrices, data.showPriceStats, data.showShelfReleaseNames,
-                data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }, data.titleDisplayMode.name),
+                data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }, data.titleDisplayMode.name, data.showCopyNumbers),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
             expenses = data.expenses.map { it.toBackup() },
@@ -236,6 +238,7 @@ object BackupCodec {
                 appearance = document.settings.appearance?.let { AppearancePreferences(ThemeMode.valueOf(it.themeMode), it.dynamicColor) },
                 showShelfReleaseNames = document.settings.showShelfReleaseNames,
                 titleDisplayMode = TitleDisplayMode.valueOf(document.settings.titleDisplayMode),
+                showCopyNumbers = document.settings.showCopyNumbers,
             )
         } catch (e: java.time.DateTimeException) {
             throw MessageException(message(MessageKey.BACKUP_INVALID_DATE), e)

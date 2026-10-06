@@ -178,7 +178,7 @@ private fun DetailPoster(state: CopyDetailUiState) {
         Spacer(Modifier.height(12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Tag(copy.condition.label.localized(), emphasized = true)
-            state.ordinal?.let { Tag(stringResource(R.string.copy_number, it)) }
+            if (com.vnventory.app.ui.text.LocalShowCopyNumbers.current) state.ordinal?.let { Tag(stringResource(R.string.copy_number, it)) }
             if (copy.isManualRelease) Tag(stringResource(R.string.message_manual_release))
             state.release?.platforms?.forEach { Tag(it) }
         }

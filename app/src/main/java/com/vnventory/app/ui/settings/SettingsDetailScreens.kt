@@ -114,13 +114,15 @@ fun SettingsPreferencesScreen(
     val shelfPrices by viewModel.showShelfPrices.collectAsStateWithLifecycle()
     val priceStats by viewModel.showPriceStats.collectAsStateWithLifecycle()
     val shelfReleaseNames by viewModel.showShelfReleaseNames.collectAsStateWithLifecycle()
+    val showCopyNumbers by viewModel.showCopyNumbers.collectAsStateWithLifecycle()
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     val titleDisplayMode by viewModel.titleDisplayMode.collectAsStateWithLifecycle()
     SettingsDetailScaffold(stringResource(R.string.settings_preferences), onBack) { padding ->
         SettingsPreferencesContent(currency, appearance, shelfPrices, priceStats, shelfReleaseNames,
             viewModel::setThemeMode, viewModel::setDynamicColor, viewModel::setShowShelfPrices, viewModel::setShowPriceStats, viewModel::setShowShelfReleaseNames,
             viewModel::setDefaultCurrency, Modifier.padding(padding), error = { OperationError(viewModel) },
-            titleDisplayMode = titleDisplayMode, onTitleDisplayMode = viewModel::setTitleDisplayMode)
+            titleDisplayMode = titleDisplayMode, onTitleDisplayMode = viewModel::setTitleDisplayMode,
+            showCopyNumbers = showCopyNumbers, onShowCopyNumbers = viewModel::setShowCopyNumbers)
     }
 }
 
@@ -132,6 +134,8 @@ internal fun SettingsPreferencesContent(
     modifier: Modifier = Modifier, error: @Composable () -> Unit = {},
     titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
     onTitleDisplayMode: (TitleDisplayMode) -> Unit = {},
+    showCopyNumbers: Boolean = false,
+    onShowCopyNumbers: (Boolean) -> Unit = {},
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -154,6 +158,8 @@ internal fun SettingsPreferencesContent(
                     titleDisplayMode, onTitleDisplayMode, maxColumns = 2)
                 PreferenceSwitchRow(stringResource(R.string.show_shelf_release_names), shelfReleaseNames, onShelfReleaseNames,
                     hint = stringResource(R.string.show_shelf_release_names_hint))
+                PreferenceSwitchRow(stringResource(R.string.show_copy_numbers), showCopyNumbers, onShowCopyNumbers,
+                    hint = stringResource(R.string.show_copy_numbers_hint))
             }
         }
         item {
@@ -185,7 +191,7 @@ internal fun AppearancePreferencesContent(
                     shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size),
                     modifier = Modifier.heightIn(min = 48.dp).fillMaxHeight(),
                     icon = {},
-                    colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer),
+                    colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer, activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer),
                 ) {
                     Text(mode.label.localized(), style = MaterialTheme.typography.labelLarge.copy(lineBreak = LineBreak.Heading), textAlign = TextAlign.Center, maxLines = 2)
                 }

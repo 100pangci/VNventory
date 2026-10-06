@@ -325,7 +325,7 @@ private fun OrderCopyRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            ordinal?.let { Text(stringResource(R.string.copy_number, it), style = MaterialTheme.typography.labelSmall) }
+            if (com.vnventory.app.ui.text.LocalShowCopyNumbers.current) ordinal?.let { Text(stringResource(R.string.copy_number, it), style = MaterialTheme.typography.labelSmall) }
             Text(
                 text = stringResource(R.string.copy_base_amount, copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded)),
                 style = MaterialTheme.typography.labelSmall,
@@ -460,7 +460,7 @@ private fun AllocationPreview(detail: OrderDetail, preview: OrderCostBreakdown) 
         detail.copies.forEach { copy ->
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
-                    text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.uiTitle(), stringResource(R.string.copy_number, it)) } ?: copy.uiTitle(),
+                    text = detail.copies.copyOrdinal(copy).takeIf { com.vnventory.app.ui.text.LocalShowCopyNumbers.current }?.let { stringResource(R.string.text_pair, copy.uiTitle(), stringResource(R.string.copy_number, it)) } ?: copy.uiTitle(),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -503,7 +503,7 @@ private fun ManualAllocationEditor(
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Column {
                     Text(
-                        text = detail.copies.copyOrdinal(copy)?.let { stringResource(R.string.text_pair, copy.uiTitle(), stringResource(R.string.copy_number, it)) } ?: copy.uiTitle(),
+                        text = detail.copies.copyOrdinal(copy).takeIf { com.vnventory.app.ui.text.LocalShowCopyNumbers.current }?.let { stringResource(R.string.text_pair, copy.uiTitle(), stringResource(R.string.copy_number, it)) } ?: copy.uiTitle(),
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

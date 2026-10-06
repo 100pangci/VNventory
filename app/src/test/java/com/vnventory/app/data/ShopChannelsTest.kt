@@ -55,6 +55,22 @@ class ShopChannelsTest {
         File(context.cacheDir, "${UUID.randomUUID()}.preferences_pb")
     }
 
+    @Test fun `盒号默认关闭且开关持久保存并可恢复`() = runTest {
+        val dataStore = store()
+        val settings = SettingsRepository(dataStore)
+        assertFalse(settings.showCopyNumbers.first())
+        assertFalse(settings.snapshot().showCopyNumbers)
+        settings.setShowCopyNumbers(true)
+        assertTrue(SettingsRepository(dataStore).showCopyNumbers.first())
+        assertTrue(settings.snapshot().showCopyNumbers)
+        settings.restorePreferences(null, null, showCopyNumbers = false)
+        assertFalse(settings.showCopyNumbers.first())
+        settings.restorePreferences(null, null, showCopyNumbers = true)
+        assertTrue(settings.showCopyNumbers.first())
+        settings.setShowCopyNumbers(false)
+        assertFalse(settings.showCopyNumbers.first())
+    }
+
     @Test fun `候选列表去掉首尾空白并保持顺序且拒绝空名和重复`() = runTest {
         val settings = SettingsRepository(store())
         assertTrue(settings.shopChannels.first().isEmpty())

@@ -63,7 +63,7 @@ internal fun SettingsHomeContent(
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item { error() }
-        item { PageHeader(stringResource(R.string.nav_settings), subtitle = null, eyebrow = stringResource(R.string.app_name)) }
+        item { PageHeader(stringResource(R.string.nav_settings), subtitle = null, eyebrow = stringResource(R.string.settings_eyebrow)) }
         item {
             SettingsGroup(stringResource(R.string.settings_collection)) {
                 SettingsEntry(R.drawable.ic_ui_preferences, stringResource(R.string.settings_preferences), stringResource(R.string.settings_currency_summary, defaultCurrency), onPreferences)

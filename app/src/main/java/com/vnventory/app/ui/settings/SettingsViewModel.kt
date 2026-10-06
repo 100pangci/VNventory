@@ -96,6 +96,9 @@ class SettingsViewModel(
 
     val showShelfPrices = settingsRepository.showShelfPrices
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val showCopyNumbers = settingsRepository.showCopyNumbers
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    fun setShowCopyNumbers(value: Boolean) { launchAction { settingsRepository.setShowCopyNumbers(value) } }
     val showPriceStats = settingsRepository.showPriceStats
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val showShelfReleaseNames = settingsRepository.showShelfReleaseNames

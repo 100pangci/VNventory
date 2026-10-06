@@ -16,7 +16,7 @@ val releaseSigningFile = providers.environmentVariable("VNVENTORY_SIGNING_PROPER
 val releaseSigningProperties = Properties().apply {
     if (releaseSigningFile.isFile) releaseSigningFile.inputStream().use { load(it) }
 }
-val configuredVersionName = providers.gradleProperty("vnventoryVersionName").getOrElse("1.0.2")
+val configuredVersionName = providers.gradleProperty("vnventoryVersionName").getOrElse("1.0.4")
 val configuredVersionCode = versionCodeFor(configuredVersionName)
 providers.gradleProperty("vnventoryVersionCode").orNull?.let { expected ->
     require(expected.toIntOrNull() == configuredVersionCode) {

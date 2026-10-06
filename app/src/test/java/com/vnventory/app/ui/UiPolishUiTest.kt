@@ -42,7 +42,7 @@ class UiPolishUiTest {
     private fun show(dark: Boolean = false, fontScale: Float = 1f, content: @Composable () -> Unit) {
         compose.setContent {
             val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale), com.vnventory.app.ui.text.LocalShowCopyNumbers provides true) {
                 VNventoryTheme(darkTheme = dark) { Surface { Box(Modifier.fillMaxSize()) { content() } } }
             }
         }
@@ -65,6 +65,7 @@ class UiPolishUiTest {
             }
         }
         compose.onNodeWithText("故事，收进书架").assertIsDisplayed()
+        compose.onNodeWithText("VNventory").assertIsDisplayed()
         compose.onNodeWithText("每一个版本，每一盒", substring = true).assertDoesNotExist()
         compose.onNodeWithText("让刚到手的版本先登上书架").assertDoesNotExist()
         compose.onAllNodesWithText("初回限定版 · PC").assertCountEquals(0)

@@ -105,6 +105,25 @@ class BackupTest {
 
     private fun decode(bytes: ByteArray) = BackupCodec.decode(ByteArrayInputStream(bytes))
 
+    @Test fun `盒号开关备份往返且旧备份默认关闭`() = runTest {
+        val settings = settings()
+        settings.setShowCopyNumbers(true)
+        val backup = repository(settings).snapshot()
+        assertTrue(backup.showCopyNumbers)
+        val encoded = BackupCodec.encode(backup)
+        val restored = decode(encoded)
+        assertTrue(restored.showCopyNumbers)
+        settings.setShowCopyNumbers(false)
+        repository(settings).restore(restored, replace = false, restoreCurrency = false)
+        assertTrue(settings.showCopyNumbers.first())
+        val document = Json.parseToJsonElement(encoded.decodeToString()).jsonObject
+        val legacy = JsonObject(document + ("settings" to JsonObject(document.getValue("settings").jsonObject - "showCopyNumbers")))
+        val oldBackup = decode(legacy.toString().encodeToByteArray())
+        assertFalse(oldBackup.showCopyNumbers)
+        repository(settings).restore(oldBackup, replace = false, restoreCurrency = false)
+        assertFalse(settings.showCopyNumbers.first())
+    }
+
     @Test fun `dual snapshots title preference and independent switches round trip with legacy defaults`() = runTest {
         val data = sample().copy(titleDisplayMode = TitleDisplayMode.ROMANIZED, showShelfReleaseNames = true,
             showShelfPrices = true, showPriceStats = true, copies = sample().copies.map {

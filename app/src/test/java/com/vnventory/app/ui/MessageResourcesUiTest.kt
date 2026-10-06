@@ -30,6 +30,19 @@ class MessageResourcesUiTest {
     @get:Rule val compose = createComposeRule()
     private val resources get() = ApplicationProvider.getApplicationContext<Context>().resources
 
+    @Test fun `批次和收藏文案与顶部品牌保持统一`() {
+        assertEquals("VNventory", resources.getString(R.string.brand_eyebrow))
+        assertEquals("COLLECTION", resources.getString(R.string.collection_eyebrow))
+        assertEquals("SETTINGS", resources.getString(R.string.settings_eyebrow))
+        assertEquals("PURCHASE BATCHES", resources.getString(R.string.orders_eyebrow))
+        assertEquals("添加收藏", resources.getString(R.string.order_add_copy))
+        assertEquals("不加入购买批次", resources.getString(R.string.order_unassigned))
+        R.string::class.java.fields.forEach { field ->
+            val text = resources.getString(field.getInt(null))
+            assertFalse(field.name, text.contains("订单"))
+        }
+    }
+
     @Test fun `全部业务消息具有资源且格式参数可正确解析`() {
         val placeholders = Regex("%([1-9][0-9]*)\\$([sd])")
         MessageKey.entries.forEach { key ->

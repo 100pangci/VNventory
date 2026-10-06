@@ -13,6 +13,7 @@ VNventory 是一款面向 Galgame / Visual Novel 实体收藏的 Android 应用�
 ## 功能
 
 - **收藏书架**：封面网格与详细列表、搜索、排序；同一版本的多盒始终独立记录。
+- **可选盒号**：设置中可开启“显示盒号”，默认关闭；统一控制首页、书架、收藏详情及购买批次中的“第 X 盒”，不影响独立收藏记录。偏好随备份保存，旧备份缺少该字段时关闭。
 - **VNDB 作品与版本**：按需搜索和分页，查看发行日期、平台、语言、发行商、JAN/EAN 与包装图；无对应版本时可创建手动版本，之后再绑定。
 - **标题显示偏好**：一次请求保存原标题与罗马音，设置中可即时切换；新收藏保留双标题快照，离线或清空缓存后仍可切换。版本名显示开关独立，本地搜索同时匹配两套标题。
 - **逐盒购买记录**：价格可留空（未记录）或明确填 0；记录币种、品相、日期、店铺/渠道与备注，批量添加也为每盒建立独立记录。
@@ -127,7 +128,7 @@ Release 开启 R8 优化/混淆和资源压缩；配置签名后 APK 使用 v2/v
 
 没有本地签名配置时 Debug 构建和测试不受影响；本地仍可执行 `assembleRelease` 生成未签名 APK，但该包不能作为已签名正式版的升级包。已签名 APK 位于 `app/build/outputs/apk/release/app-release.apk`，无签名配置时为同目录的 `app-release-unsigned.apk`。
 
-本地默认版本为 **1.0.2**（versionCode **1000002**，高于已有 `v1.0.1`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
+本地默认版本为 **1.0.4**（versionCode **1000004**，高于已有 `v1.0.3`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
 
 正式 tag 发布必须配齐 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。缺少任意必要 secret、构建失败、APK 缺失或签名校验失败均不发布，不允许用 unsigned APK 兜底。临时签名文件使用私有权限，日志不输出私钥或密码。打标签前应基于实际代码变化编写 `CHANGELOG.md`，版本标题使用 `## [MAJOR.MINOR.PATCH] - YYYY-MM-DD`，分类使用 `###`。Actions 通过 `scripts/release_notes.py` 提取对应版本的已审阅说明用于 GitHub Release，不再根据提交标题生成；版本条目缺失、重复或格式错误时停止发布。发布后仍保留幂等 CHANGELOG 检查，已有版本条目不会被覆盖，bot 的普通分支提交不会触发 tag 发布。
 

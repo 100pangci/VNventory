@@ -162,6 +162,8 @@ class FormsSettingsUiTest {
     @Test fun `设置首页紧凑分组保持四个入口`() {
         var clicks = 0
         show { SettingsHomeContent("JPY", { clicks++ }, { clicks++ }, { clicks++ }, onShops = { clicks++ }) }
+        compose.onNodeWithText("VNventory").assertDoesNotExist()
+        compose.onNodeWithText("SETTINGS").assertIsDisplayed()
         for (label in listOf("偏好设置", "店铺 / 渠道", "备份与恢复", "关于与数据来源")) compose.onNodeWithText(label).performScrollTo().performClick()
         assertEquals(4, clicks)
         capture("settings-grouped-home")

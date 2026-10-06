@@ -38,6 +38,8 @@
     <string name="notes_optional">备注（可空）</string>
     <string name="release_date_unknown">发售日未知</string>
     <string name="copy_number">第 %1$d 盒</string>
+    <string name="show_copy_numbers">显示盒号</string>
+    <string name="show_copy_numbers_hint">在首页、书架、收藏详情和购买批次中显示“第 X 盒”，用于区分同版本的多盒收藏。</string>
     <string name="copy_condition_number">%1$s · %2$s</string>
     <string name="copy_multiplier">×%1$d</string>
     <string name="price_display_settings">价格展示</string>
@@ -64,10 +66,12 @@
     <string name="cover_mark" translatable="false">VN</string>
     <string name="error_mark" translatable="false">!</string>
     <string name="error_title">出错了</string>
-    <string name="order_unassigned">不加入订单</string>
+    <string name="order_unassigned">不加入购买批次</string>
     <string name="date_select">选择日期</string>
     <string name="app_logo_description">VNventory 应用图标</string>
-    <string name="brand_eyebrow" translatable="false">VNVENTORY</string>
+    <string name="brand_eyebrow" translatable="false">VNventory</string>
+    <string name="collection_eyebrow" translatable="false">COLLECTION</string>
+    <string name="settings_eyebrow" translatable="false">SETTINGS</string>
     <string name="add_collection">添加收藏</string>
     <string name="saving">正在保存…</string>
     <string name="home_title">故事，收进书架</string>
@@ -185,10 +189,10 @@
     <string name="description_collapse">收起作品简介</string>
     <string name="description_expand">展开作品简介</string>
     <string name="orders_title">购买批次</string>
-    <string name="orders_hint">把一次购买的多盒游戏，与运费、手续费放在一起。</string>
-    <string name="orders_eyebrow">PURCHASE BATCHES</string>
+    <string name="orders_hint">把一次购买的多盒收藏，与运费、手续费放在一起。</string>
+    <string name="orders_eyebrow" translatable="false">PURCHASE BATCHES</string>
     <string name="orders_empty_title">还没有购买批次</string>
-    <string name="orders_empty_hint">把一次购买或一个转运批次建为订单，国际运费 / 手续费就能整批分摊到每盒</string>
+    <string name="orders_empty_hint">建立购买批次，国际运费 / 手续费就能整批分摊到每盒收藏</string>
     <string name="orders_create_first">建立第一个批次</string>
     <string name="order_create">新建批次</string>
     <string name="order_create_title">新建购买批次</string>
@@ -200,19 +204,19 @@
     <string name="order_date">下单日期</string>
     <string name="order_spending">本批已记录支出</string>
     <string name="order_fee_included">含费用 %1$s</string>
-    <string name="order_delete">删除订单</string>
-    <string name="order_not_found">订单不存在或已被删除</string>
+    <string name="order_delete">删除购买批次</string>
+    <string name="order_not_found">购买批次不存在或已被删除</string>
     <string name="order_collection">本批收藏</string>
-    <string name="order_add_copy">添加游戏</string>
-    <string name="order_no_copies">批次还没有游戏。添加新收藏，或把已有的单盒收藏加入进来。</string>
+    <string name="order_add_copy">添加收藏</string>
+    <string name="order_no_copies">批次还没有收藏。添加新收藏，或把已有的单盒收藏加入进来。</string>
     <string name="order_expenses">批次费用</string>
     <string name="expense_add">添加费用</string>
     <string name="expense_empty_hint">选择国际运费、岛内运费、国内运费、手续费或税费；分摊方式可逐笔选择。</string>
-    <string name="order_delete_title">删除这个订单？</string>
-    <string name="order_delete_hint">订单里的费用会一起删除；%1$d 盒收藏会保留，只解除批次归属（之后可重新加入其它订单）。</string>
+    <string name="order_delete_title">删除这个购买批次？</string>
+    <string name="order_delete_hint">批次里的费用会一起删除；%1$d 盒收藏会保留，只解除批次归属（之后可重新加入其它购买批次）。</string>
     <string name="expense_delete_title">删除费用“%1$s”？</string>
     <string name="expense_delete_hint">删除后所有盒子的成本会立即重新计算。</string>
-    <string name="copy_remove_title">把“%1$s”移出本订单？</string>
+    <string name="copy_remove_title">把“%1$s”移出本批次？</string>
     <string name="copy_remove_hint">收藏本身会保留（变成独立收藏），只是不再分摊这个批次的费用。</string>
     <string name="merchant">商家</string>
     <string name="date">日期</string>
@@ -232,7 +236,7 @@
     <string name="expense_save">保存费用并更新成本</string>
     <string name="allocation_preview">保存后每盒已记录成本（包含批次费用分摊）</string>
     <string name="order_total_spending">已记录商品与费用</string>
-    <string name="allocation_no_copies">订单里还没有游戏，先添加游戏再手动分配</string>
+    <string name="allocation_no_copies">批次里还没有收藏，先添加收藏再手动分配</string>
     <string name="allocation_input_invalid">请修正无效或超出范围的分摊金额</string>
     <string name="allocation_totals">已分配 %1$s / 总额 %2$s（差额 %3$s）</string>
     <string name="allocation_blank_hint">留空为 0；未分完的金额会明确显示为未分摊费用，不能超额分配。</string>
@@ -252,14 +256,14 @@
     <string name="settings_about">关于与数据来源</string>
     <string name="settings_about_hint">版本信息、隐私及 VNDB 数据说明</string>
     <string name="settings_default_currency">默认货币</string>
-    <string name="settings_default_currency_hint">添加收藏、新建订单和费用时的默认币种，每笔仍可单独修改。</string>
+    <string name="settings_default_currency_hint">添加收藏、新建购买批次和费用时的默认币种，每笔仍可单独修改。</string>
     <string name="settings_currency_current">当前默认货币：%1$s</string>
     <string name="backup_export">导出备份</string>
     <string name="backup_export_hint">将外观、默认货币、标题与书架展示设置、店铺/渠道列表、所有收藏、购买批次、费用和手动分摊保存为 JSON 文件。</string>
     <string name="backup_snapshot_hint">保留作品与版本的原标题、罗马音快照、旧标题、封面链接及购买记录，不包含 VNDB 缓存或图片文件。</string>
     <string name="backup_restore">恢复备份</string>
     <string name="backup_restore_hint">先选择并检查备份，再决定追加还是覆盖。追加保留现有记录，但重复导入会增加重复收藏。</string>
-    <string name="backup_replace_hint">覆盖将替换全部收藏、订单和费用，请先导出当前数据。</string>
+    <string name="backup_replace_hint">覆盖将替换全部收藏、购买批次和费用，请先导出当前数据。</string>
     <string name="backup_select_file">选择备份文件</string>
     <string name="backup_notice">备份须知</string>
     <string name="backup_private_hint">备份为未加密文本，含价格、店铺和备注等私人信息，请保存到可信位置。</string>
@@ -268,7 +272,7 @@
     <string name="backup_check">检查备份</string>
     <string name="backup_contents">%1$s · %2$s · %3$s</string>
     <string name="backup_exported_at">导出时间：%1$s</string>
-    <string name="backup_import_modes_hint">追加保留现有数据，重复导入不会自动去重。覆盖会替换现有收藏、订单和费用。</string>
+    <string name="backup_import_modes_hint">追加保留现有数据，重复导入不会自动去重。覆盖会替换现有收藏、购买批次和费用。</string>
     <string name="backup_restore_currency">同时恢复默认货币（%1$s）</string>
     <string name="backup_restore_shops">同时恢复店铺/渠道列表</string>
     <string name="backup_restore_shops_hint">恢复列表会替换本机常用候选，不影响历史购买记录。</string>
@@ -303,7 +307,7 @@
     <string name="shops_empty">还没有常用店铺/渠道</string>
     <string name="shops_empty_hint">在这里录入后，购买表单中即可选择，不必重复输入。</string>
     <string name="shops_delete_title">删除“%1$s”？</string>
-    <string name="shops_delete_hint">只从常用列表中移除，不会修改已保存的收藏或订单。</string>
+    <string name="shops_delete_hint">只从常用列表中移除，不会修改已保存的收藏或购买批次。</string>
     <string name="shops_choose_hint">选择常用店铺/渠道，或临时输入</string>
     <string name="shops_no_options_hint">可临时输入；常用店铺/渠道请在设置中录入。</string>
     <string name="shops_clear">不填写店铺/渠道</string>

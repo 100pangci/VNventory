@@ -10,6 +10,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import com.vnventory.app.ui.text.LocalTitleDisplayMode
+import com.vnventory.app.ui.text.LocalShowCopyNumbers
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vnventory.app.di.AppViewModelProvider
@@ -26,6 +27,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val appearance by themeViewModel.appearance.collectAsStateWithLifecycle()
             val titleDisplayMode by themeViewModel.titleDisplayMode.collectAsStateWithLifecycle()
+            val showCopyNumbers by themeViewModel.showCopyNumbers.collectAsStateWithLifecycle()
             appearance?.let { preferences ->
                 val dark = preferences.themeMode.isDark(isSystemInDarkTheme())
                 SideEffect {
@@ -36,7 +38,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 VNventoryTheme(preferences) {
-                    CompositionLocalProvider(LocalTitleDisplayMode provides titleDisplayMode) {
+                    CompositionLocalProvider(LocalTitleDisplayMode provides titleDisplayMode, LocalShowCopyNumbers provides showCopyNumbers) {
                         VNventoryRoot()
                     }
                 }

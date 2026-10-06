@@ -136,6 +136,7 @@ fun SaveButton(label: String, saving: Boolean, enabled: Boolean, onClick: () -> 
 /** 收藏卡片：封面优先陈列；书架网格与首页使用 overlayMeta，把日期、价格、手动/品相标签放到封面，正文只留作品名与（可选）版本名。 */
 @Composable
 fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Modifier, sameReleaseCount: Int = 1, showPrice: Boolean = false, ordinal: Int? = null, overlayMeta: Boolean = false, showReleaseName: Boolean = false) {
+    val visibleOrdinal = ordinal.takeIf { com.vnventory.app.ui.text.LocalShowCopyNumbers.current }
     PressableSurface(onClick, modifier) {
         Box(Modifier.padding(8.dp)) {
             VnCover(copy.coverUrl, copy.uiTitle(), Modifier.fillMaxWidth().aspectRatio(.70f), corner = 12.dp)
@@ -146,7 +147,7 @@ fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mo
                 }
                 val condition = copy.condition.label.localized()
                 CoverOverlayTag(
-                    if (ordinal != null) stringResource(R.string.copy_condition_number, condition, stringResource(R.string.copy_number, ordinal)) else condition,
+                    if (visibleOrdinal != null) stringResource(R.string.copy_condition_number, condition, stringResource(R.string.copy_number, visibleOrdinal)) else condition,
                     Modifier.align(Alignment.TopEnd).padding(6.dp).testTag("cover-condition-number"),
                 )
                 if (showPrice) {
@@ -158,9 +159,9 @@ fun OwnedCoverCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mo
                 } else {
                     copy.purchaseDate?.let { CoverOverlayTag(it.toString(), Modifier.align(Alignment.BottomStart).padding(6.dp).testTag("cover-purchase-date")) }
                 }
-            } else if (ordinal != null || sameReleaseCount > 1) {
+            } else if (visibleOrdinal != null || sameReleaseCount > 1) {
                 Tag(
-                    if (ordinal != null) stringResource(R.string.copy_number, ordinal) else stringResource(R.string.copy_multiplier, sameReleaseCount),
+                    if (visibleOrdinal != null) stringResource(R.string.copy_number, visibleOrdinal) else stringResource(R.string.copy_multiplier, sameReleaseCount),
                     Modifier.align(Alignment.TopEnd).padding(6.dp),
                 )
             }
@@ -213,7 +214,7 @@ fun OwnedListCard(copy: OwnedCopy, onClick: () -> Unit, modifier: Modifier = Mod
                 if (showPrice) Text(copy.priceMinor?.let { Money.formatWithCode(it, copy.currency) } ?: stringResource(R.string.not_recorded), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Tag(copy.condition.label.localized())
-                    ordinal?.let { Tag(stringResource(R.string.copy_number, it)) }
+                    if (com.vnventory.app.ui.text.LocalShowCopyNumbers.current) ordinal?.let { Tag(stringResource(R.string.copy_number, it)) }
                     if (copy.isManualRelease) Tag(stringResource(R.string.manual_short))
                     copy.purchaseDate?.let { Tag(it.toString()) }
                 }

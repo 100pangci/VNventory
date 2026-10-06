@@ -114,7 +114,7 @@ fun CollectionContent(
     Box(modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp)) {
-                PageHeader(stringResource(R.string.collection_title), subtitle = null, eyebrow = null)
+                PageHeader(stringResource(R.string.collection_title), subtitle = null, eyebrow = stringResource(R.string.collection_eyebrow))
                 Spacer(Modifier.height(16.dp))
                 TextField(
                     value = state.query.search,
@@ -140,10 +140,10 @@ fun CollectionContent(
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SortMenu(state.query.sort, onSortChange, Modifier.weight(1f))
                     SingleChoiceSegmentedButtonRow(Modifier.width(104.dp)) {
-                        SegmentedButton(isGrid, { focus.clearFocus(); isGrid = true }, SegmentedButtonDefaults.itemShape(0, 2), icon = {}) {
+                        SegmentedButton(isGrid, { focus.clearFocus(); isGrid = true }, SegmentedButtonDefaults.itemShape(0, 2), icon = {}, colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer, activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
                             Icon(painterResource(R.drawable.ic_ui_grid), contentDescription = stringResource(R.string.collection_grid), modifier = Modifier.size(20.dp))
                         }
-                        SegmentedButton(!isGrid, { focus.clearFocus(); isGrid = false }, SegmentedButtonDefaults.itemShape(1, 2), icon = {}) {
+                        SegmentedButton(!isGrid, { focus.clearFocus(); isGrid = false }, SegmentedButtonDefaults.itemShape(1, 2), icon = {}, colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer, activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
                             Icon(painterResource(R.drawable.ic_ui_list), contentDescription = stringResource(R.string.collection_list), modifier = Modifier.size(20.dp))
                         }
                     }

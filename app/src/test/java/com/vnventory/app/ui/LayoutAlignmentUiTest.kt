@@ -205,14 +205,14 @@ class LayoutAlignmentUiTest {
             }
         }
         val orderWidth = compose.onNodeWithTag("order-anchor").fetchSemanticsNode().boundsInRoot.width
-        compose.onNodeWithText("不加入订单").performClick()
+        compose.onNodeWithText("不加入购买批次").performClick()
         val optionWidth = compose.onNodeWithText("123（CNY）").fetchSemanticsNode().boundsInRoot.width
         assertEquals(orderWidth, optionWidth, 1f)
         capture("layout-order-dropdown")
         compose.onNodeWithText("123（CNY）").performClick()
         assertEquals(1L, selected.value)
         compose.onNodeWithText("123").performClick()
-        compose.onNodeWithText("不加入订单").performClick()
+        compose.onNodeWithText("不加入购买批次").performClick()
         assertNull(selected.value)
         compose.onNodeWithContentDescription("选择店铺/渠道").performClick()
         val shopWidth = compose.onNodeWithTag("shop-anchor").fetchSemanticsNode().boundsInRoot.width
@@ -232,7 +232,7 @@ class LayoutAlignmentUiTest {
                 OrderSelector(orders, selected.value, { selected.value = it }, Modifier.testTag("order-anchor"))
             }
         }
-        compose.onNodeWithText("不加入订单").performClick()
+        compose.onNodeWithText("不加入购买批次").performClick()
         val item = compose.onNodeWithText("$title（JPY）").assertIsDisplayed()
         val bounds = item.fetchSemanticsNode().boundsInRoot
         assertEquals(compose.onNodeWithTag("order-anchor").fetchSemanticsNode().boundsInRoot.width, bounds.width, 1f)
