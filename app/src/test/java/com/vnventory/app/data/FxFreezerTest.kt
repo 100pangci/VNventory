@@ -126,6 +126,25 @@ class FxFreezerTest {
         assertEquals(1, source.calls.size)
     }
 
+    @Test fun `显式重新获取可刷新同目标币种快照`() = runTest {
+        val settings = settings()
+        var rate = 42_299_852L
+        val source = FakeSource { _, _, date -> FxFetchResult.Success(rate, date, "fake") }
+        val target = freezer(settings, source, backgroundScope)
+        val copyId = insertCopy()
+
+        assertEquals(FxFreezeOutcome.FROZEN, target.freezeRecord(BudgetRecordKind.COPY, copyId))
+        assertEquals(42_299_852L, db.ownedCopyDao().getById(copyId)!!.fxRateScaled)
+
+        rate = 43_000_000L
+        assertEquals(
+            FxFreezeOutcome.FROZEN,
+            target.freezeRecord(BudgetRecordKind.COPY, copyId, includeStale = true, forceRefresh = true),
+        )
+        assertEquals(43_000_000L, db.ownedCopyDao().getById(copyId)!!.fxRateScaled)
+        assertEquals(2, source.calls.size)
+    }
+
     @Test fun `自动重试只覆盖最近三天且不请求旧记录`() = runTest {
         val settings = settings()
         val source = FakeSource { _, _, date -> FxFetchResult.Success(42_299_852L, date, "fake") }
@@ -208,5 +227,54 @@ class FxFreezerTest {
         assertNull(updated.fxToCurrency)
         // 同币种无需定格。
         assertEquals(FxFreezeOutcome.SKIPPED, target.freezeRecord(BudgetRecordKind.COPY, copyId))
+    }
+
+    @Test fun `购买日期改变清除自动快照但保留手动快照`() = runTest {
+        val settings = settings()
+        val source = FakeSource { _, _, date -> FxFetchResult.Success(42_299_852L, date, "fake") }
+        val target = freezer(settings, source, backgroundScope)
+        val collection = CollectionRepository(db, db.ownedCopyDao(), db.vnCacheDao(), db.expenseDao(), Dispatchers.Unconfined)
+
+        val automaticId = insertCopy(purchaseDate = LocalDate.of(2026, 10, 9))
+        target.freezeRecord(BudgetRecordKind.COPY, automaticId)
+        val automatic = collection.getById(automaticId)!!
+        collection.update(automatic.copy(purchaseDate = LocalDate.of(2026, 10, 10)))
+        assertNull(db.ownedCopyDao().getById(automaticId)!!.fxRateScaled)
+
+        val manualId = insertCopy(purchaseDate = LocalDate.of(2026, 10, 9))
+        target.setManualSnapshot(BudgetRecordKind.COPY, manualId, 50_000_000L, LocalDate.of(2026, 10, 8))
+        val manual = collection.getById(manualId)!!
+        collection.update(manual.copy(purchaseDate = LocalDate.of(2026, 10, 10)))
+        assertEquals(50_000_000L, db.ownedCopyDao().getById(manualId)!!.fxRateScaled)
+        assertEquals(LocalDate.of(2026, 10, 8), db.ownedCopyDao().getById(manualId)!!.fxDate)
+    }
+
+    @Test fun `批次日期改变清除依赖批次日期的自动快照`() = runTest {
+        val settings = settings()
+        val source = FakeSource { _, _, date -> FxFetchResult.Success(42_299_852L, date, "fake") }
+        val target = freezer(settings, source, backgroundScope)
+        val purchases = com.vnventory.app.data.repository.PurchaseRepository(
+            db, db.purchaseOrderDao(), db.expenseDao(), db.ownedCopyDao(), Dispatchers.Unconfined,
+        )
+        val orderId = insertOrder(LocalDate.of(2026, 10, 9))
+        val fallbackCopyId = insertCopy(purchaseDate = null, orderId = orderId)
+        val explicitDateCopyId = insertCopy(purchaseDate = LocalDate.of(2026, 10, 8), orderId = orderId)
+        val expenseId = insertExpense(orderId)
+        target.freezeRecord(BudgetRecordKind.COPY, fallbackCopyId)
+        target.freezeRecord(BudgetRecordKind.COPY, explicitDateCopyId)
+        target.freezeRecord(BudgetRecordKind.EXPENSE, expenseId)
+
+        val oldOrder = purchases.getOrder(orderId)!!
+        purchases.updateOrder(oldOrder.copy(orderDate = LocalDate.of(2026, 10, 10)))
+
+        assertNull(db.ownedCopyDao().getById(fallbackCopyId)!!.fxRateScaled)
+        assertNull(db.expenseDao().getById(expenseId)!!.fxRateScaled)
+        // 有独立购买日期的收藏不依赖订单日期，快照保持不变。
+        assertNotNull(db.ownedCopyDao().getById(explicitDateCopyId)!!.fxRateScaled)
+
+        target.requestCopiesFreeze(listOf(fallbackCopyId))?.join()
+        target.requestExpenseFreeze(expenseId)?.join()
+        assertEquals(LocalDate.of(2026, 10, 10), db.ownedCopyDao().getById(fallbackCopyId)!!.fxDate)
+        assertEquals(LocalDate.of(2026, 10, 10), db.expenseDao().getById(expenseId)!!.fxDate)
     }
 }

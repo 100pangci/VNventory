@@ -13,6 +13,7 @@ import com.vnventory.app.domain.cost.CostCopyInput
 import com.vnventory.app.domain.cost.CostEngine
 import com.vnventory.app.domain.model.AllocationMode
 import com.vnventory.app.domain.model.Expense
+import com.vnventory.app.domain.model.Fx
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OrderDetail
 import com.vnventory.app.domain.model.OrderSummary
@@ -102,6 +103,23 @@ class PurchaseRepository(
             LocalRules.currency(order.currency)
             val old = requireNotNullMessage(orderDao.getById(order.id)) { message(MessageKey.ORDER_MISSING) }
             // 默认币种只影响之后的录入，不改已有商品、费用及手动分摊。
+            if (order.orderDate != old.orderDate) {
+                // 自动快照依赖批次日期的费用和未单独填写购买日期的收藏需要重新定格。
+                // 手动快照有用户明确选定的汇率日期，不因批次日期变化而覆盖。
+                ownedCopyDao.getByOrder(order.id)
+                    .filter { it.purchaseDate == null && it.fxRateScaled != null && it.fxSource != Fx.SOURCE_MANUAL }
+                    .forEach { copy ->
+                        ownedCopyDao.update(copy.copy(
+                            fxRateScaled = null, fxDate = null, fxToCurrency = null, fxSource = null,
+                            updatedAt = System.currentTimeMillis(),
+                        ))
+                    }
+                expenseDao.getByOrder(order.id)
+                    .filter { it.fxRateScaled != null && it.fxSource != Fx.SOURCE_MANUAL }
+                    .forEach { expense ->
+                        expenseDao.update(expense.copy(fxRateScaled = null, fxDate = null, fxToCurrency = null, fxSource = null))
+                    }
+            }
             orderDao.update(order.copy(createdAt = old.createdAt).toEntity())
         }
     }

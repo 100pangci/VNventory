@@ -15,11 +15,17 @@
 - 结算币种变化后，旧定格标记为币种不符，可一键按原日期重新定格到新币种。
 - 关于页与备份说明更新：普通统计按币种分开，年度预算按购买时定格的汇率折算。
 
+### 修复
+
+- 修复收藏编辑页「重新获取」跳过已有同币种快照的问题；用户主动刷新现在会重新请求并替换快照。
+- 修改自动定格记录的购买日期、无独立购买日期记录所属批次，或修改批次下单日期时，清除依赖旧日期的自动快照并重新定格；手动快照不因日期调整被擅自覆盖。
+- 丢弃完成时已过期的并发汇率响应，避免慢请求用旧日期快照覆盖刚编辑的记录。
+
 ### 数据兼容与验证
 
 - Room 升级到 v5：仅为 `owned_copy` 与 `expense` 增加 nullable 汇率定格列（`fxRateScaled` / `fxDate` / `fxToCurrency` / `fxSource`），v1→v2→v3→v4→v5 迁移链与真实 schema 回归测试保留，旧购买事实与快照原样不动，不猜历史汇率。
 - JSON 备份继续使用 v2 兼容可选字段扩展：新增可选 `settings.budget`（开关、结算币种、逐年金额、统计口径）与记录级定格字段；旧备份恢复后保持本机预算设置并显示未定格，不会按当前汇率补历史。
-- 新增 `FxTest`、`BudgetEngineTest`、`FxRateSourceTest`、`FxFreezerTest`、`BudgetUiTest`，并扩展迁移与备份回归；全量 JVM、Room、Compose/Robolectric 测试通过，离线完整检查、Debug 构建与 Lint 通过。
+- 新增 `FxTest`、`BudgetEngineTest`、`FxRateSourceTest`、`FxFreezerTest`、`BudgetUiTest`，并扩展迁移与备份回归；292 项 JVM、Room、Compose/Robolectric 测试通过，离线完整检查、Debug 构建与 Lint 通过。
 - 汇率仅发送币种代码与日期到两个公开接口（currency-api 的 jsDelivr / pages.dev 镜像、ECB frankfurter），不含设备或收藏数据；升级前的旧记录只在手动「补全历史」时请求。
 
 **Full Changelog**: https://github.com/100pangci/VNventory/compare/v1.0.4...v1.1.0

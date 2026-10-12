@@ -170,7 +170,13 @@ class CopyEditViewModel(
         val copy = copyState.value ?: return
         val freezer = freezer ?: return
         launchAction {
-            fxOutcomeState.value = freezer.freezeRecord(BudgetRecordKind.COPY, copy.id, includeStale = true)
+            // 用户主动点击“重新获取”时，允许刷新同币种快照（包括手动快照）。
+            fxOutcomeState.value = freezer.freezeRecord(
+                BudgetRecordKind.COPY,
+                copy.id,
+                includeStale = true,
+                forceRefresh = true,
+            )
             copyState.value = collectionRepository.getById(copy.id)
         }
     }

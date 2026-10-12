@@ -218,6 +218,7 @@
 - `domain/model/Fx.kt`：×10⁹ 定点解析 / 换算 / 展示（half-up，BigDecimal，无浮点）；`domain/cost/BudgetEngine.kt`：按自然年汇总 + 四类未计入（缺价格 / 缺日期 / 未定格 / 币种不符）。
 - `data/remote/fx/`：`CurrencyApiSource`（jsDelivr → pages.dev 镜像、历史起点 2024-03-02）、`FrankfurterSource`（1999 起、不支持币种分类）、`FxRateClient` 双源链与日期回退规则（周末接受最近交易日，近两天工作日视为尚未发布）。
 - `FxFreezer`：保存后后台请求（返回 `Job` 仅供测试等待）；应用启动 / 回前台只重试最近 3 天（旧记录不会自动批量请求）；「补全历史」显式批量；手动定格 / 清除；修改币种自动清除快照。
+- 显式「重新获取」可刷新同目标币种的已有快照；自动来源记录的购买日期、批次日期依据变化时清除并重新定格；慢请求写回前校验日期依据，避免并发编辑后旧汇率覆盖新记录。手动定格不会因日期编辑而被自动覆盖。
 - DataStore 预算设置（开关 / 结算币种 / 逐年金额 / 统计口径）；备份 v2 增加可选 `settings.budget` 与记录级定格字段，旧备份保持本机设置并显示未定格。
 - UI：设置 → 年度预算（含补全历史与数据源说明）、首页预算卡、预算详情（年份切换、四类未计入、重新获取 / 重新定格 / 手动填写 / 去补填）、收藏编辑页定格行；订单、费用保存与订单日期编辑后同样触发定格。
 - 测试：`FxTest`、`BudgetEngineTest`、`FxRateSourceTest`（本地假服务器）、`FxFreezerTest`、`MigrationTest`（v4→v5）、`BackupTest`（定格与预算往返、旧备份）、`BudgetUiTest`；全量 JVM / Robolectric 回归通过。

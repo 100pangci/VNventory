@@ -98,8 +98,19 @@ class FxFreezer(
     }
 
     /** 单条重新获取；[includeStale] 为 true 时同时重定格目标币种不符的记录。 */
-    suspend fun freezeRecord(kind: BudgetRecordKind, id: Long, includeStale: Boolean = false): FxFreezeOutcome = withContext(io) {
-        val result = freezePending(onlyIds = mapOf(kind to listOf(id)), windowDays = null, includeStale = includeStale, limit = null)
+    suspend fun freezeRecord(
+        kind: BudgetRecordKind,
+        id: Long,
+        includeStale: Boolean = false,
+        forceRefresh: Boolean = false,
+    ): FxFreezeOutcome = withContext(io) {
+        val result = freezePending(
+            onlyIds = mapOf(kind to listOf(id)),
+            windowDays = null,
+            includeStale = includeStale,
+            forceRefresh = forceRefresh,
+            limit = null,
+        )
         when {
             result.succeeded > 0 -> FxFreezeOutcome.FROZEN
             result.pending > 0 -> FxFreezeOutcome.PENDING
@@ -170,16 +181,20 @@ class FxFreezer(
         val fromCurrency: String,
         val targetCurrency: String,
         val date: LocalDate,
+        /** 归年所依据的购买/批次日期，用于丢弃并发编辑前发出的旧请求。 */
+        val recordDate: LocalDate?,
+        val forceRefresh: Boolean,
     )
 
     private suspend fun freezePending(
         onlyIds: Map<BudgetRecordKind, List<Long>>?,
         windowDays: Long?,
         includeStale: Boolean,
+        forceRefresh: Boolean = false,
         limit: Int?,
     ): FxBackfillResult {
         val target = settingsRepository.getFxTargetCurrency()
-        val tasks = buildTasks(target, onlyIds, windowDays, includeStale).let { list ->
+        val tasks = buildTasks(target, onlyIds, windowDays, includeStale, forceRefresh).let { list ->
             if (limit != null) list.take(limit) else list
         }
         if (tasks.isEmpty()) return FxBackfillResult()
@@ -206,6 +221,7 @@ class FxFreezer(
         onlyIds: Map<BudgetRecordKind, List<Long>>?,
         windowDays: Long?,
         includeStale: Boolean,
+        forceRefresh: Boolean,
     ): List<FreezeTask> {
         val orders = database.purchaseOrderDao().getAll().associate { it.id to it.orderDate }
         val copyFilter = onlyIds?.get(BudgetRecordKind.COPY)?.toSet()
@@ -214,13 +230,13 @@ class FxFreezer(
         if (onlyIds == null || copyFilter != null) {
             database.ownedCopyDao().getAll().forEach { entity ->
                 if (copyFilter != null && entity.id !in copyFilter) return@forEach
-                copyTask(entity, target, orders, includeStale, windowDays)?.let(tasks::add)
+                copyTask(entity, target, orders, includeStale, windowDays, forceRefresh)?.let(tasks::add)
             }
         }
         if (onlyIds == null || expenseFilter != null) {
             database.expenseDao().getAll().forEach { entity ->
                 if (expenseFilter != null && entity.id !in expenseFilter) return@forEach
-                expenseTask(entity, target, orders, includeStale, windowDays)?.let(tasks::add)
+                expenseTask(entity, target, orders, includeStale, windowDays, forceRefresh)?.let(tasks::add)
             }
         }
         return tasks
@@ -232,13 +248,18 @@ class FxFreezer(
         orderDates: Map<Long, LocalDate?>,
         includeStale: Boolean,
         windowDays: Long?,
+        forceRefresh: Boolean = false,
     ): FreezeTask? {
         if (entity.currency == target) return null
         val stale = entity.fxToCurrency != null && entity.fxToCurrency != target
-        if (entity.fxRateScaled != null && !(includeStale && stale)) return null
-        val date = if (stale) entity.fxDate ?: entity.purchaseDate ?: entity.orderId?.let(orderDates::get)
-        else entity.purchaseDate ?: entity.orderId?.let(orderDates::get)
-        return date?.let { validateWindow(it, windowDays) }?.let { FreezeTask(BudgetRecordKind.COPY, entity.id, entity.currency, target, it) }
+        if (entity.fxRateScaled != null && !forceRefresh && !(includeStale && stale)) return null
+        val recordDate = entity.purchaseDate ?: entity.orderId?.let(orderDates::get)
+        val date = if ((stale || forceRefresh) && entity.fxDate != null) entity.fxDate
+        else if (stale) entity.fxDate ?: recordDate
+        else recordDate
+        return date?.let { validateWindow(it, windowDays) }?.let {
+            FreezeTask(BudgetRecordKind.COPY, entity.id, entity.currency, target, it, recordDate, forceRefresh)
+        }
     }
 
     private fun expenseTask(
@@ -247,13 +268,18 @@ class FxFreezer(
         orderDates: Map<Long, LocalDate?>,
         includeStale: Boolean,
         windowDays: Long?,
+        forceRefresh: Boolean = false,
     ): FreezeTask? {
         if (entity.currency == target) return null
         val stale = entity.fxToCurrency != null && entity.fxToCurrency != target
-        if (entity.fxRateScaled != null && !(includeStale && stale)) return null
-        val date = if (stale) entity.fxDate ?: orderDates[entity.orderId]
-        else orderDates[entity.orderId]
-        return date?.let { validateWindow(it, windowDays) }?.let { FreezeTask(BudgetRecordKind.EXPENSE, entity.id, entity.currency, target, it) }
+        if (entity.fxRateScaled != null && !forceRefresh && !(includeStale && stale)) return null
+        val recordDate = orderDates[entity.orderId]
+        val date = if ((stale || forceRefresh) && entity.fxDate != null) entity.fxDate
+        else if (stale) entity.fxDate ?: recordDate
+        else recordDate
+        return date?.let { validateWindow(it, windowDays) }?.let {
+            FreezeTask(BudgetRecordKind.EXPENSE, entity.id, entity.currency, target, it, recordDate, forceRefresh)
+        }
     }
 
     private fun validateWindow(date: LocalDate, windowDays: Long?): LocalDate? {
@@ -268,7 +294,10 @@ class FxFreezer(
                 BudgetRecordKind.COPY -> {
                     val entity = database.ownedCopyDao().getById(task.recordId) ?: return@withTransaction false
                     if (entity.currency != task.fromCurrency) return@withTransaction false
-                    if (entity.fxRateScaled != null && entity.fxToCurrency == task.targetCurrency) return@withTransaction false
+                    val currentRecordDate = entity.purchaseDate ?: entity.orderId
+                        ?.let { database.purchaseOrderDao().getById(it)?.orderDate }
+                    if (currentRecordDate != task.recordDate) return@withTransaction false
+                    if (entity.fxRateScaled != null && entity.fxToCurrency == task.targetCurrency && !task.forceRefresh) return@withTransaction false
                     database.ownedCopyDao().update(
                         entity.copy(
                             fxRateScaled = rateScaled, fxDate = rateDate, fxToCurrency = task.targetCurrency, fxSource = source,
@@ -281,7 +310,9 @@ class FxFreezer(
                 BudgetRecordKind.EXPENSE -> {
                     val entity = database.expenseDao().getById(task.recordId) ?: return@withTransaction false
                     if (entity.currency != task.fromCurrency) return@withTransaction false
-                    if (entity.fxRateScaled != null && entity.fxToCurrency == task.targetCurrency) return@withTransaction false
+                    val currentRecordDate = database.purchaseOrderDao().getById(entity.orderId)?.orderDate
+                    if (currentRecordDate != task.recordDate) return@withTransaction false
+                    if (entity.fxRateScaled != null && entity.fxToCurrency == task.targetCurrency && !task.forceRefresh) return@withTransaction false
                     database.expenseDao().update(
                         entity.copy(fxRateScaled = rateScaled, fxDate = rateDate, fxToCurrency = task.targetCurrency, fxSource = source)
                     )
