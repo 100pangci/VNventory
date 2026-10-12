@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.vnventory.app.data.local.VNventoryDatabase
+import com.vnventory.app.data.image.CoverWarmer
 import com.vnventory.app.data.repository.*
 import com.vnventory.app.domain.model.*
 import com.vnventory.app.ui.add.AddFlowEvent
@@ -48,7 +49,7 @@ class NullablePriceTest {
             val collection = CollectionRepository(db, db.ownedCopyDao(), db.vnCacheDao(), db.expenseDao(), Dispatchers.Unconfined)
             val purchases = PurchaseRepository(db, db.purchaseOrderDao(), db.expenseDao(), db.ownedCopyDao(), Dispatchers.Unconfined)
             val vn = VnRepository(FakeVndb(), db.vnCacheDao(), Dispatchers.Unconfined)
-            val add = AddFlowViewModel(vn, collection, purchases, settings, null).also { store.put("add", it) }
+            val add = AddFlowViewModel(vn, collection, purchases, settings, null, CoverWarmer.None).also { store.put("add", it) }
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { add.uiState.collect() }
             add.selectVn(com.vnventory.app.domain.model.VnInfo("v1", "A", null, null, null, null))
             add.selectManualVersion()
@@ -69,7 +70,7 @@ class NullablePriceTest {
             assertTrue(unknownOrder.goodsTotals.isEmpty())
             assertTrue(unknownOrder.grandTotals.isEmpty())
 
-            val edit = CopyEditViewModel(collection, vn, purchases, ids[0], settings).also { store.put("edit", it) }
+            val edit = CopyEditViewModel(collection, vn, purchases, ids[0], settings, CoverWarmer.None).also { store.put("edit", it) }
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { edit.uiState.collect() }
             assertEquals("", edit.uiState.first { !it.loading }.form.priceText)
             edit.onPriceChange("0")

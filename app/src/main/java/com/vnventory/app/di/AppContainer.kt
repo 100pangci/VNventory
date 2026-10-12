@@ -3,6 +3,8 @@ package com.vnventory.app.di
 import android.content.Context
 import com.vnventory.app.BuildConfig
 import com.vnventory.app.data.backup.BackupFileStore
+import com.vnventory.app.data.image.CoilCoverWarmer
+import com.vnventory.app.data.image.CoverWarmer
 import com.vnventory.app.data.local.VNventoryDatabase
 import com.vnventory.app.data.remote.vndb.VndbApi
 import com.vnventory.app.data.remote.vndb.VndbClientFactory
@@ -52,6 +54,9 @@ class AppContainer(private val appContext: Context) {
     val settingsRepository: SettingsRepository by lazy {
         SettingsRepository(appContext.settingsDataStore)
     }
+
+    /** 保存收藏/绑定版本后预热封面缓存，保证之后断网或受限网络下书架仍有封面。 */
+    val coverWarmer: CoverWarmer by lazy { CoilCoverWarmer(appContext) }
 
     val backupRepository: BackupRepository by lazy {
         BackupRepository(database, settingsRepository)

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.vnventory.app.data.local.VNventoryDatabase
+import com.vnventory.app.data.image.CoverWarmer
 import com.vnventory.app.data.mapper.toDomain
 import com.vnventory.app.data.remote.vndb.*
 import com.vnventory.app.data.repository.*
@@ -43,10 +44,10 @@ class ViewModelRegressionTest {
     }
     @After fun close() { store.clear(); db.close(); Dispatchers.resetMain() }
 
-    private fun TestScope.addVm(api: VndbService): AddFlowViewModel {
+    private fun TestScope.addVm(api: VndbService, coverWarmer: CoverWarmer = CoverWarmer.None): AddFlowViewModel {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dataStore = PreferenceDataStoreFactory.create(scope = backgroundScope) { File(context.cacheDir, "${UUID.randomUUID()}.preferences_pb") }
-        return AddFlowViewModel(VnRepository(api, db.vnCacheDao(), Dispatchers.Unconfined), collection, purchases, SettingsRepository(dataStore), null)
+        return AddFlowViewModel(VnRepository(api, db.vnCacheDao(), Dispatchers.Unconfined), collection, purchases, SettingsRepository(dataStore), null, coverWarmer)
             .also { store.put("add", it); backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { it.uiState.collect() } }
     }
 
@@ -141,7 +142,7 @@ class ViewModelRegressionTest {
     @Test fun `收藏编辑失败不崩溃不修改记录并能修正后保存`() = runTest {
         val copy = OwnedCopy(0,"v1",null,"A","Manual",null,10,"JPY",CopyCondition.USED,null,null,null,null,null,0,0)
         val ids = collection.addCopies(listOf(copy, copy))
-        val vm = CopyEditViewModel(collection, VnRepository(FakeVndb(), db.vnCacheDao(), Dispatchers.Unconfined), purchases, ids[0], settings())
+        val vm = CopyEditViewModel(collection, VnRepository(FakeVndb(), db.vnCacheDao(), Dispatchers.Unconfined), purchases, ids[0], settings(), CoverWarmer.None)
         store.put("edit", vm)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() }
         vm.uiState.first { !it.loading && it.copy != null }
@@ -194,11 +195,49 @@ class ViewModelRegressionTest {
         }
     }
 
+    @Test fun `保存收藏后预热所选封面缓存`() = runTest {
+        val warmed = mutableListOf<String?>()
+        val vm = addVm(FakeVndb(), coverWarmer = CoverWarmer { warmed += it })
+        val vn = VndbVnDto(
+            "v1",
+            title = "A",
+            image = VndbImageDto(url = "https://t.vndb.org/cv/12/79412.jpg"),
+        ).toDomain()
+        vm.selectVn(vn)
+        vm.selectManualVersion()
+        vm.onManualTitleChange("Manual")
+        vm.save()
+        assertTrue(vm.events.first() is AddFlowEvent.Saved)
+        assertEquals(listOf("https://t.vndb.org/cv/12/79412.jpg"), warmed)
+    }
+
+    @Test fun `绑定版本后预热版本封面缓存`() = runTest {
+        val warmed = mutableListOf<String?>()
+        val releaseDto = VndbReleaseDto(
+            "r1",
+            title = "First",
+            images = listOf(VndbImageDto(type = "pkgfront", url = "https://t.vndb.org/cv/52/96852.jpg")),
+        )
+        val vnRepo = VnRepository(object : FakeVndb() {
+            override suspend fun getReleases(vnId: String, page: Int, results: Int) = VndbReleaseResponse(listOf(releaseDto))
+        }, db.vnCacheDao(), Dispatchers.Unconfined)
+        vnRepo.fetchReleases("v1")
+        val copy = OwnedCopy(0, "v1", null, "A", "Manual", null, null, "JPY", CopyCondition.USED, null, null, null, null, null, 0, 0)
+        val id = collection.addCopies(listOf(copy)).single()
+        val vm = CopyEditViewModel(collection, vnRepo, purchases, id, settings(), CoverWarmer { warmed += it })
+        store.put("warm-edit", vm)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect() }
+        vm.uiState.first { !it.loading && it.copy != null }
+        vm.bindTo(vnRepo.getCachedRelease("r1", "v1")!!)
+        vm.uiState.first { it.copy?.releaseId == "r1" }
+        assertEquals(listOf("https://t.vndb.org/cv/52/96852.jpg"), warmed)
+    }
+
     @Test fun `常用店铺实时进入新增编辑表单但改名删除不改历史快照`() = runTest {
         val settings = settings()
         settings.addShopChannel("駿河屋")
         val vnRepo = VnRepository(FakeVndb(), db.vnCacheDao(), Dispatchers.Unconfined)
-        val add = AddFlowViewModel(vnRepo, collection, purchases, settings, null)
+        val add = AddFlowViewModel(vnRepo, collection, purchases, settings, null, CoverWarmer.None)
         store.put("shop-add", add)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { add.uiState.collect() }
         add.uiState.first { it.shopChannels == listOf("駿河屋") }
@@ -212,7 +251,7 @@ class ViewModelRegressionTest {
         settings.renameShopChannel("駿河屋", "メルカリ")
         add.uiState.first { it.shopChannels == listOf("メルカリ") }
         assertEquals("駿河屋", collection.getById(copyId)!!.shop)
-        val edit = CopyEditViewModel(collection, vnRepo, purchases, copyId, settings)
+        val edit = CopyEditViewModel(collection, vnRepo, purchases, copyId, settings, CoverWarmer.None)
         store.put("shop-edit", edit)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { edit.uiState.collect() }
         val loaded = edit.uiState.first { !it.loading && it.shopChannels == listOf("メルカリ") }

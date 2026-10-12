@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.catch
 import androidx.lifecycle.viewModelScope
 import com.vnventory.app.core.AppResult
 import com.vnventory.app.di.AppContainer
+import com.vnventory.app.data.image.CoverWarmer
 import com.vnventory.app.data.repository.CollectionRepository
 import com.vnventory.app.data.repository.PurchaseRepository
 import com.vnventory.app.data.repository.VnRepository
@@ -71,9 +72,10 @@ class CopyEditViewModel(
     private val purchaseRepository: PurchaseRepository,
     private val copyId: Long,
     private val settingsRepository: SettingsRepository,
+    private val coverWarmer: CoverWarmer,
 ) : ActionViewModel() {
     constructor(container: AppContainer, copyId: Long) : this(
-        container.collectionRepository, container.vnRepository, container.purchaseRepository, copyId, container.settingsRepository,
+        container.collectionRepository, container.vnRepository, container.purchaseRepository, copyId, container.settingsRepository, container.coverWarmer,
     )
     private var bindJob: Job? = null
     private var bindGeneration = 0
@@ -227,6 +229,8 @@ class CopyEditViewModel(
         launchAction {
             requireMessage(release.vnId == copy.vnId) { message(MessageKey.RELEASE_VN_MISMATCH) }
             collectionRepository.bindRelease(copy.id, release, coverUrl = release.displayImage())
+            // 刚完成网络请求时顺手缓存封面，之后断网/受限网络下详情与书架也能显示。
+            coverWarmer.warm(release.displayImage())
             copyState.value = collectionRepository.getById(copy.id)
             formState.update { it.copy(releaseTitle = release.displayTitle(com.vnventory.app.domain.model.TitleDisplayMode.ORIGINAL)) }
             bindSheetState.value = BindSheetState()

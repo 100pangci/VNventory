@@ -47,3 +47,4 @@ Android 原生应用：Galgame/VN 实体收藏管理（Kotlin + Compose + Materi
 - 常用店铺/渠道是 DataStore 候选列表；收藏和订单继续保存原始名称快照，候选项改名/删除不能改历史记录。
   备份中的候选列表为可选字段，旧备份没有该字段时不得清空本机列表。
 - 网络层只用 `api.vndb.org/kana`（字段以 schema 为准）；不要引入批量抓取或未授权的 API 用法。
+- 封面图片经 `data/image/CoverImageLoader.kt` 的 Coil 单例加载：磁盘缓存固定在 `filesDir/cover-cache`（不要改回 `cacheDir`）；网络层带超时与有限重试；保存收藏/绑定版本时用 `CoverWarmer` 预热封面，预热失败不影响保存。

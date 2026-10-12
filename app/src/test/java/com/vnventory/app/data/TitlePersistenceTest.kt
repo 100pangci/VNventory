@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.vnventory.app.core.AppResult
 import com.vnventory.app.data.local.VNventoryDatabase
+import com.vnventory.app.data.image.CoverWarmer
 import com.vnventory.app.data.mapper.toDomain
 import com.vnventory.app.data.remote.vndb.*
 import com.vnventory.app.data.repository.*
@@ -64,7 +65,7 @@ class TitlePersistenceTest {
             }
             offline = false
             settings.setTitleDisplayMode(TitleDisplayMode.ROMANIZED)
-            val add = AddFlowViewModel(vnRepo, collection, purchase, settings, null).also { models.put("add", it) }
+            val add = AddFlowViewModel(vnRepo, collection, purchase, settings, null, CoverWarmer.None).also { models.put("add", it) }
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { add.uiState.collect() }
             add.selectVn(cachedVn)
             val ready = add.uiState.first { !it.releases.loading && it.releases.releases.isNotEmpty() }
