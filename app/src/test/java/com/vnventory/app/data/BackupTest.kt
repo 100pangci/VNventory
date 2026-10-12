@@ -21,6 +21,7 @@ import com.vnventory.app.data.repository.BackupRepository
 import com.vnventory.app.data.repository.PurchaseRepository
 import com.vnventory.app.data.repository.SettingsRepository
 import com.vnventory.app.domain.model.AllocationMode
+import com.vnventory.app.domain.model.BudgetPreferences
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.ExpenseCategory
 import com.vnventory.app.domain.model.AppearancePreferences
@@ -55,7 +56,9 @@ import com.vnventory.app.domain.text.MessageKey
 import com.vnventory.app.domain.text.message
 import com.vnventory.app.ui.text.resolve
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -473,5 +476,65 @@ class BackupTest {
         assertFalse(result.currencyRestored)
         assertFalse(result.shopsRestored)
         assertEquals(3, db.ownedCopyDao().getAll().size)
+    }
+
+    @Test fun `汇率定格与年度预算随备份往返而旧备份保持本机设置`() = runTest {
+        val settings = settings()
+        val repo = repository(settings)
+        val base = sample()
+        val original = base.copy(
+            copies = base.copies.mapIndexed { index, copy ->
+                if (index == 0) copy.copy(fxRateScaled = 42_299_852L, fxDate = LocalDate.of(2026, 10, 1), fxToCurrency = "CNY", fxSource = "currency-api")
+                else copy
+            },
+            expenses = base.expenses.mapIndexed { index, expense ->
+                if (index == 0) expense.copy(fxRateScaled = 42_299_852L, fxDate = LocalDate.of(2026, 9, 30), fxToCurrency = "CNY", fxSource = "manual")
+                else expense
+            },
+            budget = BudgetPreferences(enabled = true, currency = "JPY", yearlyAmounts = mapOf(2026 to 1_200_000, 2027 to 500_000), includeFees = false),
+        )
+        assertEquals(original, decode(BackupCodec.encode(original)))
+        val result = repo.restore(decode(BackupCodec.encode(original)), true, true)
+        assertTrue(result.budgetRestored)
+        assertEquals(
+            BudgetPreferences(true, "JPY", mapOf(2026 to 1_200_000, 2027 to 500_000), false),
+            settings.budgetPreferences.first(),
+        )
+        val restoredCopy = repo.snapshot().copies.first { it.fxRateScaled != null }
+        assertEquals(42_299_852L, restoredCopy.fxRateScaled)
+        assertEquals("currency-api", restoredCopy.fxSource)
+        assertEquals(LocalDate.of(2026, 9, 30), repo.snapshot().expenses.first { it.fxRateScaled != null }.fxDate)
+
+        // 旧备份：缺少预算设置与定格字段时保持本机配置，记录保持未定格而不是按当前汇率猜测。
+        settings.setBudgetYearlyAmount(2025, 999)
+        val root = Json.parseToJsonElement(BackupCodec.encode(sample()).decodeToString()).jsonObject
+        for (version in listOf(1, 2)) {
+            val legacy = decode(
+                JsonObject(
+                    root + mapOf(
+                        "schemaVersion" to JsonPrimitive(version),
+                        "settings" to JsonObject(root.getValue("settings").jsonObject - "budget"),
+                        "copies" to JsonArray((root.getValue("copies") as JsonArray).map { entry ->
+                            JsonObject(entry.jsonObject - "fxRateScaled" - "fxDate" - "fxToCurrency" - "fxSource")
+                        }),
+                        "expenses" to JsonArray((root.getValue("expenses") as JsonArray).map { entry ->
+                            JsonObject(entry.jsonObject - "fxRateScaled" - "fxDate" - "fxToCurrency" - "fxSource")
+                        }),
+                    )
+                ).toString().encodeToByteArray()
+            )
+            assertNull(legacy.budget)
+            assertNull(legacy.copies.first().fxRateScaled)
+            val legacyResult = repo.restore(legacy, true, true)
+            assertFalse(legacyResult.budgetRestored)
+            assertEquals(mapOf(2025 to 999L, 2026 to 1_200_000L, 2027 to 500_000L), settings.budgetPreferences.first().yearlyAmounts)
+            assertTrue(repo.snapshot().copies.all { it.fxRateScaled == null })
+        }
+
+        // 半套定格、非法汇率与非法预算一律拒绝。
+        invalid(original.copy(copies = original.copies.mapIndexed { index, copy -> if (index == 0) copy.copy(fxDate = null) else copy }))
+        invalid(original.copy(copies = original.copies.mapIndexed { index, copy -> if (index == 0) copy.copy(fxRateScaled = 0L) else copy }))
+        invalid(original.copy(budget = BudgetPreferences(yearlyAmounts = mapOf(1990 to 100))))
+        invalid(original.copy(budget = BudgetPreferences(yearlyAmounts = mapOf(2026 to -1))))
     }
 }

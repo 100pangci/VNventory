@@ -6,10 +6,12 @@ import com.vnventory.app.data.local.entity.OwnedCopyEntity
 import com.vnventory.app.data.local.entity.PurchaseOrderEntity
 import com.vnventory.app.data.mapper.toDomain
 import com.vnventory.app.data.repository.LocalRules
+import com.vnventory.app.data.repository.SettingsRepository
 import com.vnventory.app.domain.cost.CostCopyInput
 import com.vnventory.app.domain.cost.CostEngine
 import com.vnventory.app.domain.cost.CostExpenseInput
 import com.vnventory.app.domain.model.AllocationMode
+import com.vnventory.app.domain.model.BudgetPreferences
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.ExpenseCategory
 import com.vnventory.app.domain.model.Money
@@ -51,10 +53,20 @@ data class BackupSettings(
     val appearance: BackupAppearance? = null,
     val titleDisplayMode: String = TitleDisplayMode.ORIGINAL.name,
     val showCopyNumbers: Boolean = false,
+    val budget: BackupBudget? = null,
 )
 
 @Serializable
 data class BackupAppearance(val themeMode: String, val dynamicColor: Boolean = false)
+
+/** 年度预算设置；旧备份缺少时保持本机设置。 */
+@Serializable
+data class BackupBudget(
+    val enabled: Boolean = false,
+    val currency: String? = null,
+    val yearlyAmounts: Map<String, Long> = emptyMap(),
+    val includeFees: Boolean = true,
+)
 
 @Serializable
 data class BackupOrder(
@@ -90,6 +102,10 @@ data class BackupCopy(
     val vnRomanizedTitle: String? = null,
     val releaseOriginalTitle: String? = null,
     val releaseRomanizedTitle: String? = null,
+    val fxRateScaled: Long? = null,
+    val fxDate: String? = null,
+    val fxToCurrency: String? = null,
+    val fxSource: String? = null,
 )
 
 @Serializable
@@ -103,6 +119,10 @@ data class BackupExpense(
     val mode: String,
     val notes: String?,
     val createdAt: Long,
+    val fxRateScaled: Long? = null,
+    val fxDate: String? = null,
+    val fxToCurrency: String? = null,
+    val fxSource: String? = null,
 )
 
 @Serializable
@@ -123,11 +143,24 @@ data class BackupData(
     val showShelfReleaseNames: Boolean = false,
     val titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
     val showCopyNumbers: Boolean = false,
+    /** Null means an older backup has no budget settings; restoring it must keep local preferences. */
+    val budget: BudgetPreferences? = null,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
         LocalRules.currency(defaultCurrency)
         shopChannels?.let(ShopChannels::validate)
+        budget?.let { preferences ->
+            preferences.currency?.let {
+                val normalized = Money.normalize(it)
+                requireMessage(normalized.matches(Regex("[A-Z]{3}"))) { message(MessageKey.CURRENCY_INVALID) }
+            }
+            preferences.yearlyAmounts.forEach { (year, amount) ->
+                requireMessage(year in SettingsRepository.MIN_BUDGET_YEAR..SettingsRepository.MAX_BUDGET_YEAR && amount >= 0) {
+                    message(MessageKey.BUDGET_DATA_INVALID)
+                }
+            }
+        }
         fun ids(values: List<Long>) {
             requireMessage(values.all { it > 0 } && values.distinct().size == values.size) { message(MessageKey.BACKUP_IDS_INVALID) }
         }
@@ -160,6 +193,7 @@ data class BackupData(
             requireMessage(it.orderId in orderIds) { message(MessageKey.BACKUP_EXPENSE_ORDER_MISSING) }
             requireMessage(it.name.isNotBlank()) { message(MessageKey.BACKUP_EXPENSE_NAME_EMPTY) }
             LocalRules.currency(it.currency)
+            LocalRules.fx(it.fxRateScaled, it.fxDate, it.fxToCurrency, it.fxSource)
             val problem = CostEngine.expenseProblem(
                 CostExpenseInput(
                     expenseId = it.id,
@@ -195,7 +229,8 @@ object BackupCodec {
             schemaVersion = VERSION,
             exportedAt = data.exportedAt,
             settings = BackupSettings(data.defaultCurrency, data.shopChannels, data.showShelfPrices, data.showPriceStats, data.showShelfReleaseNames,
-                data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }, data.titleDisplayMode.name, data.showCopyNumbers),
+                data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }, data.titleDisplayMode.name, data.showCopyNumbers,
+                data.budget?.let { BackupBudget(it.enabled, it.currency, it.yearlyAmounts.mapKeys { (year, _) -> year.toString() }, it.includeFees) }),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
             expenses = data.expenses.map { it.toBackup() },
@@ -239,6 +274,18 @@ object BackupCodec {
                 showShelfReleaseNames = document.settings.showShelfReleaseNames,
                 titleDisplayMode = TitleDisplayMode.valueOf(document.settings.titleDisplayMode),
                 showCopyNumbers = document.settings.showCopyNumbers,
+                budget = document.settings.budget?.let { b ->
+                    BudgetPreferences(
+                        enabled = b.enabled,
+                        currency = b.currency,
+                        yearlyAmounts = buildMap {
+                            b.yearlyAmounts.forEach { (year, amount) ->
+                                put(year.toIntOrNull() ?: throw IllegalArgumentException("budget year not numeric"), amount)
+                            }
+                        },
+                        includeFees = b.includeFees,
+                    )
+                },
             )
         } catch (e: java.time.DateTimeException) {
             throw MessageException(message(MessageKey.BACKUP_INVALID_DATE), e)
@@ -292,6 +339,10 @@ private fun OwnedCopyEntity.toBackup() = BackupCopy(
     notes = notes,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    fxRateScaled = fxRateScaled,
+    fxDate = fxDate?.toString(),
+    fxToCurrency = fxToCurrency,
+    fxSource = fxSource,
 )
 
 private fun BackupCopy.toEntity() = OwnedCopyEntity(
@@ -315,6 +366,10 @@ private fun BackupCopy.toEntity() = OwnedCopyEntity(
     notes = notes,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    fxRateScaled = fxRateScaled,
+    fxDate = fxDate?.let(LocalDate::parse),
+    fxToCurrency = fxToCurrency,
+    fxSource = fxSource,
 )
 
 private fun ExpenseEntity.toBackup() = BackupExpense(
@@ -327,6 +382,10 @@ private fun ExpenseEntity.toBackup() = BackupExpense(
     mode = mode.name,
     notes = notes,
     createdAt = createdAt,
+    fxRateScaled = fxRateScaled,
+    fxDate = fxDate?.toString(),
+    fxToCurrency = fxToCurrency,
+    fxSource = fxSource,
 )
 
 private fun BackupExpense.toEntity() = ExpenseEntity(
@@ -339,4 +398,8 @@ private fun BackupExpense.toEntity() = ExpenseEntity(
     mode = AllocationMode.valueOf(mode),
     notes = notes,
     createdAt = createdAt,
+    fxRateScaled = fxRateScaled,
+    fxDate = fxDate?.let(LocalDate::parse),
+    fxToCurrency = fxToCurrency,
+    fxSource = fxSource,
 )

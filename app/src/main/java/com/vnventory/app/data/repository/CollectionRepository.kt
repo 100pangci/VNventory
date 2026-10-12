@@ -12,6 +12,7 @@ import com.vnventory.app.data.mapper.toDomain
 import com.vnventory.app.data.mapper.toEntity
 import com.vnventory.app.domain.model.CollectionQuery
 import com.vnventory.app.domain.model.CollectionSort
+import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OwnedCopy
 import com.vnventory.app.domain.model.ReleaseInfo
 import com.vnventory.app.domain.model.VnInfo
@@ -84,7 +85,11 @@ class CollectionRepository(
             LocalRules.copy(copy)
             val old = requireNotNullMessage(ownedCopyDao.getById(copy.id)) { message(MessageKey.COPY_MISSING) }
             requireMessage(copy.vnId == old.vnId && copy.releaseId == old.releaseId) { message(MessageKey.RELEASE_BIND_REQUIRED) }
-            ownedCopyDao.update(copy.toEntity())
+            // 币种变了，此前定格的汇率方向失效：清空快照，保存后按新币种重新定格。
+            val effective = if (Money.normalize(copy.currency) != old.currency) {
+                copy.copy(fxRateScaled = null, fxDate = null, fxToCurrency = null, fxSource = null)
+            } else copy
+            ownedCopyDao.update(effective.toEntity())
             LocalRules.order(database, copy.orderId)
             LocalRules.totals(database)
             // 订单归属可能变化：清理不再对应的手动分摊行

@@ -23,10 +23,17 @@ object SettingsPreferencesRoute
 object SettingsShopsRoute
 
 @Serializable
+object SettingsBudgetRoute
+
+@Serializable
 object SettingsDataRoute
 
 @Serializable
 object SettingsAboutRoute
+
+/** 年度预算详情（首页卡片入口） */
+@Serializable
+object BudgetRoute
 
 /** 添加收藏流程；orderId 非空表示“加入该订单”上下文 */
 @Serializable

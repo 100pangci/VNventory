@@ -1,6 +1,7 @@
 package com.vnventory.app.ui.orders
 
 import com.vnventory.app.di.AppContainer
+import com.vnventory.app.data.repository.FxFreezer
 import com.vnventory.app.data.repository.PurchaseRepository
 import com.vnventory.app.data.repository.SettingsRepository
 import com.vnventory.app.domain.cost.CostEngine
@@ -54,7 +55,8 @@ data class ExpenseEditorState(
         val savedName = if (old != null && old.category == category) old.name else category.name
         return Expense(editingId ?: 0, detail.order.id, savedName, category, parsedAmount!!,
             Money.normalize(currency), mode, old?.notes, old?.createdAt ?: System.currentTimeMillis(),
-            if (mode == AllocationMode.MANUAL) parsedManual!! else emptyMap())
+            if (mode == AllocationMode.MANUAL) parsedManual!! else emptyMap(),
+            fxRateScaled = old?.fxRateScaled, fxDate = old?.fxDate, fxToCurrency = old?.fxToCurrency, fxSource = old?.fxSource)
     }
 
     fun validationError(detail: OrderDetail): Message? {
@@ -87,8 +89,9 @@ class OrderDetailViewModel(
     private val purchaseRepository: PurchaseRepository,
     private val orderId: Long,
     private val settingsRepository: SettingsRepository? = null,
+    private val freezer: FxFreezer? = null,
 ) : ActionViewModel() {
-    constructor(container: AppContainer, orderId: Long) : this(container.purchaseRepository, orderId, container.settingsRepository)
+    constructor(container: AppContainer, orderId: Long) : this(container.purchaseRepository, orderId, container.settingsRepository, container.fxFreezer)
     private val editorState = MutableStateFlow(ExpenseEditorState())
     private val savingState = MutableStateFlow(false)
     private val loaded = MutableStateFlow(false)
@@ -144,6 +147,10 @@ class OrderDetailViewModel(
                     merchant = form.merchant.trim().takeIf { it.isNotBlank() }, orderDate = form.date,
                     currency = Money.normalize(form.currency), notes = form.notes.takeIf { it.isNotBlank() },
                     updatedAt = System.currentTimeMillis()))
+                // 订单日期可能变得可用：为还没定格的记录后台补一次（已定格的不动）。
+                val detail = detailState.value
+                detail?.copies?.map { it.id }?.let { freezer?.requestCopiesFreeze(it) }
+                detail?.expenses?.map { it.id }?.let { freezer?.requestExpensesFreeze(it) }
                 orderEditorState.value = OrderEditorState()
             } finally { orderEditorState.update { it.copy(saving = false) } }
         }
@@ -189,7 +196,14 @@ class OrderDetailViewModel(
         launchAction {
             try {
                 val candidate = editor.candidate(detail)
-                if (editor.editingId == null) purchaseRepository.addExpense(candidate) else purchaseRepository.updateExpense(candidate)
+                val expenseId = if (editor.editingId == null) {
+                    purchaseRepository.addExpense(candidate)
+                } else {
+                    purchaseRepository.updateExpense(candidate)
+                    candidate.id
+                }
+                // 保存后后台定格（不阻塞保存，失败不影响结果）。
+                freezer?.requestExpenseFreeze(expenseId)
                 editorState.value = ExpenseEditorState()
             } finally { savingState.value = false }
         }

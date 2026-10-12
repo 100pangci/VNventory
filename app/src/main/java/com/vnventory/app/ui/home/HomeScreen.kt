@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
+import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OwnedCopy
 import com.vnventory.app.domain.model.copyOrdinal
 import com.vnventory.app.ui.components.CostHighlight
@@ -63,11 +65,13 @@ fun HomeScreen(
     onAddClick: () -> Unit,
     onCopyClick: (Long) -> Unit,
     onSeeAllClick: () -> Unit,
+    onBudgetClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val recent by viewModel.recentCopies.collectAsStateWithLifecycle()
-    HomeContent(stats, recent, onAddClick, onCopyClick, onSeeAllClick, error = { OperationError(viewModel) })
+    val budget by viewModel.budget.collectAsStateWithLifecycle()
+    HomeContent(stats, recent, onAddClick, onCopyClick, onSeeAllClick, budget = budget, onBudgetClick = onBudgetClick, error = { OperationError(viewModel) })
 }
 
 /** 无 ViewModel 的展示层，便于 Preview、深浅主题和大字体的实际渲染测试。 */
@@ -80,6 +84,8 @@ fun HomeContent(
     onSeeAllClick: () -> Unit,
     modifier: Modifier = Modifier,
     error: @Composable () -> Unit = {},
+    budget: HomeBudget? = null,
+    onBudgetClick: () -> Unit = {},
 ) {
     var showCosts by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -104,6 +110,9 @@ fun HomeContent(
                     }
                     error()
                 }
+            }
+            if (budget?.enabled == true) item(key = "budget") {
+                BudgetCard(budget, onBudgetClick, Modifier.padding(horizontal = 24.dp))
             }
             item(key = "shelf") {
                 Column {
@@ -164,8 +173,46 @@ fun HomeContent(
 }
 
 @Composable
-private fun CollectionCount(label: String, count: Int, @DrawableRes icon: Int, modifier: Modifier) {
-    Surface(modifier, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+private fun BudgetCard(budget: HomeBudget, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    SectionCard(modifier) {
+        Text(stringResource(R.string.home_budget_title, budget.year), style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.budget_detail_spent), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(Money.format(budget.spentMinor, budget.currency), style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(4.dp))
+        if (budget.amountMinor != null && budget.amountMinor > 0) {
+            val fraction = (budget.spentMinor.toDouble() / budget.amountMinor.toDouble()).coerceIn(0.0, 1.0).toFloat()
+            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (budget.spentMinor > budget.amountMinor) {
+                    stringResource(R.string.budget_detail_over, Money.format(budget.spentMinor - budget.amountMinor, budget.currency))
+                } else {
+                    stringResource(R.string.budget_detail_remaining, Money.format(budget.amountMinor - budget.spentMinor, budget.currency))
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (budget.spentMinor > budget.amountMinor) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text(stringResource(R.string.home_budget_unset), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = if (budget.issueCount == 0) stringResource(R.string.home_budget_all_counted)
+            else stringResource(R.string.home_budget_issues, budget.issueCount),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onClick, modifier = Modifier.align(Alignment.End)) {
+            Text(stringResource(R.string.budget_entry_open))
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun CollectionCount(label: String, count: Int, @DrawableRes icon: Int, modifier: Modifier) {    Surface(modifier, shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ShelfIconTile(icon)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

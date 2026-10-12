@@ -42,10 +42,11 @@ fun SettingsScreen(
     onData: () -> Unit = {},
     onAbout: () -> Unit = {},
     onShops: () -> Unit = {},
+    onBudget: () -> Unit = {},
     viewModel: SettingsViewModel = viewModel(factory = AppViewModelProvider.Factory),
 ) {
     val defaultCurrency by viewModel.defaultCurrency.collectAsStateWithLifecycle()
-    SettingsHomeContent(defaultCurrency, onPreferences, onData, onAbout, error = { OperationError(viewModel) }, onShops = onShops)
+    SettingsHomeContent(defaultCurrency, onPreferences, onData, onAbout, error = { OperationError(viewModel) }, onShops = onShops, onBudget = onBudget)
 }
 
 @Composable
@@ -56,6 +57,7 @@ internal fun SettingsHomeContent(
     onAbout: () -> Unit,
     error: @Composable () -> Unit = {},
     onShops: () -> Unit = {},
+    onBudget: () -> Unit = {},
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -69,6 +71,8 @@ internal fun SettingsHomeContent(
                 SettingsEntry(R.drawable.ic_ui_preferences, stringResource(R.string.settings_preferences), stringResource(R.string.settings_currency_summary, defaultCurrency), onPreferences)
                 HorizontalDivider(Modifier.padding(start = 68.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 SettingsEntry(R.drawable.ic_ui_shop, stringResource(R.string.shops_settings), stringResource(R.string.shops_settings_hint), onShops)
+                HorizontalDivider(Modifier.padding(start = 68.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+                SettingsEntry(R.drawable.ic_ui_batch, stringResource(R.string.budget_settings), stringResource(R.string.budget_settings_hint), onBudget)
             }
         }
         item {

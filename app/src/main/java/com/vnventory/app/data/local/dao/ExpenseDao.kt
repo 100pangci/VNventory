@@ -16,6 +16,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expense WHERE orderId = :orderId ORDER BY createdAt ASC, id ASC")
     fun observeByOrder(orderId: Long): Flow<List<ExpenseEntity>>
 
+    @Query("SELECT * FROM expense ORDER BY createdAt ASC, id ASC")
+    fun observeAll(): Flow<List<ExpenseEntity>>
+
     @Query("SELECT * FROM expense WHERE orderId = :orderId ORDER BY createdAt ASC, id ASC")
     suspend fun getByOrder(orderId: Long): List<ExpenseEntity>
 

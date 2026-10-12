@@ -94,6 +94,10 @@ fun OwnedCopyEntity.toDomain(): OwnedCopy = OwnedCopy(
     notes = notes,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    fxRateScaled = fxRateScaled,
+    fxDate = fxDate,
+    fxToCurrency = fxToCurrency,
+    fxSource = fxSource,
 )
 
 fun OwnedCopy.toEntity(): OwnedCopyEntity = OwnedCopyEntity(
@@ -117,6 +121,10 @@ fun OwnedCopy.toEntity(): OwnedCopyEntity = OwnedCopyEntity(
     notes = notes,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    fxRateScaled = fxRateScaled,
+    fxDate = fxDate,
+    fxToCurrency = fxToCurrency,
+    fxSource = fxSource,
 )
 
 fun PurchaseOrderEntity.toDomain(): PurchaseOrder = PurchaseOrder(
@@ -152,6 +160,10 @@ fun ExpenseEntity.toDomain(allocations: Map<Long, Long> = emptyMap()): Expense =
     notes = notes,
     createdAt = createdAt,
     allocations = allocations,
+    fxRateScaled = fxRateScaled,
+    fxDate = fxDate,
+    fxToCurrency = fxToCurrency,
+    fxSource = fxSource,
 )
 
 fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
@@ -164,6 +176,10 @@ fun Expense.toEntity(): ExpenseEntity = ExpenseEntity(
     mode = mode,
     notes = notes,
     createdAt = createdAt,
+    fxRateScaled = fxRateScaled,
+    fxDate = fxDate,
+    fxToCurrency = fxToCurrency,
+    fxSource = fxSource,
 )
 
 fun ExpenseAllocationEntity.toPair(): Pair<Long, Long> = ownedCopyId to amountMinor

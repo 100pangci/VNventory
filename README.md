@@ -21,6 +21,7 @@ VNventory 是一款面向 Galgame / Visual Novel 实体收藏的 Android 应用�
 - **常用店铺/渠道**：在设置中维护名称，在收藏或批次表单里直接选择；也可临时填写。管理候选项不会更改历史购买记录。
 - **购买批次与成本**：批次创建后可编辑名称、店铺/渠道、日期、默认币种与备注；默认币种变更不转换已有商品或费用。直接选择国际运费、岛内运费、国内运费、手续费或税费，预览整个批次的成本与分摊；历史自定义费用仍可读取和编辑。
 - **按需展示价格**：「在书架显示价格」和「显示价格统计」独立设置，默认均关闭；详情始终可查看价格状态。统计仅汇总已记录金额并显示有价格的盒数/总盒数，不要求补齐历史记录。
+- **年度预算与汇率定格**：每年单独设定预算金额（任意金额、独立结算币种）；保存外币记录后自动按购买日期定格汇率（currency-api → ECB frankfurter 双源，失败可手动填写），行情变化不影响历史。价格展示保持不变，只在首页预算卡与预算详情中折算统计；缺价格、缺日期、未定格的记录明确列出「未计入」，不猜测、不补 0。
 - **三种费用分摊**：平均分摊、按价格比例、手动指定；显示未分摊金额，并在保存时再次校验。
 - **JSON 备份与恢复**：系统文件选择器导出或导入，可追加或二次确认后覆盖；包含购买记录和可选恢复的常用店铺/渠道。
 - **书架风格界面**：首页封面只保留作品名，详情继续显示版本副标题；统一线性导航与功能图标、紧凑视图切换，支持减少动态效果和预测性返回。
@@ -75,14 +76,15 @@ python3 scripts/convert-branding.py --write
 - 手动分摊只保存用户指定值：空白代表 0，拒绝非法、负数、超额或不属于当前订单的分配；未分完金额明确显示。
 - 比例运算使用 `BigInteger`，各币种汇总进行溢出检查。超出 `Long` 范围时拒绝保存并回滚事务。
 - 已记录金额按币种分别满足：**已知商品金额 + 全部费用 = 已记录收藏成本 + 未分摊费用**。缺失商品价格时，这不是完整投入；订单详情显示价格覆盖数量。
+- 汇率定格与年度预算：每条收藏 / 费用可保存一组定格快照（汇率 ×10⁹、实际汇率日期、目标币种、来源），折算金额不落库；预算按自然年汇总盒价（可含运费 / 手续费），缺价格、缺日期、未定格或定格币种不符的记录分类为「未计入」，绝不猜测或补 0。全部界面仍按原币种展示，不做实时换算。
 
 ## 本地数据与数据库
 
-Room 当前为 **v4**。VNDB 的 VN 与 Release 缓存通过 `release_vn` 多对多关联。保留正式的 v1 → v2 → v3 → v4 路径，不使用破坏性迁移：v1 → v2 调整缓存关联；v2 → v3 将 `owned_copy.priceMinor` 改为 nullable，原价格（包括 0）、ID、快照、订单关联、自增序列和手动费用分摊均保留；v3 → v4 只为 cache 与收藏快照增加 nullable 双标题列，不猜测旧标题类型、不主动联网补齐。费用旧分类和名称列不删除。
+Room 当前为 **v5**。VNDB 的 VN 与 Release 缓存通过 `release_vn` 多对多关联。保留正式的 v1 → v2 → v3 → v4 → v5 路径，不使用破坏性迁移：v1 → v2 调整缓存关联；v2 → v3 将 `owned_copy.priceMinor` 改为 nullable，原价格（包括 0）、ID、快照、订单关联、自增序列和手动费用分摊均保留；v3 → v4 只为 cache 与收藏快照增加 nullable 双标题列，不猜测旧标题类型、不主动联网补齐；v4 → v5 只为 `owned_copy` 与 `expense` 增加 nullable 汇率定格列（`fxRateScaled` / `fxDate` / `fxToCurrency` / `fxSource`），旧事实与快照原样保留，不猜历史汇率。费用旧分类和名称列不删除。
 
 每盒新收藏保存作品与版本的原标题、罗马音以及旧标题、封面链接快照。即使 VNDB 缓存变化或清空，用户的购买记录也不受影响。旧收藏没有双标题时，两种显示模式均安全回退旧值；切换不改写收藏。费用自动分摊实时计算；只有手动分摊明细保存到数据库。
 
-外观、常用店铺/渠道、默认货币和价格展示开关保存在 DataStore。`VNventoryBackup` JSON 格式现为 **v2**，可表达 `priceMinor: null`，同时接受 v1 的整数价格及历史费用分类/名称；价格开关随备份保存，旧备份缺少这些开关时使用 false。外观使用可选 `settings.appearance` 字段，包含稳定的 `themeMode`（SYSTEM/LIGHT/DARK）和 `dynamicColor`；旧 v1/v2 备份没有外观字段时保持设备当前外观，新安装默认跟随系统、关闭动态取色。默认货币和店铺列表可单独选择是否恢复；旧备份没有店铺列表时保留本机列表。候选项改名或删除不会重写历史名称。旧应用不支持 v2 备份，请保留升级前的备份以备回退。
+外观、常用店铺/渠道、默认货币和价格展示开关保存在 DataStore。`VNventoryBackup` JSON 格式现为 **v2**，可表达 `priceMinor: null`，同时接受 v1 的整数价格及历史费用分类/名称；价格开关随备份保存，旧备份缺少这些开关时使用 false。外观使用可选 `settings.appearance` 字段，包含稳定的 `themeMode`（SYSTEM/LIGHT/DARK）和 `dynamicColor`；旧 v1/v2 备份没有外观字段时保持设备当前外观，新安装默认跟随系统、关闭动态取色。年度预算使用可选 `settings.budget` 字段（开关、结算币种、逐年金额、统计口径），汇率定格快照随每条记录保存；旧备份缺少这些字段时保持本机预算设置，记录显示为未定格，不会按当前汇率补历史。默认货币和店铺列表可单独选择是否恢复；旧备份没有店铺列表时保留本机列表。候选项改名或删除不会重写历史名称。旧应用不支持 v2 备份，请保留升级前的备份以备回退。
 
 ## 备份、隐私与网络
 
@@ -93,7 +95,7 @@ Room 当前为 **v4**。VNDB 的 VN 与 Release 缓存通过 `release_vn` 多对
 - 追加恢复会重新映射本地 ID，不自动去重；覆盖恢复会替换全部购买事实，并要求二次确认。
 - 恢复前验证格式、金额、日期、ID、订单关系和手动分摊；购买事实在单个 Room 事务内提交。备份不包含 VNDB 缓存或图片文件。
 - Android 系统自动备份与数据提取已禁用。卸载应用或清除数据前，请先导出备份。
-- 网络层仅按用户操作请求 `https://api.vndb.org/kana` 及其返回的封面图片地址（`t.vndb.org`），不做批量抓取。封面图片缓存在应用数据目录：弱网或链路受限时自动重试，已缓存的封面离线也能显示。VNDB 元数据属于缓存，收藏不会自动上传。VNDB 与权利方保留其数据版权；本应用与 VNDB 官方无隶属关系。
+- 网络层仅按用户操作请求 `https://api.vndb.org/kana` 及其返回的封面图片地址（`t.vndb.org`），以及两个公开汇率接口（currency-api 的 jsDelivr / pages.dev 镜像与 ECB frankfurter）。保存外币记录后会自动获取并定格汇率，升级前的旧记录只在手动「补全历史」时请求；请求只包含币种代码与日期，不含设备或收藏数据，失败保留未定格状态、不影响本地功能。不做批量抓取。封面图片缓存在应用数据目录：弱网或链路受限时自动重试，已缓存的封面离线也能显示。VNDB 元数据属于缓存，收藏不会自动上传。VNDB 与权利方保留其数据版权；本应用与 VNDB 官方无隶属关系。
 
 ## 构建与测试
 
@@ -116,7 +118,7 @@ scripts/check.sh --offline
 
 Debug APK 输出到 `app/build/outputs/apk/debug/app-debug.apk`。Debug 包名为 `com.vnventory.app.debug`，正式版为 `com.vnventory.app`，可同时安装且数据相互隔离。迁移旧 Debug 安装中的真实收藏前，请先通过应用内备份导出并在新版本恢复。
 
-测试采用 JUnit、Robolectric、Room 内存数据库和 Compose UI 测试，覆盖金额/分摊、数据库迁移、缓存分页与并发请求、备份兼容、商店候选项、资源消息、页面渲染和返回动效。本机没有 AVD；Robolectric 测试不能代替真机上的系统返回手势、IME 和滚动体验验证。
+测试采用 JUnit、Robolectric、Room 内存数据库和 Compose UI 测试，覆盖金额/分摊、汇率定格与年度预算、数据库迁移、缓存分页与并发请求、备份兼容、商店候选项、资源消息、页面渲染和返回动效。本机没有 AVD；Robolectric 测试不能代替真机上的系统返回手势、IME 和滚动体验验证。
 
 ## Release 构建与签名
 
@@ -129,10 +131,10 @@ Release 开启 R8 优化/混淆和资源压缩；配置签名后 APK 使用 v2/v
 
 没有本地签名配置时 Debug 构建和测试不受影响；本地仍可执行 `assembleRelease` 生成未签名 APK，但该包不能作为已签名正式版的升级包。已签名 APK 位于 `app/build/outputs/apk/release/app-release.apk`，无签名配置时为同目录的 `app-release-unsigned.apk`。
 
-本地默认版本为 **1.0.4**（versionCode **1000004**，高于已有 `v1.0.3`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
+本地默认版本为 **1.1.0**（versionCode **1001000**，高于已有 `v1.0.4`）。GitHub Actions 仅接受 `vMAJOR.MINOR.PATCH` 标签，并以标签版本统一 `versionName`、`BuildConfig.VERSION_NAME`、VNDB User-Agent、`VNventory-vMAJOR.MINOR.PATCH.apk` 文件名和 Release 名称；发布前核对 APK 构建元数据中的版本及文件名。`versionCode` 使用 `MAJOR × 1,000,000 + MINOR × 1,000 + PATCH`（`MINOR` 和 `PATCH` 均须小于 1000，结果须为有效 Android 整数）。显式传入不匹配的 versionCode 会失败。
 
 正式 tag 发布必须配齐 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS` 和 `ANDROID_KEY_PASSWORD`；`ANDROID_KEYSTORE_TYPE` 可选，默认为 `PKCS12`。缺少任意必要 secret、构建失败、APK 缺失或签名校验失败均不发布，不允许用 unsigned APK 兜底。临时签名文件使用私有权限，日志不输出私钥或密码。打标签前应基于实际代码变化编写 `CHANGELOG.md`，版本标题使用 `## [MAJOR.MINOR.PATCH] - YYYY-MM-DD`，分类使用 `###`。Actions 通过 `scripts/release_notes.py` 提取对应版本的已审阅说明用于 GitHub Release，不再根据提交标题生成；版本条目缺失、重复或格式错误时停止发布。发布后仍保留幂等 CHANGELOG 检查，已有版本条目不会被覆盖，bot 的普通分支提交不会触发 tag 发布。
 
 ## 当前不包含
 
-账号、云同步、VNDB 账号收藏同步、汇率换算、社区、AI、统计图表、多平台或 Web 版本。项目使用 Mozilla Public License 2.0，见 [LICENSE](LICENSE)。
+账号、云同步、VNDB 账号收藏同步、实时汇率行情与跨币种实时换算、社区、AI、统计图表、多平台或 Web 版本。项目使用 Mozilla Public License 2.0，见 [LICENSE](LICENSE)。

@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +38,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
@@ -45,10 +49,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vnventory.app.di.AppViewModelProvider
+import com.vnventory.app.domain.model.Fx
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.ui.components.DateField
 import com.vnventory.app.ui.components.EmptyState
 import com.vnventory.app.ui.components.ErrorState
+import com.vnventory.app.ui.components.FxManualDialog
+import com.vnventory.app.ui.components.FxSnapshotInfo
+import com.vnventory.app.ui.components.FxStatusContent
+import com.vnventory.app.ui.components.fxOutcomeText
 import com.vnventory.app.ui.components.LoadingState
 import com.vnventory.app.ui.components.OrderSelector
 import com.vnventory.app.ui.components.VnCover
@@ -71,6 +80,7 @@ fun CopyEditScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val focus = LocalFocusManager.current
+    var manualFx by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -102,8 +112,33 @@ fun CopyEditScreen(
                 modifier = Modifier.padding(padding),
             )
 
-            else -> CopyEditContent(state, viewModel::onFormChange, viewModel::openBindSheet, Modifier.padding(padding))
+            else -> CopyEditContent(
+                state,
+                viewModel::onFormChange,
+                viewModel::openBindSheet,
+                onRetryFx = viewModel::retryFx,
+                onManualFx = { manualFx = true },
+                onClearFx = viewModel::clearFx,
+                modifier = Modifier.padding(padding),
+            )
         }
+    }
+
+    if (manualFx && state.copy != null) {
+        FxManualDialog(
+            fromCurrency = state.form.currency,
+            toCurrency = state.targetCurrency,
+            initialRateText = state.copy?.fxRateScaled?.let(Fx::formatValue).orEmpty(),
+            initialDate = state.copy?.fxDate,
+            onDismiss = { manualFx = false },
+            onClear = state.copy?.fxRateScaled?.let {
+                { viewModel.clearFx(); manualFx = false }
+            },
+            onConfirm = { rate, date ->
+                viewModel.setManualFx(rate, date)
+                manualFx = false
+            },
+        )
     }
 
     // 绑定 VNDB Release 面板
@@ -186,7 +221,15 @@ fun CopyEditScreen(
 }
 
 @Composable
-internal fun CopyEditContent(state: CopyEditUiState, onFormChange: (EditFormState) -> Unit, onBind: () -> Unit, modifier: Modifier = Modifier) {
+internal fun CopyEditContent(
+    state: CopyEditUiState,
+    onFormChange: (EditFormState) -> Unit,
+    onBind: () -> Unit,
+    modifier: Modifier = Modifier,
+    onRetryFx: (() -> Unit)? = null,
+    onManualFx: (() -> Unit)? = null,
+    onClearFx: (() -> Unit)? = null,
+) {
     val copy = state.copy ?: return
     val form = state.form
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
@@ -216,6 +259,31 @@ internal fun CopyEditContent(state: CopyEditUiState, onFormChange: (EditFormStat
                     form.parsedPrice != null -> stringResource(R.string.amount_equivalent, Money.format(form.parsedPrice!!, form.currency))
                     else -> stringResource(R.string.amount_invalid)
                 })
+            if (Money.normalize(form.currency) != Money.normalize(state.targetCurrency) && form.priceText.isNotBlank()) {
+                val snapshot = state.copy?.let { copy ->
+                    val rate = copy.fxRateScaled
+                    val date = copy.fxDate
+                    val to = copy.fxToCurrency
+                    val source = copy.fxSource
+                    if (rate != null && date != null && to != null && source != null) FxSnapshotInfo(rate, date, to, source) else null
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                FxStatusContent(
+                    fromCurrency = form.currency,
+                    targetCurrency = state.targetCurrency,
+                    snapshot = snapshot,
+                    onRetry = onRetryFx,
+                    onManual = onManualFx,
+                    onClear = if (state.copy?.fxRateScaled != null) onClearFx else null,
+                )
+                state.fxOutcome?.let { outcome ->
+                    Text(
+                        text = fxOutcomeText(outcome),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         }
         FormSection(stringResource(R.string.condition), R.drawable.ic_ui_preferences) {
             ConditionPicker(form.condition, form.conditionNote,

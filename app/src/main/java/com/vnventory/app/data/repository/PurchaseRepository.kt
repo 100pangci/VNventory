@@ -13,6 +13,7 @@ import com.vnventory.app.domain.cost.CostCopyInput
 import com.vnventory.app.domain.cost.CostEngine
 import com.vnventory.app.domain.model.AllocationMode
 import com.vnventory.app.domain.model.Expense
+import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OrderDetail
 import com.vnventory.app.domain.model.OrderSummary
 import com.vnventory.app.domain.model.PurchaseOrder
@@ -84,6 +85,9 @@ class PurchaseRepository(
     fun observeExpenseCategoryTotals(): Flow<List<CategoryTotal>> =
         expenseDao.observeCategoryTotals().flowOn(io)
 
+    fun observeAllExpenses(): Flow<List<Expense>> =
+        expenseDao.observeAll().map { list -> list.map { it.toDomain() } }.flowOn(io)
+
     // ---- 订单 ----
 
     suspend fun createOrder(order: PurchaseOrder): Long = withContext(io) {
@@ -132,10 +136,14 @@ class PurchaseRepository(
             val old = requireNotNullMessage(expenseDao.getById(expense.id)) { message(MessageKey.EXPENSE_MISSING) }
             requireMessage(old.orderId == expense.orderId) { message(MessageKey.EXPENSE_ORDER_TRANSFER) }
             validateExpense(expense)
-            expenseDao.update(expense.toEntity())
+            // 币种变了，此前定格的汇率方向失效：清空快照，保存后按新币种重新定格。
+            val effective = if (Money.normalize(expense.currency) != old.currency) {
+                expense.copy(fxRateScaled = null, fxDate = null, fxToCurrency = null, fxSource = null)
+            } else expense
+            expenseDao.update(effective.toEntity())
             expenseDao.clearAllocations(expense.id)
-            if (expense.mode == AllocationMode.MANUAL) {
-                expenseDao.upsertAllocations(expense.allocations.toEntities(expense.id))
+            if (effective.mode == AllocationMode.MANUAL) {
+                expenseDao.upsertAllocations(effective.allocations.toEntities(effective.id))
             }
             LocalRules.totals(database)
         }
@@ -180,6 +188,7 @@ class PurchaseRepository(
         requireMessage(orderDao.getById(expense.orderId) != null) { message(MessageKey.ORDER_MISSING) }
         requireMessage(expense.name.isNotBlank()) { message(MessageKey.EXPENSE_NAME_REQUIRED) }
         LocalRules.currency(expense.currency)
+        LocalRules.fx(expense.fxRateScaled, expense.fxDate, expense.fxToCurrency, expense.fxSource)
         val copies = ownedCopyDao.getByOrder(expense.orderId).map { CostCopyInput(it.id, it.priceMinor, it.currency) }
         val problem = CostEngine.expenseProblem(expense.costInput(), copies)
         requireMessage(problem == null) { problem!! }

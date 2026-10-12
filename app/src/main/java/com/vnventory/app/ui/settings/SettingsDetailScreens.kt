@@ -214,7 +214,7 @@ internal fun PriceDisplayPreferences(shelfPrices: Boolean, priceStats: Boolean, 
 
 /** 整行只保留一个开关动作，按住时的反馈与圆角触控范围一致。 */
 @Composable
-private fun PreferenceSwitchRow(
+internal fun PreferenceSwitchRow(
     title: String, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier,
     enabled: Boolean = true, hint: String? = null,
 ) {
@@ -343,6 +343,7 @@ internal fun BackupImportDialogs(
                     InfoLine(stringResource(R.string.backup_import_modes_hint))
                     InfoLine(stringResource(R.string.backup_price_display_hint))
                     if (backup.appearance != null) InfoLine(stringResource(R.string.backup_appearance_hint))
+                    if (backup.budget != null) InfoLine(stringResource(R.string.backup_budget_hint))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = state.restoreCurrency, onCheckedChange = onRestoreCurrency, enabled = !state.busy)
                         Text(stringResource(R.string.backup_restore_currency, backup.defaultCurrency), style = MaterialTheme.typography.bodyMedium)

@@ -178,7 +178,9 @@ class SettingsViewModel(
                 message(if (result.priceDisplayRestored) MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_RESTORED else MessageKey.BACKUP_FEEDBACK_PRICE_DISPLAY_FAILED))
             val appearanceFeedback = if (backup.appearance == null) completeFeedback else message(MessageKey.BACKUP_FEEDBACK_RESULT, completeFeedback,
                 message(if (result.appearanceRestored) MessageKey.BACKUP_FEEDBACK_APPEARANCE_RESTORED else MessageKey.BACKUP_FEEDBACK_APPEARANCE_FAILED))
-            _backupState.update { it.copy(pendingImport = null, replaceConfirmation = false, feedback = appearanceFeedback) }
+            val budgetFeedback = if (backup.budget == null) appearanceFeedback else message(MessageKey.BACKUP_FEEDBACK_RESULT, appearanceFeedback,
+                message(if (result.budgetRestored) MessageKey.BUDGET_FEEDBACK_RESTORED else MessageKey.BUDGET_FEEDBACK_FAILED))
+            _backupState.update { it.copy(pendingImport = null, replaceConfirmation = false, feedback = budgetFeedback) }
         }
     }
 

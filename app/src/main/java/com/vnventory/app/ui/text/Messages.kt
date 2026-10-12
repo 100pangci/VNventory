@@ -136,4 +136,10 @@ val MessageKey.resourceId: Int
         MessageKey.SHOP_DUPLICATE -> R.string.message_shop_duplicate
         MessageKey.SHOP_MISSING -> R.string.message_shop_missing
         MessageKey.SHOP_DATA_INVALID -> R.string.message_shop_data_invalid
+        MessageKey.FX_RATE_INVALID -> R.string.message_fx_rate_invalid
+        MessageKey.FX_CONVERT_OVERFLOW -> R.string.message_fx_convert_overflow
+        MessageKey.FX_SNAPSHOT_INVALID -> R.string.message_fx_snapshot_invalid
+        MessageKey.BUDGET_DATA_INVALID -> R.string.message_budget_data_invalid
+        MessageKey.BUDGET_FEEDBACK_RESTORED -> R.string.message_budget_feedback_restored
+        MessageKey.BUDGET_FEEDBACK_FAILED -> R.string.message_budget_feedback_failed
     }

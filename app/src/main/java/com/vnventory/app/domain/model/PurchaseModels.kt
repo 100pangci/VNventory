@@ -19,6 +19,14 @@ data class Expense(
     val createdAt: Long,
     /** 手动分摊明细：copyId -> 金额（仅 MANUAL 模式有值） */
     val allocations: Map<Long, Long> = emptyMap(),
+    /** 定格汇率 ×10^9（1 单位本币 = rate/1e9 单位目标币）；null = 未定格 */
+    val fxRateScaled: Long? = null,
+    /** 实际采用的汇率日期 */
+    val fxDate: java.time.LocalDate? = null,
+    /** 定格时的目标币种 */
+    val fxToCurrency: String? = null,
+    /** 数据源（currency-api / frankfurter / manual） */
+    val fxSource: String? = null,
 ) {
     val displayName get() = if (category.isFixed && name == category.name) category.label
         else com.vnventory.app.domain.text.Message.Literal(name)

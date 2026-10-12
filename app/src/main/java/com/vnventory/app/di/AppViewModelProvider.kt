@@ -7,12 +7,14 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.vnventory.app.VNventoryApp
 import com.vnventory.app.ui.add.AddFlowViewModel
+import com.vnventory.app.ui.budget.BudgetDetailViewModel
 import com.vnventory.app.ui.collection.CollectionViewModel
 import com.vnventory.app.ui.detail.CopyDetailViewModel
 import com.vnventory.app.ui.edit.CopyEditViewModel
 import com.vnventory.app.ui.home.HomeViewModel
 import com.vnventory.app.ui.orders.OrderDetailViewModel
 import com.vnventory.app.ui.orders.OrdersViewModel
+import com.vnventory.app.ui.settings.BudgetSettingsViewModel
 import com.vnventory.app.ui.settings.SettingsViewModel
 import com.vnventory.app.ui.theme.ThemeViewModel
 import com.vnventory.app.domain.text.MessageKey
@@ -35,6 +37,10 @@ object AppViewModelProvider {
         initializer { OrdersViewModel(appContainer()) }
 
         initializer { SettingsViewModel(appContainer()) }
+
+        initializer { BudgetSettingsViewModel(appContainer()) }
+
+        initializer { BudgetDetailViewModel(appContainer()) }
 
         initializer { ThemeViewModel(appContainer()) }
 

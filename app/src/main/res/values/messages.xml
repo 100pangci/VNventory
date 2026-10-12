@@ -115,4 +115,10 @@
     <string name="message_shop_duplicate">此店铺/渠道已存在</string>
     <string name="message_shop_missing">此店铺/渠道已不存在，请刷新后重试</string>
     <string name="message_shop_data_invalid">店铺/渠道列表无效，请检查名称是否为空或重复</string>
+    <string name="message_fx_rate_invalid">汇率必须大于 0</string>
+    <string name="message_fx_convert_overflow">折算金额超出可支持的范围</string>
+    <string name="message_fx_snapshot_invalid">汇率定格信息不完整</string>
+    <string name="message_budget_data_invalid">年度预算设置无效，请重新设置</string>
+    <string name="message_budget_feedback_restored">年度预算设置已恢复。</string>
+    <string name="message_budget_feedback_failed">年度预算设置恢复失败；请在设置中手动调整，不要重复导入。</string>
 </resources>

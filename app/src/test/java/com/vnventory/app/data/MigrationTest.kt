@@ -24,6 +24,7 @@ class MigrationTest {
     @Test fun `真实v2到v3保留零价分摊与自增序列`() = verifyMigration(2)
     @Test fun `已清空收藏的v2仍保留自增序列`() = verifyMigration(2, empty = true)
     @Test fun `真实v3到v4保留全部事实且不猜标题类型`() = verifyMigration(3)
+    @Test fun `真实v4到v5保留汇率定格与全部事实`() = verifyMigration(4)
 
     private fun verifyMigration(version: Int, empty: Boolean = false) = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -42,17 +43,22 @@ class MigrationTest {
                 }
             }
             schema.getValue("setupQueries").jsonArray.forEach { old.execSQL(it.jsonPrimitive.content) }
-            old.execSQL("INSERT INTO vn_cache VALUES ('v1','A',NULL,NULL,NULL,NULL,0)")
+            old.execSQL("INSERT INTO vn_cache(vndbId,title,altTitle,released,imageUrl,description,fetchedAt) VALUES ('v1','A',NULL,NULL,NULL,NULL,0)")
             if (version == 1) old.execSQL("INSERT INTO release_cache VALUES ('r1','v1','A+B',NULL,'win','ja','Pub',NULL,NULL,NULL,NULL,0)")
             else {
-                old.execSQL("INSERT INTO release_cache VALUES ('r1','A+B',NULL,'win','ja','Pub',NULL,NULL,NULL,NULL,0)")
+                old.execSQL("INSERT INTO release_cache(vndbId,title,released,platforms,languages,publishers,jan,minAge,official,packagingImageUrl,fetchedAt) VALUES ('r1','A+B',NULL,'win','ja','Pub',NULL,NULL,NULL,NULL,0)")
                 old.execSQL("INSERT INTO release_vn VALUES ('v1','r1')")
             }
             old.execSQL("INSERT INTO purchase_order VALUES (1,'Batch',NULL,NULL,'JPY',NULL,0,0)")
-            old.execSQL("""INSERT INTO owned_copy VALUES (1,'v1','r1','A','A+B',NULL,5000,'JPY','USED',NULL,'2026-10-01','Shop',1,'keep',0,0)""")
-            old.execSQL("INSERT INTO expense VALUES (1,1,'Ship','SHIPPING',100,'JPY','MANUAL',NULL,0)")
+            // 各旧 schema 的列数不同；显式列名插入，只写当时存在的购买事实。
+            old.execSQL(
+                """INSERT INTO owned_copy(id,vnId,releaseId,vnTitle,releaseTitle,coverUrl,priceMinor,currency,condition,conditionNote,purchaseDate,shop,orderId,notes,createdAt,updatedAt)
+                   VALUES (1,'v1','r1','A','A+B',NULL,5000,'JPY','USED',NULL,'2026-10-01','Shop',1,'keep',0,0)"""
+            )
+            old.execSQL("INSERT INTO expense(id,orderId,name,category,amountMinor,currency,mode,notes,createdAt) VALUES (1,1,'Ship','SHIPPING',100,'JPY','MANUAL',NULL,0)")
             old.execSQL("INSERT INTO expense_allocation VALUES (1,1,100)")
-            old.execSQL("""INSERT INTO owned_copy SELECT 2,vnId,releaseId,vnTitle,releaseTitle,coverUrl,0,currency,condition,conditionNote,purchaseDate,shop,orderId,notes,createdAt,updatedAt FROM owned_copy WHERE id=1""")
+            old.execSQL("""INSERT INTO owned_copy(id,vnId,releaseId,vnTitle,releaseTitle,coverUrl,priceMinor,currency,condition,conditionNote,purchaseDate,shop,orderId,notes,createdAt,updatedAt)
+                SELECT 2,vnId,releaseId,vnTitle,releaseTitle,coverUrl,0,currency,condition,conditionNote,purchaseDate,shop,orderId,notes,createdAt,updatedAt FROM owned_copy WHERE id=1""")
             old.execSQL("UPDATE sqlite_sequence SET seq=100 WHERE name='owned_copy'")
             if (empty) {
                 old.execSQL("DELETE FROM expense_allocation")
@@ -61,7 +67,7 @@ class MigrationTest {
             old.version = version
         }
         val db = Room.databaseBuilder(context, VNventoryDatabase::class.java, name)
-            .addMigrations(VNventoryDatabase.MIGRATION_1_2, VNventoryDatabase.MIGRATION_2_3, VNventoryDatabase.MIGRATION_3_4).allowMainThreadQueries().build()
+            .addMigrations(VNventoryDatabase.MIGRATION_1_2, VNventoryDatabase.MIGRATION_2_3, VNventoryDatabase.MIGRATION_3_4, VNventoryDatabase.MIGRATION_4_5).allowMainThreadQueries().build()
         try {
             if (empty) {
                 db.openHelper.writableDatabase.execSQL("""INSERT INTO owned_copy(vnId,vnTitle,releaseTitle,priceMinor,currency,condition,createdAt,updatedAt) VALUES ('v1','A','Manual',NULL,'JPY','USED',0,0)""")
@@ -80,12 +86,19 @@ class MigrationTest {
             assertEquals(5000L, copy.priceMinor)
             assertEquals("keep", copy.notes)
             assertEquals(1L, copy.orderId)
+            // v4 → v5 只加 nullable 列：旧事实与双标题快照保留，定格为空。
+            assertNull(copy.fxRateScaled)
+            assertNull(copy.fxToCurrency)
+            assertNull(copy.fxSource)
+            assertNull(copy.fxDate)
             assertEquals("Batch", db.purchaseOrderDao().getById(1)!!.title)
             val expense = db.expenseDao().getAll().single()
             assertEquals("Ship", expense.name)
             assertEquals(100L, expense.amountMinor)
             assertEquals(com.vnventory.app.domain.model.AllocationMode.MANUAL, expense.mode)
             assertEquals(100L, db.expenseDao().getAllocations(1).single().amountMinor)
+            assertNull(expense.fxRateScaled)
+            assertNull(expense.fxToCurrency)
             assertEquals(0L, db.ownedCopyDao().getById(2)!!.priceMinor)
             val nullId = db.ownedCopyDao().insert(copy.copy(id = 0, priceMinor = null))
             assertTrue(nullId > 100)

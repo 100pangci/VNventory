@@ -15,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.vnventory.app.ui.add.AddFlowScreen
+import com.vnventory.app.ui.budget.BudgetDetailScreen
 import com.vnventory.app.ui.collection.CollectionScreen
 import com.vnventory.app.ui.detail.CopyDetailScreen
 import com.vnventory.app.ui.edit.CopyEditScreen
@@ -23,6 +24,7 @@ import com.vnventory.app.ui.orders.OrderDetailScreen
 import com.vnventory.app.ui.orders.OrdersScreen
 import com.vnventory.app.ui.settings.SettingsScreen
 import com.vnventory.app.ui.settings.SettingsPreferencesScreen
+import com.vnventory.app.ui.settings.SettingsBudgetScreen
 import com.vnventory.app.ui.settings.SettingsDataScreen
 import com.vnventory.app.ui.settings.SettingsAboutScreen
 import com.vnventory.app.ui.settings.SettingsShopsScreen
@@ -58,6 +60,7 @@ fun VNventoryNavHost(
                 onAddClick = { navController.navigate(AddRoute()) },
                 onCopyClick = { navController.navigate(CopyDetailRoute(it)) },
                 onSeeAllClick = { navController.navigateToTopLevel(CollectionRoute) },
+                onBudgetClick = { navController.navigate(BudgetRoute) },
             )
         }
 
@@ -81,6 +84,7 @@ fun VNventoryNavHost(
                 onData = { navController.navigate(SettingsDataRoute) },
                 onAbout = { navController.navigate(SettingsAboutRoute) },
                 onShops = { navController.navigate(SettingsShopsRoute) },
+                onBudget = { navController.navigate(SettingsBudgetRoute) },
             )
         }
 
@@ -90,6 +94,18 @@ fun VNventoryNavHost(
 
         composable<SettingsShopsRoute> {
             SettingsShopsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable<SettingsBudgetRoute> {
+            SettingsBudgetScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable<BudgetRoute> {
+            BudgetDetailScreen(
+                onBack = { navController.popBackStack() },
+                onCopyClick = { navController.navigate(CopyEditRoute(it)) },
+                onOrderClick = { navController.navigate(OrderDetailRoute(it)) },
+            )
         }
 
         composable<SettingsDataRoute> {

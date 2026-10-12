@@ -38,6 +38,14 @@ data class ExpenseEntity(
     val mode: AllocationMode,
     val notes: String?,
     val createdAt: Long,
+    /** 定格汇率 ×10^9（1 单位本币 = rate/1e9 单位目标币）；null = 未定格 */
+    val fxRateScaled: Long? = null,
+    /** 实际采用的汇率日期（ISO-8601 文本） */
+    val fxDate: java.time.LocalDate? = null,
+    /** 定格时的目标币种 */
+    val fxToCurrency: String? = null,
+    /** 数据源（currency-api / frankfurter / manual） */
+    val fxSource: String? = null,
 )
 
 /**

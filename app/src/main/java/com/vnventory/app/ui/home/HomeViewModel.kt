@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /** 首页统计（金额按币种分组，不做隐式换算） */
@@ -40,6 +41,16 @@ private data class ShelfDisplay(
     val showReleaseNames: Boolean,
     val showPriceStats: Boolean,
     val allCopies: List<OwnedCopy>,
+)
+
+/** 首页年度预算卡（仅在预算开启后显示）。 */
+data class HomeBudget(
+    val enabled: Boolean,
+    val year: Int,
+    val spentMinor: Long,
+    val amountMinor: Long?,
+    val currency: String,
+    val issueCount: Int,
 )
 
 class HomeViewModel(container: AppContainer) : ActionViewModel() {
@@ -79,6 +90,20 @@ class HomeViewModel(container: AppContainer) : ActionViewModel() {
     val recentCopies: StateFlow<List<OwnedCopy>> = collectionRepository.observeRecent(limit = 8)
         .catch { reportError(it); emit(emptyList()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val budget: StateFlow<HomeBudget?> = container.budgetRepository.observeOverview()
+        .map<com.vnventory.app.data.repository.BudgetOverview, HomeBudget?> { overview ->
+            HomeBudget(
+                enabled = overview.preferences.enabled,
+                year = overview.currentYear,
+                spentMinor = overview.summary.totalForYear(overview.currentYear),
+                amountMinor = overview.preferences.yearlyAmounts[overview.currentYear],
+                currency = overview.targetCurrency,
+                issueCount = overview.summary.issues.size,
+            )
+        }
+        .catch { reportError(it); emit(null) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 }
 
 private fun List<com.vnventory.app.data.local.dao.CategoryTotal>.totalsFor(

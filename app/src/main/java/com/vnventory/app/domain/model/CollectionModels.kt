@@ -34,6 +34,14 @@ data class OwnedCopy(
     val vnRomanizedTitle: String? = null,
     val releaseOriginalTitle: String? = null,
     val releaseRomanizedTitle: String? = null,
+    /** 定格汇率 ×10^9（1 单位本币 = rate/1e9 单位目标币）；null = 未定格 */
+    val fxRateScaled: Long? = null,
+    /** 实际采用的汇率日期 */
+    val fxDate: LocalDate? = null,
+    /** 定格时的目标币种 */
+    val fxToCurrency: String? = null,
+    /** 数据源（currency-api / frankfurter / manual） */
+    val fxSource: String? = null,
 ) {
     fun displayTitle(mode: TitleDisplayMode): String = displayTitle(mode, vnOriginalTitle, vnRomanizedTitle, vnTitle, vnId)
     fun displayReleaseName(mode: TitleDisplayMode): Message {

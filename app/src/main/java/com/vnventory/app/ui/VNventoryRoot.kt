@@ -92,6 +92,20 @@ fun VNventoryRoot() {
     val scope = rememberCoroutineScope()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val applicationContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+
+    // 应用启动 / 回到前台：静默重试最近仍待定格的汇率（限量，不请求旧记录）。
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val lifecycle = lifecycleOwner.lifecycle
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                (applicationContext as? com.vnventory.app.VNventoryApp)?.container?.fxFreezer?.requestRecentRetry()
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 
     val showBottomBar = currentDestination?.hierarchy?.any { destination ->
         topLevelItems.any { it.isSelected(destination) }

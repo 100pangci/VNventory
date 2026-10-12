@@ -36,7 +36,7 @@ Android 原生应用：Galgame/VN 实体收藏管理（Kotlin + Compose + Materi
 - 禁止混币种商品 BY_PRICE（无汇率）；MANUAL 不能非法、负数或超额，部分分摊须显示未分摊金额。
   仓库在事务内二次校验，预览必须使用完整订单引擎；金额相加使用 `Money.add/sum/totals`，不得静默溢出。
 - **VNDB 是缓存、本地是事实来源**：`owned_copy` 保存标题/封面快照，VNDB 缓存被清理不影响收藏。
-- Room 当前 v4，VN/Release 通过 `release_vn` 多对多；v1→v2→v3→v4 非破坏性迁移已有真实 schema 回归测试。
+- Room 当前 v5，VN/Release 通过 `release_vn` 多对多；v1→v2→v3→v4→v5 非破坏性迁移已有真实 schema 回归测试（v4→v5 只加 nullable 汇率定格列）。
 - 原标题/罗马音使用明确字段并同时缓存、同时保存 OwnedCopy 快照；旧标题只作 legacy fallback，不猜类型。TitleDisplayMode 只控制显示，不请求 VNDB、不批量重写收藏；手动版本名保持用户输入。全局 Compose 显示走 `ui/text/Titles.kt`，版本名开关独立。
 - 商品价格 `Long?`：null=未记录，0=真实零价；不把空值补成0。比例分摊要求全部商品价格已知，平均/手动不受影响。
 - 改 Room schema：升 `version` + 写 `Migration`（schema 导出目录 `app/schemas/`，勿手改）。
@@ -46,5 +46,6 @@ Android 原生应用：Galgame/VN 实体收藏管理（Kotlin + Compose + Materi
   UI 在显示时解析资源；不得把翻译结果存进数据库、ViewModel 或备份。用户输入及 VNDB 快照不翻译。
 - 常用店铺/渠道是 DataStore 候选列表；收藏和订单继续保存原始名称快照，候选项改名/删除不能改历史记录。
   备份中的候选列表为可选字段，旧备份没有该字段时不得清空本机列表。
-- 网络层只用 `api.vndb.org/kana`（字段以 schema 为准）；不要引入批量抓取或未授权的 API 用法。
+- **汇率定格与预算**：每条收藏/费用可带定格快照（`fxRateScaled` ×10⁹、`fxDate`、`fxToCurrency`、`fxSource`，四字段全有或全无）；保存外币记录后经 `FxFreezer` 后台自动获取（currency-api → frankfurter → 手动兜底），失败不影响保存；折算金额不落库，预算汇总只走 `domain/cost/BudgetEngine.kt`，界面不做实时换算；不得用浮点表示汇率或金额。定格目标 = 预算结算币种（已设置）否则默认货币。
+- 网络层只用 `api.vndb.org/kana`（字段以 schema 为准）和两个公开汇率接口（currency-api 的 jsDelivr / pages.dev 镜像、ECB frankfurter，仅发送币种与日期）；不要引入批量抓取或未授权的 API 用法。升级前的旧记录不得自动批量请求汇率，只走「补全历史」显式动作。
 - 封面图片经 `data/image/CoverImageLoader.kt` 的 Coil 单例加载：磁盘缓存固定在 `filesDir/cover-cache`（不要改回 `cacheDir`）；网络层带超时与有限重试；保存收藏/绑定版本时用 `CoverWarmer` 预热封面，预热失败不影响保存。

@@ -21,6 +21,16 @@ internal object LocalRules {
         requireMessage(copy.vnTitle.isNotBlank() && !copy.releaseTitle.isNullOrBlank()) { message(MessageKey.TITLES_REQUIRED) }
         requireMessage(copy.condition != CopyCondition.CUSTOM || !copy.conditionNote.isNullOrBlank()) { message(MessageKey.CONDITION_NOTE_REQUIRED) }
         currency(copy.currency)
+        fx(copy.fxRateScaled, copy.fxDate, copy.fxToCurrency, copy.fxSource)
+    }
+
+    /** 定格快照必须四字段齐全且汇率 > 0；全空表示未定格。 */
+    fun fx(rateScaled: Long?, date: java.time.LocalDate?, toCurrency: String?, source: String?) {
+        if (rateScaled == null && date == null && toCurrency == null && source == null) return
+        requireMessage(
+            rateScaled != null && rateScaled > 0 && date != null && toCurrency != null && !source.isNullOrBlank()
+        ) { message(MessageKey.FX_SNAPSHOT_INVALID) }
+        currency(requireNotNull(toCurrency))
     }
 
     suspend fun order(db: VNventoryDatabase, id: Long?) {

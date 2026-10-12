@@ -8,9 +8,12 @@ import com.vnventory.app.core.AppResult
 import com.vnventory.app.di.AppContainer
 import com.vnventory.app.data.image.CoverWarmer
 import com.vnventory.app.data.repository.CollectionRepository
+import com.vnventory.app.data.repository.FxFreezeOutcome
+import com.vnventory.app.data.repository.FxFreezer
 import com.vnventory.app.data.repository.PurchaseRepository
 import com.vnventory.app.data.repository.VnRepository
 import com.vnventory.app.data.repository.SettingsRepository
+import com.vnventory.app.domain.cost.BudgetRecordKind
 import com.vnventory.app.domain.model.CopyCondition
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.OrderSummary
@@ -64,6 +67,16 @@ data class CopyEditUiState(
     val saving: Boolean = false,
     val bindSheet: BindSheetState = BindSheetState(),
     val shopChannels: List<String> = emptyList(),
+    /** 汇率定格目标币种（预算结算币种，否则默认货币）。 */
+    val targetCurrency: String = "CNY",
+    val fxOutcome: FxFreezeOutcome? = null,
+)
+
+private data class CopyEditExtras(
+    val orders: List<OrderSummary>,
+    val shopChannels: List<String>,
+    val targetCurrency: String,
+    val fxOutcome: FxFreezeOutcome?,
 )
 
 class CopyEditViewModel(
@@ -73,9 +86,10 @@ class CopyEditViewModel(
     private val copyId: Long,
     private val settingsRepository: SettingsRepository,
     private val coverWarmer: CoverWarmer,
+    private val freezer: FxFreezer? = null,
 ) : ActionViewModel() {
     constructor(container: AppContainer, copyId: Long) : this(
-        container.collectionRepository, container.vnRepository, container.purchaseRepository, copyId, container.settingsRepository, container.coverWarmer,
+        container.collectionRepository, container.vnRepository, container.purchaseRepository, copyId, container.settingsRepository, container.coverWarmer, container.fxFreezer,
     )
     private var bindJob: Job? = null
     private var bindGeneration = 0
@@ -85,23 +99,31 @@ class CopyEditViewModel(
     private val formState = MutableStateFlow(EditFormState())
     private val savingState = MutableStateFlow(false)
     private val bindSheetState = MutableStateFlow(BindSheetState())
+    private val fxOutcomeState = MutableStateFlow<FxFreezeOutcome?>(null)
 
     val uiState: StateFlow<CopyEditUiState> = combine(
         copyState,
         loadedState,
         formState,
         combine(savingState, bindSheetState) { saving, bind -> saving to bind },
-        combine(purchaseRepository.observeOrders(), settingsRepository.shopChannels.catch { reportError(it); emit(emptyList()) }) { orders, shops -> orders to shops },
-    ) { copy, loaded, form, (saving, bind), (orders, shops) ->
+        combine(
+            purchaseRepository.observeOrders(),
+            settingsRepository.shopChannels.catch { reportError(it); emit(emptyList()) },
+            settingsRepository.fxTargetCurrency.catch { reportError(it); emit(SettingsRepository.FALLBACK_CURRENCY) },
+            fxOutcomeState,
+        ) { orders, shops, target, outcome -> CopyEditExtras(orders, shops, target, outcome) },
+    ) { copy, loaded, form, (saving, bind), extras ->
         CopyEditUiState(
             loading = !loaded,
             notFound = loaded && copy == null,
             copy = copy,
             form = form,
-            orders = orders,
+            orders = extras.orders,
             saving = saving,
             bindSheet = bind,
-            shopChannels = shops,
+            shopChannels = extras.shopChannels,
+            targetCurrency = extras.targetCurrency,
+            fxOutcome = extras.fxOutcome,
         )
     }.catch { reportError(it); emit(CopyEditUiState(loading = false)) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CopyEditUiState())
@@ -142,6 +164,39 @@ class CopyEditViewModel(
     fun onNotesChange(value: String) = formState.update { it.copy(notes = value) }
     fun onOrderChange(orderId: Long?) = formState.update { it.copy(orderId = orderId) }
 
+    // ---- 汇率定格 ----
+
+    fun retryFx() {
+        val copy = copyState.value ?: return
+        val freezer = freezer ?: return
+        launchAction {
+            fxOutcomeState.value = freezer.freezeRecord(BudgetRecordKind.COPY, copy.id, includeStale = true)
+            copyState.value = collectionRepository.getById(copy.id)
+        }
+    }
+
+    fun setManualFx(rateScaled: Long, date: LocalDate) {
+        val copy = copyState.value ?: return
+        val freezer = freezer ?: return
+        launchAction {
+            freezer.setManualSnapshot(BudgetRecordKind.COPY, copy.id, rateScaled, date)
+            fxOutcomeState.value = FxFreezeOutcome.FROZEN
+            copyState.value = collectionRepository.getById(copy.id)
+        }
+    }
+
+    fun clearFx() {
+        val copy = copyState.value ?: return
+        val freezer = freezer ?: return
+        launchAction {
+            freezer.clearSnapshot(BudgetRecordKind.COPY, copy.id)
+            fxOutcomeState.value = null
+            copyState.value = collectionRepository.getById(copy.id)
+        }
+    }
+
+    fun dismissFxOutcome() { fxOutcomeState.value = null }
+
     // ---- 保存 / 删除 ----
 
     fun save(onSaved: () -> Unit) {
@@ -170,6 +225,8 @@ class CopyEditViewModel(
                         updatedAt = System.currentTimeMillis(),
                     )
                 )
+                // 外币记录保存后后台定格（不阻塞保存，失败不影响结果）。
+                freezer?.requestCopiesFreeze(listOf(copy.id))
                 onSaved()
             } catch (e: CancellationException) {
                 throw e

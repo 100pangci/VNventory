@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vnventory.app.core.AppResult
 import com.vnventory.app.data.image.CoverWarmer
+import com.vnventory.app.data.repository.FxFreezer
 import com.vnventory.app.di.AppContainer
 import com.vnventory.app.data.repository.CollectionRepository
 import com.vnventory.app.data.repository.PurchaseRepository
@@ -119,9 +120,10 @@ class AddFlowViewModel(
     private val settingsRepository: SettingsRepository,
     private val orderIdArg: Long?,
     private val coverWarmer: CoverWarmer,
+    private val freezer: FxFreezer? = null,
 ) : ViewModel() {
     constructor(container: AppContainer, orderIdArg: Long?) : this(
-        container.vnRepository, container.collectionRepository, container.purchaseRepository, container.settingsRepository, orderIdArg, container.coverWarmer,
+        container.vnRepository, container.collectionRepository, container.purchaseRepository, container.settingsRepository, orderIdArg, container.coverWarmer, container.fxFreezer,
     )
     private var searchJob: Job? = null
     private var releaseJob: Job? = null
@@ -390,6 +392,8 @@ class AddFlowViewModel(
                 val ids = collectionRepository.addCopies(copies)
                 // 保存时网络刚被用于搜索/浏览，是缓存封面的最佳时机；失败不影响保存结果。
                 coverWarmer.warm(coverUrl)
+                // 外币记录后台定格（不阻塞保存，失败不影响结果）。
+                freezer?.requestCopiesFreeze(ids)
                 eventsChannel.send(AddFlowEvent.Saved(ids))
             } catch (e: CancellationException) {
                 throw e

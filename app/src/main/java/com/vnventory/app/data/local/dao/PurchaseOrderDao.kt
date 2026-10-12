@@ -30,6 +30,9 @@ interface PurchaseOrderDao {
     @Query("SELECT * FROM purchase_order WHERE id = :id")
     suspend fun getById(id: Long): PurchaseOrderEntity?
 
+    @Query("SELECT * FROM purchase_order ORDER BY createdAt ASC, id ASC")
+    suspend fun getAll(): List<PurchaseOrderEntity>
+
     /** 每个订单的盒子数与本体价合计（按币种），用于订单列表/详情统计 */
     @Query(
         """
