@@ -127,6 +127,30 @@ class BackupTest {
         assertFalse(settings.showCopyNumbers.first())
     }
 
+    @Test fun `主页年度消费与汇率换算开关备份往返`() = runTest {
+        val settings = settings()
+        settings.setShowHomeYearSpending(true)
+        settings.setConvertHomeTotals(true)
+        val repository = repository(settings)
+        val exported = repository.snapshot()
+        val decoded = decode(BackupCodec.encode(exported))
+        assertTrue(decoded.showHomeYearSpending)
+        assertTrue(decoded.convertHomeTotals)
+
+        settings.setShowHomeYearSpending(false)
+        settings.setConvertHomeTotals(false)
+        repository.restore(decoded, replace = false, restoreCurrency = false)
+        assertTrue(settings.showHomeYearSpending.first())
+        assertTrue(settings.convertHomeTotals.first())
+
+        val document = Json.parseToJsonElement(BackupCodec.encode(sample()).decodeToString()).jsonObject
+        val legacySettings = JsonObject(document.getValue("settings").jsonObject - "showHomeYearSpending" - "convertHomeTotals")
+        val legacy = JsonObject(document + ("settings" to legacySettings))
+        val oldBackup = decode(legacy.toString().encodeToByteArray())
+        assertFalse(oldBackup.showHomeYearSpending)
+        assertFalse(oldBackup.convertHomeTotals)
+    }
+
     @Test fun `dual snapshots title preference and independent switches round trip with legacy defaults`() = runTest {
         val data = sample().copy(titleDisplayMode = TitleDisplayMode.ROMANIZED, showShelfReleaseNames = true,
             showShelfPrices = true, showPriceStats = true, copies = sample().copies.map {

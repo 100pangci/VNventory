@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.vnventory.app.domain.model.Money
+import com.vnventory.app.domain.cost.HomeSpendingSummary
 import com.vnventory.app.ui.collection.CollectionContent
 import com.vnventory.app.ui.collection.CollectionUiState
 import com.vnventory.app.ui.components.OwnedCoverCard
@@ -84,6 +85,63 @@ class PriceDisplayUiTest {
     @Test fun `开启统计显示明确价格覆盖率`() {
         compose.setContent { VNventoryTheme { HomeContent(HomeStats(copyCount = 8, pricedCopyCount = 6, priceTotals = mapOf("CNY" to 128000L), showPriceStats = true), emptyList(), {}, {}, {}) } }
         compose.onNodeWithText("6/8 盒有价格", substring = true).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun `主页开关可在未启用预算时显示今年已花`() {
+        val showYear = mutableStateOf(false)
+        val spending = HomeSpendingSummary(
+            currency = "CNY",
+            year = 2026,
+            currentYearMinor = 12_345,
+            currentYearRecordCount = 2,
+        )
+        compose.setContent {
+            VNventoryTheme {
+                HomeContent(
+                    stats = HomeStats(showPriceStats = true),
+                    recent = emptyList(),
+                    onAddClick = {},
+                    onCopyClick = {},
+                    onSeeAllClick = {},
+                    homeSpending = spending,
+                    showHomeYearSpending = showYear.value,
+                    onShowHomeYearSpendingChange = { showYear.value = it },
+                )
+            }
+        }
+
+        compose.onNodeWithText("显示今年已花").performScrollTo().performClick()
+        compose.onNodeWithText("2026 年已花（折算为 CNY）").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(Money.formatWithCode(12_345, "CNY")).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("年度预算").assertDoesNotExist()
+    }
+
+    @Test fun `主页总金额换算只展示目标币种并提示缺失快照`() {
+        val spending = HomeSpendingSummary(
+            currency = "CNY",
+            year = 2026,
+            allTimeMinor = 3_000,
+            allTimeRecordCount = 2,
+            allTimeUnconvertedCount = 1,
+        )
+        compose.setContent {
+            VNventoryTheme {
+                HomeContent(
+                    stats = HomeStats(showPriceStats = true, priceTotals = mapOf("JPY" to 10_000L)),
+                    recent = emptyList(),
+                    onAddClick = {},
+                    onCopyClick = {},
+                    onSeeAllClick = {},
+                    homeSpending = spending,
+                    convertHomeTotals = true,
+                )
+            }
+        }
+
+        compose.onNodeWithText("总金额（折算为 CNY）").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(Money.formatWithCode(3_000, "CNY")).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("1 笔外币记录没有匹配汇率，未计入", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(Money.formatWithCode(10_000, "JPY")).assertDoesNotExist()
     }
 
     @Test fun `没有未分摊费用正常状态保持安静`() {

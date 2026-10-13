@@ -34,6 +34,8 @@ class BackupRepository(
                 titleDisplayMode = preferences.titleDisplayMode,
                 showCopyNumbers = preferences.showCopyNumbers,
                 budget = preferences.budget,
+                showHomeYearSpending = preferences.showHomeYearSpending,
+                convertHomeTotals = preferences.convertHomeTotals,
             )
         }
     }
@@ -74,6 +76,8 @@ class BackupRepository(
                     titleDisplayMode = data.titleDisplayMode,
                     showCopyNumbers = data.showCopyNumbers,
                     budget = data.budget,
+                    showHomeYearSpending = data.showHomeYearSpending,
+                    convertHomeTotals = data.convertHomeTotals,
                 )
                 true
             } catch (e: CancellationException) {

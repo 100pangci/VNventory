@@ -6,6 +6,7 @@ import com.vnventory.app.di.AppContainer
 import com.vnventory.app.domain.model.ExpenseCategory
 import com.vnventory.app.domain.model.OwnedCopy
 import com.vnventory.app.domain.model.mergeTotals
+import com.vnventory.app.domain.cost.HomeSpendingSummary
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -57,6 +58,7 @@ class HomeViewModel(container: AppContainer) : ActionViewModel() {
 
     private val collectionRepository = container.collectionRepository
     private val purchaseRepository = container.purchaseRepository
+    private val settingsRepository = container.settingsRepository
 
     val stats: StateFlow<HomeStats> = combine(
         collectionRepository.observeDistinctVnCount(),
@@ -104,6 +106,27 @@ class HomeViewModel(container: AppContainer) : ActionViewModel() {
         }
         .catch { reportError(it); emit(null) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** 首页消费汇总独立于预算开关与限额。 */
+    val homeSpending: StateFlow<HomeSpendingSummary> = container.budgetRepository.observeHomeSpending()
+        .catch { reportError(it); emit(HomeSpendingSummary.empty()) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeSpendingSummary.empty())
+
+    val showHomeYearSpending: StateFlow<Boolean> = settingsRepository.showHomeYearSpending
+        .catch { reportError(it); emit(false) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val convertHomeTotals: StateFlow<Boolean> = settingsRepository.convertHomeTotals
+        .catch { reportError(it); emit(false) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setShowHomeYearSpending(value: Boolean) {
+        launchAction { settingsRepository.setShowHomeYearSpending(value) }
+    }
+
+    fun setConvertHomeTotals(value: Boolean) {
+        launchAction { settingsRepository.setConvertHomeTotals(value) }
+    }
 }
 
 private fun List<com.vnventory.app.data.local.dao.CategoryTotal>.totalsFor(

@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -29,6 +31,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,7 +62,9 @@ import com.vnventory.app.ui.components.SectionHeading
 import com.vnventory.app.ui.components.ShelfIconTile
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import com.vnventory.app.R
+import com.vnventory.app.domain.cost.HomeSpendingSummary
 
 @Composable
 fun HomeScreen(
@@ -71,7 +77,20 @@ fun HomeScreen(
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val recent by viewModel.recentCopies.collectAsStateWithLifecycle()
     val budget by viewModel.budget.collectAsStateWithLifecycle()
-    HomeContent(stats, recent, onAddClick, onCopyClick, onSeeAllClick, budget = budget, onBudgetClick = onBudgetClick, error = { OperationError(viewModel) })
+    val spending by viewModel.homeSpending.collectAsStateWithLifecycle()
+    val showYearSpending by viewModel.showHomeYearSpending.collectAsStateWithLifecycle()
+    val convertTotals by viewModel.convertHomeTotals.collectAsStateWithLifecycle()
+    HomeContent(
+        stats, recent, onAddClick, onCopyClick, onSeeAllClick,
+        budget = budget,
+        onBudgetClick = onBudgetClick,
+        error = { OperationError(viewModel) },
+        homeSpending = spending,
+        showHomeYearSpending = showYearSpending,
+        convertHomeTotals = convertTotals,
+        onShowHomeYearSpendingChange = viewModel::setShowHomeYearSpending,
+        onConvertHomeTotalsChange = viewModel::setConvertHomeTotals,
+    )
 }
 
 /** 无 ViewModel 的展示层，便于 Preview、深浅主题和大字体的实际渲染测试。 */
@@ -86,6 +105,11 @@ fun HomeContent(
     error: @Composable () -> Unit = {},
     budget: HomeBudget? = null,
     onBudgetClick: () -> Unit = {},
+    homeSpending: HomeSpendingSummary = HomeSpendingSummary.empty(),
+    showHomeYearSpending: Boolean = false,
+    convertHomeTotals: Boolean = false,
+    onShowHomeYearSpendingChange: (Boolean) -> Unit = {},
+    onConvertHomeTotalsChange: (Boolean) -> Unit = {},
 ) {
     var showCosts by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(modifier.fillMaxSize()) {
@@ -146,29 +170,122 @@ fun HomeContent(
                     }
                 }
             }
-            if (stats.showPriceStats) item(key = "costs") {
+            if (stats.showPriceStats || showHomeYearSpending) item(key = "costs") {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SectionHeading(stringResource(R.string.collection_spending), stringResource(R.string.collection_spending_hint))
-                    CostHighlight(
-                        stats.grandTotals,
-                        stringResource(R.string.recorded_spending),
-                        supporting = stringResource(R.string.price_coverage, stats.pricedCopyCount, stats.copyCount),
+                    HomeSpendingSwitchRow(
+                        title = stringResource(R.string.home_show_year_spending),
+                        checked = showHomeYearSpending,
+                        onChange = onShowHomeYearSpendingChange,
+                        hint = stringResource(R.string.home_show_year_spending_hint),
                     )
-                    TextButton(onClick = { showCosts = !showCosts }, modifier = Modifier.align(Alignment.End)) {
-                        Text(stringResource(if (showCosts) R.string.spending_collapse else R.string.spending_expand))
+                    if (stats.showPriceStats) {
+                        HomeSpendingSwitchRow(
+                            title = stringResource(R.string.home_convert_total, homeSpending.currency),
+                            checked = convertHomeTotals,
+                            onChange = onConvertHomeTotalsChange,
+                            hint = stringResource(R.string.home_convert_total_hint),
+                        )
+                        val displayedTotals = if (convertHomeTotals) {
+                            if (homeSpending.allTimeRecordCount == 0) emptyMap()
+                            else mapOf(homeSpending.currency to homeSpending.allTimeMinor)
+                        } else stats.grandTotals
+                        val totalSupporting = buildList {
+                            add(
+                                stringResource(
+                                    if (convertHomeTotals) R.string.home_price_coverage_converted else R.string.price_coverage,
+                                    stats.pricedCopyCount,
+                                    stats.copyCount,
+                                )
+                            )
+                            if (convertHomeTotals && homeSpending.allTimeUnconvertedCount > 0) {
+                                add(pluralStringResource(
+                                    R.plurals.home_spending_unconverted_count,
+                                    homeSpending.allTimeUnconvertedCount,
+                                    homeSpending.allTimeUnconvertedCount,
+                                ))
+                            }
+                        }.joinToString(" · ")
+                        CostHighlight(
+                            displayedTotals,
+                            if (convertHomeTotals) stringResource(R.string.home_total_converted, homeSpending.currency)
+                            else stringResource(R.string.recorded_spending),
+                            supporting = totalSupporting,
+                        )
                     }
-                    AnimatedVisibility(showCosts, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                        SectionCard {
-                            CostRow(stringResource(R.string.goods_purchase), stats.priceTotals)
-                            CostRow(stringResource(R.string.message_category_shipping), stats.shippingTotals)
-                            CostRow(stringResource(R.string.message_category_fee), stats.feeTotals)
-                            CostRow(stringResource(R.string.message_category_tax), stats.taxTotals)
-                            CostRow(stringResource(R.string.message_category_other), stats.otherTotals)
+                    if (showHomeYearSpending || convertHomeTotals) {
+                        Text(
+                            stringResource(R.string.home_spending_currency_hint, homeSpending.currency),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (showHomeYearSpending) {
+                        val yearlyTotals = if (homeSpending.currentYearRecordCount == 0) emptyMap()
+                        else mapOf(homeSpending.currency to homeSpending.currentYearMinor)
+                        val yearlySupporting = buildList {
+                            add(stringResource(R.string.home_year_spending_hint))
+                            if (homeSpending.currentYearUnpricedCount > 0) {
+                                add(pluralStringResource(
+                                    R.plurals.home_spending_unpriced_count,
+                                    homeSpending.currentYearUnpricedCount,
+                                    homeSpending.currentYearUnpricedCount,
+                                ))
+                            }
+                            if (homeSpending.currentYearUnconvertedCount > 0) {
+                                add(pluralStringResource(
+                                    R.plurals.home_spending_unconverted_count,
+                                    homeSpending.currentYearUnconvertedCount,
+                                    homeSpending.currentYearUnconvertedCount,
+                                ))
+                            }
+                        }.joinToString(" · ")
+                        CostHighlight(
+                            yearlyTotals,
+                            stringResource(R.string.home_year_spending_title, homeSpending.year, homeSpending.currency),
+                            supporting = yearlySupporting,
+                        )
+                    }
+                    if (stats.showPriceStats) {
+                        TextButton(onClick = { showCosts = !showCosts }, modifier = Modifier.align(Alignment.End)) {
+                            Text(stringResource(if (showCosts) R.string.spending_collapse else R.string.spending_expand))
+                        }
+                        AnimatedVisibility(showCosts, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                            SectionCard {
+                                CostRow(stringResource(R.string.goods_purchase), stats.priceTotals)
+                                CostRow(stringResource(R.string.message_category_shipping), stats.shippingTotals)
+                                CostRow(stringResource(R.string.message_category_fee), stats.feeTotals)
+                                CostRow(stringResource(R.string.message_category_tax), stats.taxTotals)
+                                CostRow(stringResource(R.string.message_category_other), stats.otherTotals)
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HomeSpendingSwitchRow(
+    title: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+    hint: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .toggleable(checked, role = Role.Switch, onValueChange = onChange)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked, onCheckedChange = null)
     }
 }
 

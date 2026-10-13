@@ -54,6 +54,8 @@ data class BackupSettings(
     val titleDisplayMode: String = TitleDisplayMode.ORIGINAL.name,
     val showCopyNumbers: Boolean = false,
     val budget: BackupBudget? = null,
+    val showHomeYearSpending: Boolean = false,
+    val convertHomeTotals: Boolean = false,
 )
 
 @Serializable
@@ -145,6 +147,8 @@ data class BackupData(
     val showCopyNumbers: Boolean = false,
     /** Null means an older backup has no budget settings; restoring it must keep local preferences. */
     val budget: BudgetPreferences? = null,
+    val showHomeYearSpending: Boolean = false,
+    val convertHomeTotals: Boolean = false,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
@@ -228,9 +232,21 @@ object BackupCodec {
             format = FORMAT,
             schemaVersion = VERSION,
             exportedAt = data.exportedAt,
-            settings = BackupSettings(data.defaultCurrency, data.shopChannels, data.showShelfPrices, data.showPriceStats, data.showShelfReleaseNames,
-                data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }, data.titleDisplayMode.name, data.showCopyNumbers,
-                data.budget?.let { BackupBudget(it.enabled, it.currency, it.yearlyAmounts.mapKeys { (year, _) -> year.toString() }, it.includeFees) }),
+            settings = BackupSettings(
+                defaultCurrency = data.defaultCurrency,
+                shopChannels = data.shopChannels,
+                showShelfPrices = data.showShelfPrices,
+                showPriceStats = data.showPriceStats,
+                showShelfReleaseNames = data.showShelfReleaseNames,
+                appearance = data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) },
+                titleDisplayMode = data.titleDisplayMode.name,
+                showCopyNumbers = data.showCopyNumbers,
+                budget = data.budget?.let {
+                    BackupBudget(it.enabled, it.currency, it.yearlyAmounts.mapKeys { (year, _) -> year.toString() }, it.includeFees)
+                },
+                showHomeYearSpending = data.showHomeYearSpending,
+                convertHomeTotals = data.convertHomeTotals,
+            ),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
             expenses = data.expenses.map { it.toBackup() },
@@ -286,6 +302,8 @@ object BackupCodec {
                         includeFees = b.includeFees,
                     )
                 },
+                showHomeYearSpending = document.settings.showHomeYearSpending,
+                convertHomeTotals = document.settings.convertHomeTotals,
             )
         } catch (e: java.time.DateTimeException) {
             throw MessageException(message(MessageKey.BACKUP_INVALID_DATE), e)
