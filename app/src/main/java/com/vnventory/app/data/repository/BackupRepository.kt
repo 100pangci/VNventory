@@ -35,6 +35,7 @@ class BackupRepository(
                 showCopyNumbers = preferences.showCopyNumbers,
                 budget = preferences.budget,
                 spendingDisplay = preferences.spendingDisplay,
+                showHomeYearSpending = preferences.showHomeYearSpending,
             )
         }
     }
@@ -76,6 +77,7 @@ class BackupRepository(
                     showCopyNumbers = data.showCopyNumbers,
                     budget = data.budget,
                     spendingDisplay = data.spendingDisplay,
+                    showHomeYearSpending = data.showHomeYearSpending,
                 )
                 true
             } catch (e: CancellationException) {

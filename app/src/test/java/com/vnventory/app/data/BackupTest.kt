@@ -128,6 +128,31 @@ class BackupTest {
         assertFalse(settings.showCopyNumbers.first())
     }
 
+    @Test fun `主页年度消费与消费币种偏好备份往返且兼容旧换算开关`() = runTest {
+        val settings = settings()
+        settings.setShowHomeYearSpending(true)
+        settings.setUnifiedSpendingCurrency(true)
+        settings.setSpendingCurrency("USD")
+        val repository = repository(settings)
+        val exported = repository.snapshot()
+        val decoded = decode(BackupCodec.encode(exported))
+        assertTrue(decoded.showHomeYearSpending)
+        assertEquals(SpendingDisplayPreferences(true, "USD"), decoded.spendingDisplay)
+
+        settings.setShowHomeYearSpending(false)
+        settings.setUnifiedSpendingCurrency(false)
+        settings.setSpendingCurrency("JPY")
+        repository.restore(decoded, replace = false, restoreCurrency = false)
+        assertTrue(settings.showHomeYearSpending.first())
+        assertEquals(SpendingDisplayPreferences(true, "USD"), settings.spendingDisplayPreferences.first())
+
+        val document = Json.parseToJsonElement(BackupCodec.encode(exported).decodeToString()).jsonObject
+        val legacySettings = JsonObject(document.getValue("settings").jsonObject - "spendingDisplay")
+        val legacy = decode(JsonObject(document + ("settings" to legacySettings)).toString().encodeToByteArray())
+        assertEquals(SpendingDisplayPreferences(true, "CNY"), legacy.spendingDisplay)
+        assertTrue(legacy.showHomeYearSpending)
+    }
+
     @Test fun `dual snapshots title preference and independent switches round trip with legacy defaults`() = runTest {
         val data = sample().copy(titleDisplayMode = TitleDisplayMode.ROMANIZED, showShelfReleaseNames = true,
             showShelfPrices = true, showPriceStats = true, copies = sample().copies.map {
@@ -178,7 +203,7 @@ class BackupTest {
         localSettings.setUnifiedSpendingCurrency(false)
         localSettings.setSpendingCurrency("EUR")
         val root = Json.parseToJsonElement(encoded.decodeToString()).jsonObject
-        val legacy = JsonObject(root + ("settings" to JsonObject(root.getValue("settings").jsonObject - "spendingDisplay")))
+        val legacy = JsonObject(root + ("settings" to JsonObject(root.getValue("settings").jsonObject - "spendingDisplay" - "convertHomeTotals")))
         localRepository.restore(decode(legacy.toString().encodeToByteArray()), replace = false, restoreCurrency = false)
         assertEquals(SpendingDisplayPreferences(false, "EUR"), localSettings.spendingDisplayPreferences.first())
     }

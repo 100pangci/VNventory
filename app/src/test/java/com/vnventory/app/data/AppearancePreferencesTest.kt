@@ -3,6 +3,7 @@ package com.vnventory.app.data
 import android.content.Context
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModelStore
 import androidx.room.Room
@@ -91,6 +92,17 @@ class AppearancePreferencesTest {
         assertEquals(SpendingDisplayPreferences(unifiedCurrency = true, currency = "USD"), settings.snapshot().spendingDisplay)
         settings.setUnifiedSpendingCurrency(false)
         assertEquals(SpendingDisplayPreferences(unifiedCurrency = false, currency = "USD"), settings.spendingDisplayPreferences.first())
+    }
+
+    @Test fun `旧主页总额换算开关迁移到预算目标币种`() = runTest {
+        val dataStore = PreferenceDataStoreFactory.create(scope = backgroundScope) { file() }
+        dataStore.edit {
+            it[booleanPreferencesKey("home_convert_totals")] = true
+            it[stringPreferencesKey("default_currency")] = "JPY"
+            it[stringPreferencesKey("budget_currency")] = "USD"
+        }
+        val settings = SettingsRepository(dataStore)
+        assertEquals(SpendingDisplayPreferences(unifiedCurrency = true, currency = "USD"), settings.spendingDisplayPreferences.first())
     }
 
     @Test fun `应用主题状态实时订阅设置且首次读取前不猜主题`() = runTest {

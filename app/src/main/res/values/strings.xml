@@ -43,7 +43,7 @@
     <string name="copy_condition_number">%1$s · %2$s</string>
     <string name="copy_multiplier">×%1$d</string>
     <string name="price_display_settings">价格展示</string>
-    <string name="backup_price_display_hint">同时恢复标题显示、价格展示与消费统计币种设置；旧备份默认使用原标题，展示开关默认关闭。</string>
+    <string name="backup_price_display_hint">同时恢复标题、书架、消费统计币种与主页今年已花展示设置；旧备份缺少这些新选项时保留本机选择。</string>
     <string name="show_shelf_prices">在书架显示价格</string>
     <string name="show_price_stats">显示价格统计</string>
     <string name="settings_shelf_display">书架显示</string>
@@ -55,6 +55,11 @@
     <string name="show_shelf_release_names">显示版本名</string>
     <string name="show_shelf_release_names_hint">默认隐藏；开启后在作品名下方以浅色小字显示。</string>
     <string name="recorded_spending">已记录的支出（含附加费用）</string>
+    <string name="home_spending_currency_hint">折算币种：%1$s。可在“设置 - 年度预算 - 结算币种”中选择；无需启用预算或设置限额。</string>
+    <string name="home_show_year_spending">显示今年已花</string>
+    <string name="home_show_year_spending_hint">按购买日期统计商品与全部费用；不需要设置预算金额。</string>
+    <string name="home_year_spending_title">%1$d 年已花（折算为 %2$s）</string>
+    <string name="home_year_spending_hint">购买日期缺失时使用批次日期；无日期记录无法归入今年。</string>
     <string name="recorded_cost">已记录成本</string>
     <string name="price_coverage">%1$d/%2$d 盒有价格 · 未记录价格不计入</string>
     <string name="spending_unconverted_count">有 %1$d 笔记录缺少匹配的定格汇率，未计入统一合计。</string>
@@ -328,7 +333,7 @@
     <string name="budget_enabled">启用年度预算</string>
     <string name="budget_enabled_hint">开启后在首页显示进度；汇率定格始终在后台进行，不受此开关影响。</string>
     <string name="budget_currency">结算币种</string>
-    <string name="budget_currency_hint">预算与折算使用的统一币种；未选择时跟随默认货币。</string>
+    <string name="budget_currency_hint">预算、汇率定格与主页金额换算共用此币种；未选择时跟随默认货币。即使不启用预算或设置限额，也可在此选择主页折算币种。</string>
     <string name="budget_include_fees">统计运费 / 手续费</string>
     <string name="budget_include_fees_hint">关闭后只统计盒本体价；费用不计入，也不列为未计入。</string>
     <string name="budget_yearly_amounts">逐年预算</string>
@@ -405,4 +410,12 @@
     <plurals name="backup_order_count"><item quantity="other">%1$d 个购买批次</item></plurals>
     <plurals name="backup_expense_count"><item quantity="other">%1$d 笔费用</item></plurals>
     <plurals name="shops_count"><item quantity="other">%1$d 个常用店铺/渠道</item></plurals>
+    <plurals name="home_spending_unconverted_count">
+        <item quantity="one">%1$d 笔外币记录没有匹配汇率，未计入</item>
+        <item quantity="other">%1$d 笔外币记录没有匹配汇率，未计入</item>
+    </plurals>
+    <plurals name="home_spending_unpriced_count">
+        <item quantity="one">%1$d 盒未记录价格，未计入</item>
+        <item quantity="other">%1$d 盒未记录价格，未计入</item>
+    </plurals>
 </resources>

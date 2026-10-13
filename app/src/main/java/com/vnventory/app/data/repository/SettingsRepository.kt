@@ -41,6 +41,7 @@ data class SettingsSnapshot(
     val titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
     val showCopyNumbers: Boolean = false,
     val budget: BudgetPreferences = BudgetPreferences(),
+    val showHomeYearSpending: Boolean = false,
     val spendingDisplay: SpendingDisplayPreferences = SpendingDisplayPreferences(),
 )
 
@@ -114,14 +115,27 @@ class SettingsRepository(
         .map { it.readSpendingDisplayPreferences() }
 
     suspend fun setUnifiedSpendingCurrency(value: Boolean) {
-        dataStore.edit { it[KEY_UNIFIED_SPENDING_CURRENCY] = value }
+        dataStore.edit {
+            it[KEY_UNIFIED_SPENDING_CURRENCY] = value
+            it.remove(KEY_HOME_CONVERT_TOTALS)
+        }
     }
 
     suspend fun setSpendingCurrency(code: String) {
         val normalized = Money.normalize(code)
         requireMessage(normalized.matches(Regex("[A-Z]{3}"))) { message(MessageKey.CURRENCY_INVALID) }
-        dataStore.edit { it[KEY_SPENDING_CURRENCY] = normalized }
+        dataStore.edit {
+            it[KEY_UNIFIED_SPENDING_CURRENCY] = it[KEY_UNIFIED_SPENDING_CURRENCY] ?: it[KEY_HOME_CONVERT_TOTALS] ?: false
+            it[KEY_SPENDING_CURRENCY] = normalized
+            it.remove(KEY_HOME_CONVERT_TOTALS)
+        }
     }
+
+    val showHomeYearSpending: Flow<Boolean> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it[KEY_HOME_YEAR_SPENDING] ?: false }
+
+    suspend fun setShowHomeYearSpending(value: Boolean) { dataStore.edit { it[KEY_HOME_YEAR_SPENDING] = value } }
 
     val appearance: Flow<AppearancePreferences> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
@@ -162,8 +176,8 @@ class SettingsRepository(
     }
 
     /** All supplied preferences restore atomically; absent legacy appearance settings stay unchanged. */
-    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null, titleDisplayMode: TitleDisplayMode? = null, showCopyNumbers: Boolean? = null, budget: BudgetPreferences? = null, spendingDisplay: SpendingDisplayPreferences? = null) {
-        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null && titleDisplayMode == null && showCopyNumbers == null && budget == null && spendingDisplay == null) return
+    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null, titleDisplayMode: TitleDisplayMode? = null, showCopyNumbers: Boolean? = null, budget: BudgetPreferences? = null, spendingDisplay: SpendingDisplayPreferences? = null, showHomeYearSpending: Boolean? = null) {
+        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null && titleDisplayMode == null && showCopyNumbers == null && budget == null && spendingDisplay == null && showHomeYearSpending == null) return
         shops?.let(ShopChannels::validate)
         budget?.currency?.let {
             val normalized = Money.normalize(it)
@@ -184,6 +198,7 @@ class SettingsRepository(
             shelfReleaseNames?.let { prefs[KEY_SHELF_RELEASE_NAMES] = it }
             titleDisplayMode?.let { prefs[KEY_TITLE_DISPLAY_MODE] = it.name }
             showCopyNumbers?.let { prefs[KEY_COPY_NUMBERS] = it }
+            showHomeYearSpending?.let { prefs[KEY_HOME_YEAR_SPENDING] = it }
             appearance?.let {
                 prefs[KEY_THEME_MODE] = it.themeMode.name
                 prefs[KEY_DYNAMIC_COLOR] = it.dynamicColor
@@ -198,12 +213,25 @@ class SettingsRepository(
                 prefs[KEY_UNIFIED_SPENDING_CURRENCY] = it.unifiedCurrency
                 if (it.currency == null) prefs.remove(KEY_SPENDING_CURRENCY)
                 else prefs[KEY_SPENDING_CURRENCY] = Money.normalize(it.currency)
+                prefs.remove(KEY_HOME_CONVERT_TOTALS)
             }
         }
     }
 
-    suspend fun snapshot(): SettingsSnapshot = dataStore.data.first().let {
-        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance(), it[KEY_SHELF_RELEASE_NAMES] ?: false, it.readTitleDisplayMode(), it[KEY_COPY_NUMBERS] ?: false, it.readBudget(), it.readSpendingDisplayPreferences())
+    suspend fun snapshot(): SettingsSnapshot = dataStore.data.first().let { prefs ->
+        SettingsSnapshot(
+            defaultCurrency = prefs[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY,
+            shopChannels = prefs.readShopChannels(),
+            showShelfPrices = prefs[KEY_SHELF_PRICES] ?: false,
+            showPriceStats = prefs[KEY_PRICE_STATS] ?: false,
+            appearance = prefs.readAppearance(),
+            showShelfReleaseNames = prefs[KEY_SHELF_RELEASE_NAMES] ?: false,
+            titleDisplayMode = prefs.readTitleDisplayMode(),
+            showCopyNumbers = prefs[KEY_COPY_NUMBERS] ?: false,
+            budget = prefs.readBudget(),
+            spendingDisplay = prefs.readSpendingDisplayPreferences(),
+            showHomeYearSpending = prefs[KEY_HOME_YEAR_SPENDING] ?: false,
+        )
     }
 
     private fun Preferences.readTitleDisplayMode() = TitleDisplayMode.entries.firstOrNull { it.name == this[KEY_TITLE_DISPLAY_MODE] } ?: TitleDisplayMode.ORIGINAL
@@ -220,10 +248,19 @@ class SettingsRepository(
         includeFees = this[KEY_BUDGET_INCLUDE_FEES] ?: true,
     )
 
-    private fun Preferences.readSpendingDisplayPreferences(): SpendingDisplayPreferences = SpendingDisplayPreferences(
-        unifiedCurrency = this[KEY_UNIFIED_SPENDING_CURRENCY] ?: false,
-        currency = this[KEY_SPENDING_CURRENCY]?.let(::normalizeStoredCurrency),
-    )
+    private fun Preferences.readSpendingDisplayPreferences(): SpendingDisplayPreferences {
+        val storedUnified = this[KEY_UNIFIED_SPENDING_CURRENCY]
+        val legacyUnified = this[KEY_HOME_CONVERT_TOTALS]
+        val currency = this[KEY_SPENDING_CURRENCY]?.let(::normalizeStoredCurrency)
+            ?: if (storedUnified == null && legacyUnified == true) {
+                (this[KEY_BUDGET_CURRENCY] ?: this[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY)
+                    .let(::normalizeStoredCurrency)
+            } else null
+        return SpendingDisplayPreferences(
+            unifiedCurrency = storedUnified ?: legacyUnified ?: false,
+            currency = currency,
+        )
+    }
 
     private fun Preferences.readYearlyAmounts(): Map<Int, Long> {
         val encoded = this[KEY_BUDGET_YEARLY] ?: return emptyMap()
@@ -287,5 +324,7 @@ class SettingsRepository(
         private val KEY_BUDGET_CURRENCY = stringPreferencesKey("budget_currency")
         private val KEY_BUDGET_YEARLY = stringPreferencesKey("budget_yearly_amounts")
         private val KEY_BUDGET_INCLUDE_FEES = booleanPreferencesKey("budget_include_fees")
+        private val KEY_HOME_YEAR_SPENDING = booleanPreferencesKey("home_show_year_spending")
+        private val KEY_HOME_CONVERT_TOTALS = booleanPreferencesKey("home_convert_totals")
     }
 }

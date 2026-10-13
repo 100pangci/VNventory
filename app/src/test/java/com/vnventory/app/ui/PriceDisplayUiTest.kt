@@ -6,6 +6,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.SpendingDisplayPreferences
+import com.vnventory.app.domain.cost.HomeSpendingSummary
 import com.vnventory.app.ui.collection.CollectionContent
 import com.vnventory.app.ui.collection.CollectionUiState
 import com.vnventory.app.ui.components.OwnedCoverCard
@@ -124,6 +125,67 @@ class PriceDisplayUiTest {
             .performScrollTo().assertIsDisplayed()
     }
 
+    @Test fun `主页开关可在未启用预算时显示今年已花`() {
+        val showYear = mutableStateOf(false)
+        val spending = HomeSpendingSummary(
+            currency = "CNY",
+            year = 2026,
+            currentYearMinor = 12_345,
+            currentYearRecordCount = 2,
+        )
+        compose.setContent {
+            VNventoryTheme {
+                HomeContent(
+                    stats = HomeStats(),
+                    recent = emptyList(),
+                    onAddClick = {},
+                    onCopyClick = {},
+                    onSeeAllClick = {},
+                    homeSpending = spending,
+                    showHomeYearSpending = showYear.value,
+                    onShowHomeYearSpendingChange = { showYear.value = it },
+                )
+            }
+        }
+
+        // 价格统计与预算都关闭时，开关仍固定在主页可见，不藏在消费区域里。
+        compose.onNodeWithText("显示今年已花").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("显示今年已花").performScrollTo().performClick()
+        compose.onNodeWithText("2026 年已花（折算为 CNY）").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(Money.formatWithCode(12_345, "CNY")).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("年度预算").assertDoesNotExist()
+    }
+
+    @Test fun `今年已花开关关闭后仍可重新打开`() {
+        val showYear = mutableStateOf(true)
+        val spending = HomeSpendingSummary(
+            currency = "CNY",
+            year = 2026,
+            currentYearMinor = 12_345,
+            currentYearRecordCount = 2,
+        )
+        compose.setContent {
+            VNventoryTheme {
+                HomeContent(
+                    stats = HomeStats(),
+                    recent = emptyList(),
+                    onAddClick = {},
+                    onCopyClick = {},
+                    onSeeAllClick = {},
+                    homeSpending = spending,
+                    showHomeYearSpending = showYear.value,
+                    onShowHomeYearSpendingChange = { showYear.value = it },
+                )
+            }
+        }
+
+        // 关闭后金额区域消失，但开关仍在，可再次打开。
+        compose.onNodeWithText("显示今年已花").performScrollTo().performClick()
+        compose.onNodeWithText("2026 年已花（折算为 CNY）").assertDoesNotExist()
+        compose.onNodeWithText("显示今年已花").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("显示今年已花").performScrollTo().performClick()
+        compose.onNodeWithText("2026 年已花（折算为 CNY）").performScrollTo().assertIsDisplayed()
+    }
     @Test fun `没有未分摊费用正常状态保持安静`() {
         compose.setContent { VNventoryTheme { UnallocatedFees(emptyMap()) } }
         compose.onNodeWithText("未分摊费用", substring = true).assertDoesNotExist()

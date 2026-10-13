@@ -56,6 +56,9 @@ data class BackupSettings(
     val showCopyNumbers: Boolean = false,
     val budget: BackupBudget? = null,
     val spendingDisplay: BackupSpendingDisplay? = null,
+    val showHomeYearSpending: Boolean = false,
+    /** Legacy preference; new backups also store the selectable currency in [spendingDisplay]. */
+    val convertHomeTotals: Boolean? = null,
 )
 
 @Serializable
@@ -156,6 +159,7 @@ data class BackupData(
     val budget: BudgetPreferences? = null,
     /** Null means an older backup has no spending display settings; restoring it must keep local preferences. */
     val spendingDisplay: SpendingDisplayPreferences? = null,
+    val showHomeYearSpending: Boolean = false,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
@@ -251,8 +255,12 @@ object BackupCodec {
                 appearance = data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) },
                 titleDisplayMode = data.titleDisplayMode.name,
                 showCopyNumbers = data.showCopyNumbers,
-                budget = data.budget?.let { BackupBudget(it.enabled, it.currency, it.yearlyAmounts.mapKeys { (year, _) -> year.toString() }, it.includeFees) },
+                budget = data.budget?.let {
+                    BackupBudget(it.enabled, it.currency, it.yearlyAmounts.mapKeys { (year, _) -> year.toString() }, it.includeFees)
+                },
                 spendingDisplay = data.spendingDisplay?.let { BackupSpendingDisplay(it.unifiedCurrency, it.currency) },
+                showHomeYearSpending = data.showHomeYearSpending,
+                convertHomeTotals = data.spendingDisplay?.unifiedCurrency,
             ),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
@@ -311,7 +319,13 @@ object BackupCodec {
                 },
                 spendingDisplay = document.settings.spendingDisplay?.let {
                     SpendingDisplayPreferences(unifiedCurrency = it.unifiedCurrency, currency = it.currency)
+                } ?: document.settings.convertHomeTotals?.let { unified ->
+                    SpendingDisplayPreferences(
+                        unifiedCurrency = unified,
+                        currency = if (unified) document.settings.budget?.currency ?: document.settings.defaultCurrency else null,
+                    )
                 },
+                showHomeYearSpending = document.settings.showHomeYearSpending,
             )
         } catch (e: java.time.DateTimeException) {
             throw MessageException(message(MessageKey.BACKUP_INVALID_DATE), e)
