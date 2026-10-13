@@ -48,6 +48,7 @@ fun SettingsBudgetScreen(
     val overview by viewModel.overview.collectAsStateWithLifecycle()
     val backfill by viewModel.backfill.collectAsStateWithLifecycle()
     var editingYear by remember { mutableStateOf<Int?>(null) }
+    var addingYear by rememberSaveable { mutableStateOf(false) }
 
     SettingsDetailScaffold(stringResource(R.string.budget_settings), onBack) { padding ->
         SettingsBudgetContent(
@@ -57,6 +58,7 @@ fun SettingsBudgetScreen(
             onCurrency = viewModel::setCurrency,
             onIncludeFees = viewModel::setIncludeFees,
             onEditYear = { editingYear = it },
+            onAddYear = { addingYear = true },
             onBackfill = viewModel::backfill,
             modifier = Modifier.padding(padding),
             error = { OperationError(viewModel) },
@@ -75,6 +77,16 @@ fun SettingsBudgetScreen(
             },
         )
     }
+
+    if (addingYear) {
+        BudgetYearPickerDialog(
+            onDismiss = { addingYear = false },
+            onConfirm = { year ->
+                addingYear = false
+                editingYear = year
+            },
+        )
+    }
 }
 
 @Composable
@@ -85,6 +97,7 @@ internal fun SettingsBudgetContent(
     onCurrency: (String) -> Unit,
     onIncludeFees: (Boolean) -> Unit,
     onEditYear: (Int) -> Unit,
+    onAddYear: () -> Unit,
     onBackfill: () -> Unit,
     modifier: Modifier = Modifier,
     error: @Composable () -> Unit = {},
@@ -141,6 +154,9 @@ internal fun SettingsBudgetContent(
                         )
                     }
                 }
+                Button(onClick = onAddYear, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.budget_add_year))
+                }
             }
         }
         item {
@@ -167,6 +183,52 @@ internal fun SettingsBudgetContent(
         }
     }
 }
+
+@Composable
+internal fun BudgetYearPickerDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit,
+) {
+    var text by rememberSaveable { mutableStateOf("") }
+    val year = parseBudgetYear(text)
+    val invalid = text.isNotEmpty() && year == null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.budget_add_year_dialog_title)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { value ->
+                    if (value.length <= 4 && value.all { it in '0'..'9' }) text = value
+                },
+                label = { Text(stringResource(R.string.budget_add_year_dialog_label)) },
+                singleLine = true,
+                isError = invalid,
+                supportingText = {
+                    Text(
+                        if (invalid) stringResource(R.string.budget_add_year_invalid)
+                        else stringResource(R.string.budget_add_year_dialog_hint),
+                    )
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { year?.let(onConfirm) }, enabled = year != null) {
+                Text(stringResource(R.string.action_confirm))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
+}
+
+internal fun parseBudgetYear(text: String): Int? =
+    text.toIntOrNull()?.takeIf { it in 1..9999 }
 
 @Composable
 private fun BudgetYearDialog(

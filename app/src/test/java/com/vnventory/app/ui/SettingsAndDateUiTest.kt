@@ -76,14 +76,17 @@ class SettingsAndDateUiTest {
         var preferences = 0
         var data = 0
         var about = 0
-        show { SettingsHomeContent("JPY", { preferences++ }, { data++ }, { about++ }) }
+        var budget = 0
+        show { SettingsHomeContent("JPY", { preferences++ }, { data++ }, { about++ }, onBudget = { budget++ }) }
         compose.onNodeWithText("外观、价格展示与默认货币 · JPY").assertIsDisplayed()
         compose.onNodeWithText("偏好设置").performClick()
+        compose.onNodeWithText("年度预算").performScrollTo().performClick()
         compose.onNodeWithText("备份与恢复").performClick()
         compose.onNodeWithText("关于与数据来源").performScrollTo().performClick()
         assertEquals(1, preferences)
         assertEquals(1, data)
         assertEquals(1, about)
+        assertEquals(1, budget)
         capture("settings-home")
     }
 
@@ -97,7 +100,8 @@ class SettingsAndDateUiTest {
         compose.onNodeWithText("选择备份文件").performScrollTo().performClick()
         assertEquals(1, exports)
         assertEquals(1, imports)
-        compose.onNodeWithText("备份为未加密文本", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("backup-content").performScrollToIndex(3)
+        compose.onNodeWithText("备份为未加密文本", substring = true).assertIsDisplayed()
         capture("settings-backup-large-dark")
         compose.runOnIdle { state.value = BackupUiState(busy = true, progress = message(MessageKey.BACKUP_PROGRESS_EXPORT)) }
         compose.onNodeWithText("选择备份文件").performScrollTo().assertIsNotEnabled()
@@ -125,7 +129,8 @@ class SettingsAndDateUiTest {
         compose.onNodeWithText("版本 ${BuildConfig.VERSION_NAME}").assertIsDisplayed()
         assertLogoPixels()
         capture("settings-about-large-dark")
-        compose.onNodeWithText("本应用与 VNDB 官方无隶属关系", substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("about-content").performScrollToIndex(2)
+        compose.onNodeWithText("本应用与 VNDB 官方无隶属关系", substring = true).assertIsDisplayed()
         compose.onNodeWithTag("about-content").performScrollToIndex(3)
         compose.onNodeWithText("开源许可 · MPL-2.0").assertIsDisplayed()
         capture("settings-about-large-dark-footer")

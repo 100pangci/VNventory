@@ -14,6 +14,7 @@ import com.vnventory.app.domain.model.ShopChannels
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.domain.model.TitleDisplayMode
+import com.vnventory.app.domain.model.SpendingDisplayPreferences
 import com.vnventory.app.domain.text.MessageException
 import com.vnventory.app.domain.text.MessageKey
 import com.vnventory.app.domain.text.message
@@ -40,6 +41,7 @@ data class SettingsSnapshot(
     val titleDisplayMode: TitleDisplayMode = TitleDisplayMode.ORIGINAL,
     val showCopyNumbers: Boolean = false,
     val budget: BudgetPreferences = BudgetPreferences(),
+    val spendingDisplay: SpendingDisplayPreferences = SpendingDisplayPreferences(),
 )
 
 class SettingsRepository(
@@ -107,6 +109,20 @@ class SettingsRepository(
     suspend fun setShowPriceStats(value: Boolean) { dataStore.edit { it[KEY_PRICE_STATS] = value } }
     suspend fun setShowShelfReleaseNames(value: Boolean) { dataStore.edit { it[KEY_SHELF_RELEASE_NAMES] = value } }
 
+    val spendingDisplayPreferences: Flow<SpendingDisplayPreferences> = dataStore.data
+        .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
+        .map { it.readSpendingDisplayPreferences() }
+
+    suspend fun setUnifiedSpendingCurrency(value: Boolean) {
+        dataStore.edit { it[KEY_UNIFIED_SPENDING_CURRENCY] = value }
+    }
+
+    suspend fun setSpendingCurrency(code: String) {
+        val normalized = Money.normalize(code)
+        requireMessage(normalized.matches(Regex("[A-Z]{3}"))) { message(MessageKey.CURRENCY_INVALID) }
+        dataStore.edit { it[KEY_SPENDING_CURRENCY] = normalized }
+    }
+
     val appearance: Flow<AppearancePreferences> = dataStore.data
         .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
         .map { it.readAppearance() }
@@ -146,8 +162,8 @@ class SettingsRepository(
     }
 
     /** All supplied preferences restore atomically; absent legacy appearance settings stay unchanged. */
-    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null, titleDisplayMode: TitleDisplayMode? = null, showCopyNumbers: Boolean? = null, budget: BudgetPreferences? = null) {
-        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null && titleDisplayMode == null && showCopyNumbers == null && budget == null) return
+    suspend fun restorePreferences(currency: String?, shops: List<String>?, shelfPrices: Boolean? = null, priceStats: Boolean? = null, appearance: AppearancePreferences? = null, shelfReleaseNames: Boolean? = null, titleDisplayMode: TitleDisplayMode? = null, showCopyNumbers: Boolean? = null, budget: BudgetPreferences? = null, spendingDisplay: SpendingDisplayPreferences? = null) {
+        if (currency == null && shops == null && shelfPrices == null && priceStats == null && appearance == null && shelfReleaseNames == null && titleDisplayMode == null && showCopyNumbers == null && budget == null && spendingDisplay == null) return
         shops?.let(ShopChannels::validate)
         budget?.currency?.let {
             val normalized = Money.normalize(it)
@@ -155,6 +171,10 @@ class SettingsRepository(
         }
         budget?.yearlyAmounts?.forEach { (year, amount) ->
             requireMessage(year in MIN_BUDGET_YEAR..MAX_BUDGET_YEAR && amount >= 0) { message(MessageKey.BUDGET_DATA_INVALID) }
+        }
+        spendingDisplay?.currency?.let {
+            val normalized = Money.normalize(it)
+            requireMessage(normalized.matches(Regex("[A-Z]{3}"))) { message(MessageKey.CURRENCY_INVALID) }
         }
         dataStore.edit { prefs ->
             currency?.let { prefs[KEY_DEFAULT_CURRENCY] = Money.normalize(it) }
@@ -174,11 +194,16 @@ class SettingsRepository(
                 prefs[KEY_BUDGET_INCLUDE_FEES] = it.includeFees
                 prefs[KEY_BUDGET_YEARLY] = Json.encodeToString(it.yearlyAmounts.mapKeys { (year, _) -> year.toString() })
             }
+            spendingDisplay?.let {
+                prefs[KEY_UNIFIED_SPENDING_CURRENCY] = it.unifiedCurrency
+                if (it.currency == null) prefs.remove(KEY_SPENDING_CURRENCY)
+                else prefs[KEY_SPENDING_CURRENCY] = Money.normalize(it.currency)
+            }
         }
     }
 
     suspend fun snapshot(): SettingsSnapshot = dataStore.data.first().let {
-        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance(), it[KEY_SHELF_RELEASE_NAMES] ?: false, it.readTitleDisplayMode(), it[KEY_COPY_NUMBERS] ?: false, it.readBudget())
+        SettingsSnapshot(it[KEY_DEFAULT_CURRENCY] ?: FALLBACK_CURRENCY, it.readShopChannels(), it[KEY_SHELF_PRICES] ?: false, it[KEY_PRICE_STATS] ?: false, it.readAppearance(), it[KEY_SHELF_RELEASE_NAMES] ?: false, it.readTitleDisplayMode(), it[KEY_COPY_NUMBERS] ?: false, it.readBudget(), it.readSpendingDisplayPreferences())
     }
 
     private fun Preferences.readTitleDisplayMode() = TitleDisplayMode.entries.firstOrNull { it.name == this[KEY_TITLE_DISPLAY_MODE] } ?: TitleDisplayMode.ORIGINAL
@@ -193,6 +218,11 @@ class SettingsRepository(
         currency = this[KEY_BUDGET_CURRENCY]?.let(::normalizeStoredCurrency),
         yearlyAmounts = readYearlyAmounts(),
         includeFees = this[KEY_BUDGET_INCLUDE_FEES] ?: true,
+    )
+
+    private fun Preferences.readSpendingDisplayPreferences(): SpendingDisplayPreferences = SpendingDisplayPreferences(
+        unifiedCurrency = this[KEY_UNIFIED_SPENDING_CURRENCY] ?: false,
+        currency = this[KEY_SPENDING_CURRENCY]?.let(::normalizeStoredCurrency),
     )
 
     private fun Preferences.readYearlyAmounts(): Map<Int, Long> {
@@ -240,8 +270,8 @@ class SettingsRepository(
 
     companion object {
         const val FALLBACK_CURRENCY = "CNY"
-        const val MIN_BUDGET_YEAR = 2000
-        const val MAX_BUDGET_YEAR = 2100
+        const val MIN_BUDGET_YEAR = 1
+        const val MAX_BUDGET_YEAR = 9999
         private val KEY_DEFAULT_CURRENCY = stringPreferencesKey("default_currency")
         private val KEY_TITLE_DISPLAY_MODE = stringPreferencesKey("title_display_mode")
         private val KEY_SHOP_CHANNELS = stringPreferencesKey("shop_channels")
@@ -249,6 +279,8 @@ class SettingsRepository(
         private val KEY_PRICE_STATS = booleanPreferencesKey("show_price_stats")
         private val KEY_SHELF_RELEASE_NAMES = booleanPreferencesKey("show_shelf_release_names")
         private val KEY_COPY_NUMBERS = booleanPreferencesKey("show_copy_numbers")
+        private val KEY_UNIFIED_SPENDING_CURRENCY = booleanPreferencesKey("unified_spending_currency")
+        private val KEY_SPENDING_CURRENCY = stringPreferencesKey("spending_currency")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         private val KEY_BUDGET_ENABLED = booleanPreferencesKey("budget_enabled")

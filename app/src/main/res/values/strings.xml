@@ -43,7 +43,7 @@
     <string name="copy_condition_number">%1$s · %2$s</string>
     <string name="copy_multiplier">×%1$d</string>
     <string name="price_display_settings">价格展示</string>
-    <string name="backup_price_display_hint">同时恢复标题显示、价格展示与版本名显示设置；旧备份默认使用原标题，展示开关默认关闭。</string>
+    <string name="backup_price_display_hint">同时恢复标题显示、价格展示与消费统计币种设置；旧备份默认使用原标题，展示开关默认关闭。</string>
     <string name="show_shelf_prices">在书架显示价格</string>
     <string name="show_price_stats">显示价格统计</string>
     <string name="settings_shelf_display">书架显示</string>
@@ -56,7 +56,8 @@
     <string name="show_shelf_release_names_hint">默认隐藏；开启后在作品名下方以浅色小字显示。</string>
     <string name="recorded_spending">已记录的支出（含附加费用）</string>
     <string name="recorded_cost">已记录成本</string>
-    <string name="price_coverage">%1$d/%2$d 盒有价格 · 未记录价格不计入，币种分别统计</string>
+    <string name="price_coverage">%1$d/%2$d 盒有价格 · 未记录价格不计入</string>
+    <string name="spending_unconverted_count">有 %1$d 笔记录缺少匹配的定格汇率，未计入统一合计。</string>
     <string name="detail_price_missing_hint">购买价格未记录；仅展示已知的附加费用，不代表完整成本。</string>
     <string name="manual_short">手动</string>
     <string name="cover_none">暂无封面</string>
@@ -240,7 +241,8 @@
     <string name="allocation_input_invalid">请修正无效或超出范围的分摊金额</string>
     <string name="allocation_totals">已分配 %1$s / 总额 %2$s（差额 %3$s）</string>
     <string name="allocation_blank_hint">留空为 0；未分完的金额会明确显示为未分摊费用，不能超额分配。</string>
-    <string name="settings_collection">收藏偏好</string>
+    <string name="settings_collection">收藏与录入</string>
+    <string name="settings_statistics">统计与预算</string>
     <string name="settings_preferences">偏好设置</string>
     <string name="settings_currency_summary">外观、价格展示与默认货币 · %1$s</string>
     <string name="settings_appearance">外观</string>
@@ -259,8 +261,14 @@
     <string name="settings_default_currency">默认货币</string>
     <string name="settings_default_currency_hint">添加收藏、新建购买批次和费用时的默认币种，每笔仍可单独修改。</string>
     <string name="settings_currency_current">当前默认货币：%1$s</string>
+    <string name="spending_unified_currency">统一消费统计币种</string>
+    <string name="spending_unified_currency_hint">关闭时按原币种分别统计；开启后合并到所选币种，仅使用目标币种匹配的汇率定格，不请求实时汇率。</string>
+    <string name="spending_currency">合并显示币种</string>
+    <string name="spending_currency_selected">当前币种：%1$s</string>
+    <string name="spending_currency_change">更改</string>
+    <string name="spending_currency_collapse">收起</string>
     <string name="backup_export">导出备份</string>
-    <string name="backup_export_hint">将外观、默认货币、标题与书架展示设置、店铺/渠道列表、所有收藏、购买批次、费用和手动分摊保存为 JSON 文件。</string>
+    <string name="backup_export_hint">将外观、货币与消费统计展示偏好、标题与书架展示设置、店铺/渠道列表、所有收藏、购买批次、费用和手动分摊保存为 JSON 文件。</string>
     <string name="backup_snapshot_hint">保留作品与版本的原标题、罗马音快照、旧标题、封面链接及购买记录，不包含 VNDB 缓存或图片文件。</string>
     <string name="backup_restore">恢复备份</string>
     <string name="backup_restore_hint">先选择并检查备份，再决定追加还是覆盖。追加保留现有记录，但重复导入会增加重复收藏。</string>
@@ -289,7 +297,7 @@
     <string name="about_privacy">数据与隐私</string>
     <string name="about_local_data">收藏数据和配置保存在本机，不登录、不自动上传。</string>
     <string name="about_backup">支持手动导出和恢复备份；卸载或清除数据前，请将备份保存在应用之外。</string>
-    <string name="about_currencies">普通统计按币种分开；年度预算按购买时定格的汇率折算。</string>
+    <string name="about_currencies">消费统计可按原币种分别显示，也可使用已有定格汇率合并到所选币种；年度预算按购买时定格的汇率折算。</string>
     <string name="about_vndb">VNDB 数据来源</string>
     <string name="about_vndb_api">作品 / 版本元数据来自 VNDB 公共 API（api.vndb.org），仅作缓存使用。</string>
     <string name="about_snapshots">收藏保留标题与封面链接快照，VNDB 缓存变化或清理不会改写你的购买记录。</string>
@@ -324,7 +332,12 @@
     <string name="budget_include_fees">统计运费 / 手续费</string>
     <string name="budget_include_fees_hint">关闭后只统计盒本体价；费用不计入，也不列为未计入。</string>
     <string name="budget_yearly_amounts">逐年预算</string>
-    <string name="budget_yearly_hint">每年单独设置金额；点击修改，留空可清除。</string>
+    <string name="budget_yearly_hint">每年单独设置金额；点击修改，留空可清除。也可添加任意年份。</string>
+    <string name="budget_add_year">添加其他年份</string>
+    <string name="budget_add_year_dialog_title">选择预算年份</string>
+    <string name="budget_add_year_dialog_label">年份</string>
+    <string name="budget_add_year_dialog_hint">输入 1–9999 年，下一步填写该年的预算金额。</string>
+    <string name="budget_add_year_invalid">请输入 1 到 9999 之间的年份</string>
     <string name="budget_year_label">%1$d 年</string>
     <string name="budget_year_unset">未设置</string>
     <string name="budget_year_dialog_title">设置 %1$d 年预算</string>

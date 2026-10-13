@@ -19,6 +19,7 @@ import com.vnventory.app.domain.model.ShopChannels
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.domain.model.TitleDisplayMode
+import com.vnventory.app.domain.model.SpendingDisplayPreferences
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -54,6 +55,7 @@ data class BackupSettings(
     val titleDisplayMode: String = TitleDisplayMode.ORIGINAL.name,
     val showCopyNumbers: Boolean = false,
     val budget: BackupBudget? = null,
+    val spendingDisplay: BackupSpendingDisplay? = null,
 )
 
 @Serializable
@@ -66,6 +68,13 @@ data class BackupBudget(
     val currency: String? = null,
     val yearlyAmounts: Map<String, Long> = emptyMap(),
     val includeFees: Boolean = true,
+)
+
+/** Null means an older backup has no spending display preference; keep the local choice. */
+@Serializable
+data class BackupSpendingDisplay(
+    val unifiedCurrency: Boolean = false,
+    val currency: String? = null,
 )
 
 @Serializable
@@ -145,6 +154,8 @@ data class BackupData(
     val showCopyNumbers: Boolean = false,
     /** Null means an older backup has no budget settings; restoring it must keep local preferences. */
     val budget: BudgetPreferences? = null,
+    /** Null means an older backup has no spending display settings; restoring it must keep local preferences. */
+    val spendingDisplay: SpendingDisplayPreferences? = null,
 ) {
     /** 解码时及正式写事务内都校验，禁止部分导入、猜测修复或静默丢弃坏记录。 */
     fun validate() {
@@ -160,6 +171,9 @@ data class BackupData(
                     message(MessageKey.BUDGET_DATA_INVALID)
                 }
             }
+        }
+        spendingDisplay?.currency?.let {
+            requireMessage(Money.normalize(it).matches(Regex("[A-Z]{3}"))) { message(MessageKey.CURRENCY_INVALID) }
         }
         fun ids(values: List<Long>) {
             requireMessage(values.all { it > 0 } && values.distinct().size == values.size) { message(MessageKey.BACKUP_IDS_INVALID) }
@@ -228,9 +242,18 @@ object BackupCodec {
             format = FORMAT,
             schemaVersion = VERSION,
             exportedAt = data.exportedAt,
-            settings = BackupSettings(data.defaultCurrency, data.shopChannels, data.showShelfPrices, data.showPriceStats, data.showShelfReleaseNames,
-                data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) }, data.titleDisplayMode.name, data.showCopyNumbers,
-                data.budget?.let { BackupBudget(it.enabled, it.currency, it.yearlyAmounts.mapKeys { (year, _) -> year.toString() }, it.includeFees) }),
+            settings = BackupSettings(
+                defaultCurrency = data.defaultCurrency,
+                shopChannels = data.shopChannels,
+                showShelfPrices = data.showShelfPrices,
+                showPriceStats = data.showPriceStats,
+                showShelfReleaseNames = data.showShelfReleaseNames,
+                appearance = data.appearance?.let { BackupAppearance(it.themeMode.name, it.dynamicColor) },
+                titleDisplayMode = data.titleDisplayMode.name,
+                showCopyNumbers = data.showCopyNumbers,
+                budget = data.budget?.let { BackupBudget(it.enabled, it.currency, it.yearlyAmounts.mapKeys { (year, _) -> year.toString() }, it.includeFees) },
+                spendingDisplay = data.spendingDisplay?.let { BackupSpendingDisplay(it.unifiedCurrency, it.currency) },
+            ),
             orders = data.orders.map { it.toBackup() },
             copies = data.copies.map { it.toBackup() },
             expenses = data.expenses.map { it.toBackup() },
@@ -285,6 +308,9 @@ object BackupCodec {
                         },
                         includeFees = b.includeFees,
                     )
+                },
+                spendingDisplay = document.settings.spendingDisplay?.let {
+                    SpendingDisplayPreferences(unifiedCurrency = it.unifiedCurrency, currency = it.currency)
                 },
             )
         } catch (e: java.time.DateTimeException) {

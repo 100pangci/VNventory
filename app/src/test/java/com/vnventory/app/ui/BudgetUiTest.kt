@@ -20,6 +20,7 @@ import com.vnventory.app.ui.home.HomeContent
 import com.vnventory.app.ui.home.HomeStats
 import com.vnventory.app.ui.settings.BudgetBackfillUiState
 import com.vnventory.app.ui.settings.SettingsBudgetContent
+import com.vnventory.app.ui.settings.parseBudgetYear
 import com.vnventory.app.ui.theme.VNventoryTheme
 import org.junit.Assert.*
 import org.junit.Rule
@@ -80,6 +81,7 @@ class BudgetUiTest {
         val enabled = mutableStateOf(false)
         var editedYear: Int? = null
         var backfilled = false
+        var addYearRequested = false
         val settingsOverview = mutableStateOf(overview().let { it.copy(preferences = it.preferences.copy(enabled = false)) })
         compose.setContent {
             VNventoryTheme {
@@ -90,6 +92,7 @@ class BudgetUiTest {
                     onCurrency = {},
                     onIncludeFees = {},
                     onEditYear = { editedYear = it },
+                    onAddYear = { addYearRequested = true },
                     onBackfill = { backfilled = true },
                 )
             }
@@ -100,10 +103,21 @@ class BudgetUiTest {
         compose.onNodeWithText("2026 年").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("2026 年").performClick()
         assertEquals(2026, editedYear)
+        compose.onNodeWithText("添加其他年份").performScrollTo().performClick()
+        assertTrue(addYearRequested)
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("待补全 1 笔"))
         compose.onNodeWithText("待补全 1 笔").assertIsDisplayed()
         compose.onNodeWithText("立即补全").performClick()
         assertTrue(backfilled)
+    }
+
+    @Test fun `预算年份可选择常见范围内任意年份并拒绝越界`() {
+        assertEquals(2042, parseBudgetYear("2042"))
+        assertEquals(1, parseBudgetYear("1"))
+        assertEquals(9999, parseBudgetYear("9999"))
+        assertNull(parseBudgetYear("0"))
+        assertNull(parseBudgetYear("10000"))
+        assertNull(parseBudgetYear("20x2"))
     }
 
     @Test fun `预算详情展示当年进度与未计入操作`() {

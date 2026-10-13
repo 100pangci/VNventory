@@ -71,7 +71,10 @@ internal fun SettingsHomeContent(
                 SettingsEntry(R.drawable.ic_ui_preferences, stringResource(R.string.settings_preferences), stringResource(R.string.settings_currency_summary, defaultCurrency), onPreferences)
                 HorizontalDivider(Modifier.padding(start = 68.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
                 SettingsEntry(R.drawable.ic_ui_shop, stringResource(R.string.shops_settings), stringResource(R.string.shops_settings_hint), onShops)
-                HorizontalDivider(Modifier.padding(start = 68.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .5f))
+            }
+        }
+        item {
+            SettingsGroup(stringResource(R.string.settings_statistics)) {
                 SettingsEntry(R.drawable.ic_ui_batch, stringResource(R.string.budget_settings), stringResource(R.string.budget_settings_hint), onBudget)
             }
         }

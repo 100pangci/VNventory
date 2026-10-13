@@ -14,6 +14,7 @@ import com.vnventory.app.data.backup.BackupFileStore
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.domain.model.TitleDisplayMode
+import com.vnventory.app.domain.model.SpendingDisplayPreferences
 import com.vnventory.app.ui.theme.ThemeViewModel
 import com.vnventory.app.ui.settings.SettingsViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -79,6 +80,17 @@ class AppearancePreferencesTest {
         assertTrue(reopened.showShelfReleaseNames.first())
         assertEquals(TitleDisplayMode.ROMANIZED, reopened.titleDisplayMode.first())
         assertEquals(TitleDisplayMode.ROMANIZED, reopened.snapshot().titleDisplayMode)
+    }
+
+    @Test fun `消费统计币种偏好独立保存且默认跟随应用货币`() = runTest {
+        val settings = SettingsRepository(PreferenceDataStoreFactory.create(scope = backgroundScope) { file() })
+        assertEquals(SpendingDisplayPreferences(), settings.spendingDisplayPreferences.first())
+        settings.setUnifiedSpendingCurrency(true)
+        settings.setSpendingCurrency("usd")
+        assertEquals(SpendingDisplayPreferences(unifiedCurrency = true, currency = "USD"), settings.spendingDisplayPreferences.first())
+        assertEquals(SpendingDisplayPreferences(unifiedCurrency = true, currency = "USD"), settings.snapshot().spendingDisplay)
+        settings.setUnifiedSpendingCurrency(false)
+        assertEquals(SpendingDisplayPreferences(unifiedCurrency = false, currency = "USD"), settings.spendingDisplayPreferences.first())
     }
 
     @Test fun `应用主题状态实时订阅设置且首次读取前不猜主题`() = runTest {

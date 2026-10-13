@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.vnventory.app.domain.model.Money
+import com.vnventory.app.domain.model.SpendingDisplayPreferences
 import com.vnventory.app.ui.collection.CollectionContent
 import com.vnventory.app.ui.collection.CollectionUiState
 import com.vnventory.app.ui.components.OwnedCoverCard
@@ -30,15 +31,32 @@ class PriceDisplayUiTest {
     @get:Rule val compose = createComposeRule()
     private val copy = ShelfPreviewData.copies.first()
 
-    @Test fun `偏好设置两个开关可独立切换`() {
+    @Test fun `偏好开关独立且消费币种选择折叠`() {
         val shelf = mutableStateOf(false)
         val stats = mutableStateOf(false)
-        compose.setContent { VNventoryTheme { PriceDisplayPreferences(shelf.value, stats.value, { shelf.value = it }, { stats.value = it }) } }
+        val spending = mutableStateOf(SpendingDisplayPreferences())
+        compose.setContent {
+            VNventoryTheme {
+                PriceDisplayPreferences(
+                    shelf.value, stats.value, { shelf.value = it }, { stats.value = it },
+                    spendingDisplay = spending.value,
+                    defaultCurrency = "JPY",
+                    onUnifiedSpendingCurrency = { spending.value = spending.value.copy(unifiedCurrency = it) },
+                    onSpendingCurrency = { spending.value = spending.value.copy(currency = it) },
+                )
+            }
+        }
         compose.onAllNodes(isToggleable())[0].assertIsOff().performClick().assertIsOn()
         compose.onAllNodes(isToggleable())[1].assertIsOff()
         compose.runOnIdle { assertTrue(shelf.value); assertFalse(stats.value) }
         compose.onAllNodes(isToggleable())[1].performClick().assertIsOn()
         compose.runOnIdle { assertTrue(shelf.value); assertTrue(stats.value) }
+        compose.onAllNodes(isToggleable())[2].performClick().assertIsOn()
+        compose.onNodeWithText("USD（$）").assertDoesNotExist()
+        compose.onNodeWithText("更改").performClick()
+        compose.onNodeWithText("CNY（¥）").performClick()
+        compose.onNodeWithText("当前币种：CNY（¥）").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(spending.value.unifiedCurrency); assertEquals("CNY", spending.value.currency) }
     }
 
     @Test fun `书架默认隐藏金额单盒编号与标题副标题`() {
@@ -84,6 +102,26 @@ class PriceDisplayUiTest {
     @Test fun `开启统计显示明确价格覆盖率`() {
         compose.setContent { VNventoryTheme { HomeContent(HomeStats(copyCount = 8, pricedCopyCount = 6, priceTotals = mapOf("CNY" to 128000L), showPriceStats = true), emptyList(), {}, {}, {}) } }
         compose.onNodeWithText("6/8 盒有价格", substring = true).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test fun `统一币种时提示无法折算的消费`() {
+        compose.setContent {
+            VNventoryTheme {
+                HomeContent(
+                    HomeStats(
+                        copyCount = 2,
+                        pricedCopyCount = 1,
+                        priceTotals = mapOf("CNY" to 12_800L),
+                        showPriceStats = true,
+                        unifiedSpendingCurrency = true,
+                        unconvertedSpendingCount = 3,
+                    ),
+                    emptyList(), {}, {}, {},
+                )
+            }
+        }
+        compose.onNodeWithText("有 3 笔记录缺少匹配的定格汇率，未计入统一合计。", substring = true)
+            .performScrollTo().assertIsDisplayed()
     }
 
     @Test fun `没有未分摊费用正常状态保持安静`() {

@@ -146,13 +146,17 @@ fun HomeContent(
                     }
                 }
             }
-            if (stats.showPriceStats) item(key = "costs") {
+                if (stats.showPriceStats) item(key = "costs") {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SectionHeading(stringResource(R.string.collection_spending), stringResource(R.string.collection_spending_hint))
+                    val coverage = stringResource(R.string.price_coverage, stats.pricedCopyCount, stats.copyCount)
+                    val unconverted = if (stats.unifiedSpendingCurrency && stats.unconvertedSpendingCount > 0) {
+                        stringResource(R.string.spending_unconverted_count, stats.unconvertedSpendingCount)
+                    } else null
                     CostHighlight(
                         stats.grandTotals,
                         stringResource(R.string.recorded_spending),
-                        supporting = stringResource(R.string.price_coverage, stats.pricedCopyCount, stats.copyCount),
+                        supporting = listOfNotNull(coverage, unconverted).joinToString("\n"),
                     )
                     TextButton(onClick = { showCosts = !showCosts }, modifier = Modifier.align(Alignment.End)) {
                         Text(stringResource(if (showCosts) R.string.spending_collapse else R.string.spending_expand))

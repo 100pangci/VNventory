@@ -21,6 +21,7 @@ import com.vnventory.app.domain.text.message
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.domain.model.TitleDisplayMode
+import com.vnventory.app.domain.model.SpendingDisplayPreferences
 
 data class BackupUiState(
     val busy: Boolean = false,
@@ -103,9 +104,13 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
     val showShelfReleaseNames = settingsRepository.showShelfReleaseNames
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val spendingDisplayPreferences = settingsRepository.spendingDisplayPreferences
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SpendingDisplayPreferences())
     fun setShowShelfPrices(value: Boolean) { launchAction { settingsRepository.setShowShelfPrices(value) } }
     fun setShowPriceStats(value: Boolean) { launchAction { settingsRepository.setShowPriceStats(value) } }
     fun setShowShelfReleaseNames(value: Boolean) { launchAction { settingsRepository.setShowShelfReleaseNames(value) } }
+    fun setUnifiedSpendingCurrency(value: Boolean) { launchAction { settingsRepository.setUnifiedSpendingCurrency(value) } }
+    fun setSpendingCurrency(code: String) { launchAction { settingsRepository.setSpendingCurrency(code) } }
 
     val titleDisplayMode = settingsRepository.titleDisplayMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TitleDisplayMode.ORIGINAL)

@@ -138,11 +138,15 @@ class FormsSettingsUiTest {
         val stats = mutableStateOf(false)
         val releaseNames = mutableStateOf(false)
         val currency = mutableStateOf("JPY")
+        val spending = mutableStateOf(SpendingDisplayPreferences())
         show(scale = 1.5f, dark = true) {
             SettingsDetailScaffold("偏好设置", {}) { padding ->
                 SettingsPreferencesContent(currency.value, appearance.value, shelf.value, stats.value, releaseNames.value,
                     { appearance.value = appearance.value.copy(themeMode = it) }, { appearance.value = appearance.value.copy(dynamicColor = it) },
-                    { shelf.value = it }, { stats.value = it }, { releaseNames.value = it }, { currency.value = it }, Modifier.padding(padding))
+                    { shelf.value = it }, { stats.value = it }, { releaseNames.value = it }, { currency.value = it }, Modifier.padding(padding),
+                    spendingDisplay = spending.value,
+                    onUnifiedSpendingCurrency = { spending.value = spending.value.copy(unifiedCurrency = it) },
+                    onSpendingCurrency = { spending.value = spending.value.copy(currency = it) })
             }
         }
         compose.onNodeWithText("深色").performScrollTo().performClick().assertIsSelected()
@@ -157,15 +161,21 @@ class FormsSettingsUiTest {
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("CNY（¥）"))
         compose.onNodeWithText("CNY（¥）").performClick().assertIsSelected()
         assertEquals("CNY", currency.value)
+        compose.onNodeWithText("统一消费统计币种").performScrollTo().performClick()
+        compose.onNodeWithText("当前币种：CNY（¥）").assertIsDisplayed()
+        compose.onNodeWithText("更改").performClick()
+        compose.onNodeWithText("USD（$）").performScrollTo().performClick()
+        compose.onNodeWithText("当前币种：USD（$）").assertIsDisplayed()
+        assertEquals(SpendingDisplayPreferences(unifiedCurrency = true, currency = "USD"), spending.value)
     }
 
-    @Test fun `设置首页紧凑分组保持四个入口`() {
+    @Test fun `设置首页按用途分组并保持入口可达`() {
         var clicks = 0
-        show { SettingsHomeContent("JPY", { clicks++ }, { clicks++ }, { clicks++ }, onShops = { clicks++ }) }
+        show { SettingsHomeContent("JPY", { clicks++ }, { clicks++ }, { clicks++ }, onShops = { clicks++ }, onBudget = { clicks++ }) }
         compose.onNodeWithText("VNventory").assertDoesNotExist()
         compose.onNodeWithText("SETTINGS").assertIsDisplayed()
-        for (label in listOf("偏好设置", "店铺 / 渠道", "备份与恢复", "关于与数据来源")) compose.onNodeWithText(label).performScrollTo().performClick()
-        assertEquals(4, clicks)
+        for (label in listOf("偏好设置", "店铺 / 渠道", "年度预算", "备份与恢复", "关于与数据来源")) compose.onNodeWithText(label).performScrollTo().performClick()
+        assertEquals(5, clicks)
         capture("settings-grouped-home")
     }
 

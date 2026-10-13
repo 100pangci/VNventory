@@ -47,7 +47,10 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -66,6 +69,7 @@ import com.vnventory.app.domain.model.Money
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.domain.model.TitleDisplayMode
+import com.vnventory.app.domain.model.SpendingDisplayPreferences
 import com.vnventory.app.ui.components.OperationError
 import com.vnventory.app.ui.components.AppLogo
 import com.vnventory.app.ui.components.SectionCard
@@ -117,12 +121,16 @@ fun SettingsPreferencesScreen(
     val showCopyNumbers by viewModel.showCopyNumbers.collectAsStateWithLifecycle()
     val appearance by viewModel.appearance.collectAsStateWithLifecycle()
     val titleDisplayMode by viewModel.titleDisplayMode.collectAsStateWithLifecycle()
+    val spendingDisplay by viewModel.spendingDisplayPreferences.collectAsStateWithLifecycle()
     SettingsDetailScaffold(stringResource(R.string.settings_preferences), onBack) { padding ->
         SettingsPreferencesContent(currency, appearance, shelfPrices, priceStats, shelfReleaseNames,
             viewModel::setThemeMode, viewModel::setDynamicColor, viewModel::setShowShelfPrices, viewModel::setShowPriceStats, viewModel::setShowShelfReleaseNames,
             viewModel::setDefaultCurrency, Modifier.padding(padding), error = { OperationError(viewModel) },
             titleDisplayMode = titleDisplayMode, onTitleDisplayMode = viewModel::setTitleDisplayMode,
-            showCopyNumbers = showCopyNumbers, onShowCopyNumbers = viewModel::setShowCopyNumbers)
+            showCopyNumbers = showCopyNumbers, onShowCopyNumbers = viewModel::setShowCopyNumbers,
+            spendingDisplay = spendingDisplay,
+            onUnifiedSpendingCurrency = viewModel::setUnifiedSpendingCurrency,
+            onSpendingCurrency = viewModel::setSpendingCurrency)
     }
 }
 
@@ -136,6 +144,9 @@ internal fun SettingsPreferencesContent(
     onTitleDisplayMode: (TitleDisplayMode) -> Unit = {},
     showCopyNumbers: Boolean = false,
     onShowCopyNumbers: (Boolean) -> Unit = {},
+    spendingDisplay: SpendingDisplayPreferences = SpendingDisplayPreferences(),
+    onUnifiedSpendingCurrency: (Boolean) -> Unit = {},
+    onSpendingCurrency: (String) -> Unit = {},
 ) {
     LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -147,7 +158,13 @@ internal fun SettingsPreferencesContent(
         }
         item {
             FormSection(stringResource(R.string.price_display_settings), R.drawable.ic_ui_shelf) {
-                PriceDisplayPreferences(shelfPrices, priceStats, onShelfPrices, onPriceStats)
+                PriceDisplayPreferences(
+                    shelfPrices, priceStats, onShelfPrices, onPriceStats,
+                    spendingDisplay = spendingDisplay,
+                    defaultCurrency = currency,
+                    onUnifiedSpendingCurrency = onUnifiedSpendingCurrency,
+                    onSpendingCurrency = onSpendingCurrency,
+                )
             }
         }
         item {
@@ -205,10 +222,64 @@ internal fun AppearancePreferencesContent(
 }
 
 @Composable
-internal fun PriceDisplayPreferences(shelfPrices: Boolean, priceStats: Boolean, onShelfPrices: (Boolean) -> Unit, onPriceStats: (Boolean) -> Unit) {
-    Column {
+internal fun PriceDisplayPreferences(
+    shelfPrices: Boolean,
+    priceStats: Boolean,
+    onShelfPrices: (Boolean) -> Unit,
+    onPriceStats: (Boolean) -> Unit,
+    spendingDisplay: SpendingDisplayPreferences = SpendingDisplayPreferences(),
+    defaultCurrency: String = "CNY",
+    onUnifiedSpendingCurrency: (Boolean) -> Unit = {},
+    onSpendingCurrency: (String) -> Unit = {},
+) {
+    var currencyPickerExpanded by rememberSaveable { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         PreferenceSwitchRow(stringResource(R.string.show_shelf_prices), shelfPrices, onShelfPrices)
         PreferenceSwitchRow(stringResource(R.string.show_price_stats), priceStats, onPriceStats)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        PreferenceSwitchRow(
+            stringResource(R.string.spending_unified_currency),
+            spendingDisplay.unifiedCurrency,
+            onChange = { enabled ->
+                if (!enabled) currencyPickerExpanded = false
+                onUnifiedSpendingCurrency(enabled)
+            },
+            hint = stringResource(R.string.spending_unified_currency_hint),
+        )
+        if (spendingDisplay.unifiedCurrency) {
+            val selectedCurrency = spendingDisplay.currency ?: defaultCurrency
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(stringResource(R.string.spending_currency), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        stringResource(
+                            R.string.spending_currency_selected,
+                            stringResource(R.string.currency_option, selectedCurrency, Money.symbol(selectedCurrency).ifEmpty { selectedCurrency }),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = { currencyPickerExpanded = !currencyPickerExpanded }) {
+                    Text(stringResource(if (currencyPickerExpanded) R.string.spending_currency_collapse else R.string.spending_currency_change))
+                }
+            }
+            if (currencyPickerExpanded) {
+                OptionGrid(
+                    Money.commonCurrencies,
+                    { code -> stringResource(R.string.currency_option, code, Money.symbol(code).ifEmpty { code }) },
+                    selectedCurrency,
+                    onSelect = { code ->
+                        onSpendingCurrency(code)
+                        currencyPickerExpanded = false
+                    },
+                    maxColumns = 2,
+                )
+                if (selectedCurrency !in Money.commonCurrencies) {
+                    InfoLine(stringResource(R.string.settings_currency_current, selectedCurrency))
+                }
+            }
+        }
     }
 }
 
@@ -273,7 +344,7 @@ internal fun SettingsDataContent(
     error: @Composable () -> Unit = {},
 ) {
     LazyColumn(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().testTag("backup-content"),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {

@@ -27,6 +27,7 @@ import com.vnventory.app.domain.model.ExpenseCategory
 import com.vnventory.app.domain.model.AppearancePreferences
 import com.vnventory.app.domain.model.ThemeMode
 import com.vnventory.app.domain.model.TitleDisplayMode
+import com.vnventory.app.domain.model.SpendingDisplayPreferences
 import com.vnventory.app.ui.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -157,6 +158,29 @@ class BackupTest {
             assertEquals(TitleDisplayMode.ORIGINAL, settings.titleDisplayMode.first())
             assertEquals("作品名", repo.snapshot().copies.first().vnTitle)
         }
+    }
+
+    @Test fun `消费统计币种设置备份往返且旧备份不覆盖本机偏好`() = runTest {
+        val sourceSettings = settings()
+        sourceSettings.setUnifiedSpendingCurrency(true)
+        sourceSettings.setSpendingCurrency("USD")
+        val sourceRepository = repository(sourceSettings)
+        val encoded = BackupCodec.encode(sourceRepository.snapshot())
+        assertEquals(SpendingDisplayPreferences(true, "USD"), decode(encoded).spendingDisplay)
+
+        val localSettings = settings()
+        localSettings.setUnifiedSpendingCurrency(false)
+        localSettings.setSpendingCurrency("JPY")
+        val localRepository = repository(localSettings)
+        assertTrue(localRepository.restore(decode(encoded), replace = false, restoreCurrency = false).priceDisplayRestored)
+        assertEquals(SpendingDisplayPreferences(true, "USD"), localSettings.spendingDisplayPreferences.first())
+
+        localSettings.setUnifiedSpendingCurrency(false)
+        localSettings.setSpendingCurrency("EUR")
+        val root = Json.parseToJsonElement(encoded.decodeToString()).jsonObject
+        val legacy = JsonObject(root + ("settings" to JsonObject(root.getValue("settings").jsonObject - "spendingDisplay")))
+        localRepository.restore(decode(legacy.toString().encodeToByteArray()), replace = false, restoreCurrency = false)
+        assertEquals(SpendingDisplayPreferences(false, "EUR"), localSettings.spendingDisplayPreferences.first())
     }
 
     private fun invalid(data: BackupData) {
@@ -506,7 +530,7 @@ class BackupTest {
         assertEquals(LocalDate.of(2026, 9, 30), repo.snapshot().expenses.first { it.fxRateScaled != null }.fxDate)
 
         // 旧备份：缺少预算设置与定格字段时保持本机配置，记录保持未定格而不是按当前汇率猜测。
-        settings.setBudgetYearlyAmount(2025, 999)
+        settings.setBudgetYearlyAmount(1990, 999)
         val root = Json.parseToJsonElement(BackupCodec.encode(sample()).decodeToString()).jsonObject
         for (version in listOf(1, 2)) {
             val legacy = decode(
@@ -527,14 +551,14 @@ class BackupTest {
             assertNull(legacy.copies.first().fxRateScaled)
             val legacyResult = repo.restore(legacy, true, true)
             assertFalse(legacyResult.budgetRestored)
-            assertEquals(mapOf(2025 to 999L, 2026 to 1_200_000L, 2027 to 500_000L), settings.budgetPreferences.first().yearlyAmounts)
+            assertEquals(mapOf(1990 to 999L, 2026 to 1_200_000L, 2027 to 500_000L), settings.budgetPreferences.first().yearlyAmounts)
             assertTrue(repo.snapshot().copies.all { it.fxRateScaled == null })
         }
 
         // 半套定格、非法汇率与非法预算一律拒绝。
         invalid(original.copy(copies = original.copies.mapIndexed { index, copy -> if (index == 0) copy.copy(fxDate = null) else copy }))
         invalid(original.copy(copies = original.copies.mapIndexed { index, copy -> if (index == 0) copy.copy(fxRateScaled = 0L) else copy }))
-        invalid(original.copy(budget = BudgetPreferences(yearlyAmounts = mapOf(1990 to 100))))
+        invalid(original.copy(budget = BudgetPreferences(yearlyAmounts = mapOf(0 to 100))))
         invalid(original.copy(budget = BudgetPreferences(yearlyAmounts = mapOf(2026 to -1))))
     }
 }
