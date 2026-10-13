@@ -132,6 +132,13 @@ fun HomeContent(
                         CollectionCount(stringResource(R.string.works), stats.vnCount, R.drawable.ic_ui_shelf, Modifier.weight(1f))
                         CollectionCount(stringResource(R.string.physical_copies), stats.copyCount, R.drawable.ic_ui_batch, Modifier.weight(1f))
                     }
+                    // 始终可见：开关不能藏在它自己控制的区域里，否则关闭后无法在主页重新打开。
+                    HomeSpendingSwitchRow(
+                        title = stringResource(R.string.home_show_year_spending),
+                        checked = showHomeYearSpending,
+                        onChange = onShowHomeYearSpendingChange,
+                        hint = stringResource(R.string.home_show_year_spending_hint),
+                    )
                     error()
                 }
             }
@@ -173,12 +180,6 @@ fun HomeContent(
             if (stats.showPriceStats || showHomeYearSpending) item(key = "costs") {
                 Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     SectionHeading(stringResource(R.string.collection_spending), stringResource(R.string.collection_spending_hint))
-                    HomeSpendingSwitchRow(
-                        title = stringResource(R.string.home_show_year_spending),
-                        checked = showHomeYearSpending,
-                        onChange = onShowHomeYearSpendingChange,
-                        hint = stringResource(R.string.home_show_year_spending_hint),
-                    )
                     if (stats.showPriceStats) {
                         HomeSpendingSwitchRow(
                             title = stringResource(R.string.home_convert_total, homeSpending.currency),
